@@ -2,12 +2,14 @@ class DocsEditor {
     constructor() {
         this.editor = document.getElementById('editor');
         this.documentTitle = document.getElementById('document-title');
+        this.watermarkSettings = null;
         this.initializeEventListeners();
         this.updateWordCount();
         this.setupAutoSave();
         this.history = [];
         this.historyIndex = -1;
         this.saveState();
+        this.updateWatermarkButtonState();
     }
 
     initializeEventListeners() {
@@ -53,9 +55,27 @@ class DocsEditor {
         document.getElementById('link-btn').addEventListener('click', () => this.showLinkModal());
         document.getElementById('image-btn').addEventListener('click', () => this.showImageModal());
 
+        // Watermark
+        document.getElementById('watermark-btn').addEventListener('click', () => this.showWatermarkModal());
+        document.getElementById('remove-watermark-toolbar-btn').addEventListener('click', () => this.removeWatermark());
+
         // Save and export
         document.getElementById('save-btn').addEventListener('click', () => this.saveDocument());
-        document.getElementById('export-btn').addEventListener('click', () => this.exportDocument());
+        document.getElementById('export-btn').addEventListener('click', () => this.toggleExportMenu());
+        
+        // Export options
+        document.getElementById('export-html').addEventListener('click', () => this.exportAsHTML());
+        document.getElementById('export-pdf').addEventListener('click', () => this.exportAsPDF());
+        document.getElementById('export-docx').addEventListener('click', () => this.exportAsDOCX());
+
+        // Close export menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const exportDropdown = document.querySelector('.export-dropdown');
+            const exportMenu = document.getElementById('export-menu');
+            if (!exportDropdown.contains(e.target)) {
+                exportMenu.classList.remove('show');
+            }
+        });
 
         // Editor events
         this.editor.addEventListener('input', () => {
@@ -195,6 +215,25 @@ class DocsEditor {
         modal.style.display = 'block';
     }
 
+    showWatermarkModal() {
+        const modal = document.getElementById('watermark-modal');
+        modal.style.display = 'block';
+        
+        // Update range value displays
+        this.updateRangeValue('watermark-opacity', 'opacity-value', '');
+        this.updateRangeValue('watermark-angle', 'angle-value', '°');
+    }
+
+    updateRangeValue(rangeId, displayId, suffix = '') {
+        const range = document.getElementById(rangeId);
+        const display = document.getElementById(displayId);
+        display.textContent = range.value + suffix;
+        
+        range.addEventListener('input', () => {
+            display.textContent = range.value + suffix;
+        });
+    }
+
     setupModalEvents() {
         // Close modals when clicking outside or on close button
         const modals = document.querySelectorAll('.modal');
@@ -250,6 +289,31 @@ class DocsEditor {
             document.getElementById('image-url').value = '';
             document.getElementById('image-alt').value = '';
         });
+
+        // Watermark modal events
+        document.getElementById('apply-watermark-btn').addEventListener('click', () => {
+            const text = document.getElementById('watermark-text').value;
+            const opacity = document.getElementById('watermark-opacity').value;
+            const size = document.getElementById('watermark-size').value;
+            const color = document.getElementById('watermark-color').value;
+            const angle = document.getElementById('watermark-angle').value;
+            
+            if (text.trim()) {
+                this.applyWatermark(text, opacity, size, color, angle);
+                document.getElementById('watermark-modal').style.display = 'none';
+            } else {
+                this.showNotification('Please enter watermark text', 'error');
+            }
+        });
+
+        document.getElementById('remove-watermark-btn').addEventListener('click', () => {
+            this.removeWatermark();
+            document.getElementById('watermark-modal').style.display = 'none';
+        });
+
+        document.getElementById('cancel-watermark-btn').addEventListener('click', () => {
+            document.getElementById('watermark-modal').style.display = 'none';
+        });
     }
 
     insertHTML(html) {
@@ -274,10 +338,84 @@ class DocsEditor {
         this.saveState();
     }
 
+    applyWatermark(text, opacity, size, color, angle) {
+        // Remove existing watermark
+        this.removeWatermark();
+        
+        // Create watermark element
+        const watermark = document.createElement('div');
+        watermark.className = 'watermark';
+        watermark.id = 'document-watermark';
+        
+        const watermarkText = document.createElement('div');
+        watermarkText.className = 'watermark-text';
+        watermarkText.textContent = text;
+        
+        // Apply styles based on settings
+        const sizeMap = {
+            small: '36px',
+            medium: '48px',
+            large: '60px'
+        };
+        
+        watermarkText.style.fontSize = sizeMap[size];
+        watermarkText.style.color = color;
+        watermarkText.style.opacity = opacity;
+        watermarkText.style.transform = `rotate(${angle}deg)`;
+        
+        watermark.appendChild(watermarkText);
+        
+        // Insert watermark into editor container
+        const editorContainer = document.querySelector('.editor-container');
+        editorContainer.appendChild(watermark);
+        
+        // Save watermark settings
+        this.watermarkSettings = {
+            text,
+            opacity,
+            size,
+            color,
+            angle
+        };
+        
+        // Update toolbar button state
+        this.updateWatermarkButtonState();
+        
+        this.showNotification('Watermark applied successfully!', 'success');
+    }
+
+    removeWatermark() {
+        const existingWatermark = document.getElementById('document-watermark');
+        if (existingWatermark) {
+            existingWatermark.remove();
+            this.watermarkSettings = null;
+            this.showNotification('Watermark removed successfully!', 'success');
+            
+            // Update toolbar button state
+            this.updateWatermarkButtonState();
+        } else {
+            this.showNotification('No watermark to remove', 'info');
+        }
+    }
+
+    updateWatermarkButtonState() {
+        const removeBtn = document.getElementById('remove-watermark-toolbar-btn');
+        const addBtn = document.getElementById('watermark-btn');
+        
+        if (this.watermarkSettings) {
+            removeBtn.classList.add('active');
+            addBtn.classList.add('active');
+        } else {
+            removeBtn.classList.remove('active');
+            addBtn.classList.remove('active');
+        }
+    }
+
     saveDocument() {
         const data = {
             title: this.documentTitle.value,
             content: this.editor.innerHTML,
+            watermark: this.watermarkSettings,
             lastModified: new Date().toISOString()
         };
 
@@ -298,14 +436,77 @@ class DocsEditor {
             this.editor.innerHTML = data.content;
             this.updateWordCount();
             
+            // Restore watermark if it exists
+            if (data.watermark) {
+                this.watermarkSettings = data.watermark;
+                this.applyWatermark(
+                    data.watermark.text,
+                    data.watermark.opacity,
+                    data.watermark.size,
+                    data.watermark.color,
+                    data.watermark.angle
+                );
+            } else {
+                // Ensure button state is correct when no watermark
+                this.updateWatermarkButtonState();
+            }
+            
             const lastModified = new Date(data.lastModified).toLocaleString();
             document.getElementById('last-saved').textContent = `Last saved: ${lastModified}`;
         }
     }
 
-    exportDocument() {
+    toggleExportMenu() {
+        const exportMenu = document.getElementById('export-menu');
+        exportMenu.classList.toggle('show');
+    }
+
+    exportAsHTML() {
         const title = this.documentTitle.value || 'document';
         const content = this.editor.innerHTML;
+        
+        // Generate watermark CSS if watermark exists
+        let watermarkCSS = '';
+        if (this.watermarkSettings) {
+            const settings = this.watermarkSettings;
+            const sizeMap = {
+                small: '36px',
+                medium: '48px',
+                large: '60px'
+            };
+            
+            watermarkCSS = `
+        .watermark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .watermark-text {
+            font-size: ${sizeMap[settings.size]};
+            font-weight: bold;
+            color: ${settings.color};
+            opacity: ${settings.opacity};
+            transform: rotate(${settings.angle}deg);
+            user-select: none;
+            white-space: nowrap;
+            letter-spacing: 0.1em;
+        }
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+        }`;
+        }
+        
+        const watermarkHTML = this.watermarkSettings ? 
+            `<div class="watermark"><div class="watermark-text">${this.watermarkSettings.text}</div></div>` : '';
         
         const html = `
 <!DOCTYPE html>
@@ -318,30 +519,247 @@ class DocsEditor {
             max-width: 800px; 
             margin: 0 auto; 
             padding: 2rem; 
-            line-height: 1.6; 
+            line-height: 1.6;
+            position: relative;
         }
         h1, h2, h3, h4, h5, h6 { margin: 1.5rem 0 1rem 0; }
         p { margin: 1rem 0; }
         ul, ol { margin: 1rem 0; padding-left: 2rem; }
-        img { max-width: 100%; height: auto; }
+        img { max-width: 100%; height: auto; }${watermarkCSS}
     </style>
 </head>
 <body>
-    ${content}
+    ${watermarkHTML}
+    <div class="content-wrapper">
+        ${content}
+    </div>
 </body>
 </html>`;
 
-        const blob = new Blob([html], { type: 'text/html' });
+        this.downloadFile(html, `${title}.html`, 'text/html');
+        this.closeExportMenu();
+        this.showNotification('HTML document exported successfully!', 'success');
+    }
+
+    async exportAsPDF() {
+        try {
+            const title = this.documentTitle.value || 'document';
+            
+            // Create a temporary container for rendering
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+                width: 800px;
+                background: white;
+                padding: 40px;
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+            `;
+            
+            // Clone editor content
+            const content = this.editor.cloneNode(true);
+            content.style.cssText = 'margin: 0; padding: 0;';
+            tempContainer.appendChild(content);
+            
+            // Add watermark if exists
+            if (this.watermarkSettings) {
+                const watermark = document.createElement('div');
+                watermark.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    pointer-events: none;
+                    z-index: 0;
+                `;
+                
+                const watermarkText = document.createElement('div');
+                const settings = this.watermarkSettings;
+                const sizeMap = { small: '36px', medium: '48px', large: '60px' };
+                
+                watermarkText.textContent = settings.text;
+                watermarkText.style.cssText = `
+                    font-size: ${sizeMap[settings.size]};
+                    font-weight: bold;
+                    color: ${settings.color};
+                    opacity: ${settings.opacity};
+                    transform: rotate(${settings.angle}deg);
+                    user-select: none;
+                    white-space: nowrap;
+                    letter-spacing: 0.1em;
+                `;
+                
+                watermark.appendChild(watermarkText);
+                tempContainer.appendChild(watermark);
+                content.style.position = 'relative';
+                content.style.zIndex = '1';
+            }
+            
+            document.body.appendChild(tempContainer);
+            
+            // Use html2canvas to render the content
+            const canvas = await html2canvas(tempContainer, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true
+            });
+            
+            document.body.removeChild(tempContainer);
+            
+            // Create PDF using jsPDF
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            const imgWidth = 210;
+            const pageHeight = 295;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            let heightLeft = imgHeight;
+            
+            let position = 0;
+            
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+            
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+            
+            pdf.save(`${title}.pdf`);
+            this.closeExportMenu();
+            this.showNotification('PDF document exported successfully!', 'success');
+            
+        } catch (error) {
+            console.error('PDF export error:', error);
+            this.showNotification('Failed to export PDF. Please try again.', 'error');
+        }
+    }
+
+    async exportAsDOCX() {
+        try {
+            const title = this.documentTitle.value || 'document';
+            const content = this.editor.innerHTML;
+            
+            // Convert HTML content to plain text for DOCX
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            
+            // Extract text content and basic formatting
+            const paragraphs = [];
+            const elements = tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, li');
+            
+            elements.forEach(element => {
+                let text = element.textContent.trim();
+                if (text) {
+                    const tagName = element.tagName.toLowerCase();
+                    let formatting = {};
+                    
+                    // Handle headings
+                    if (tagName.startsWith('h')) {
+                        const level = parseInt(tagName.slice(1));
+                        formatting.heading = `Heading${level}`;
+                        formatting.size = Math.max(24 - (level * 2), 14);
+                        formatting.bold = true;
+                    }
+                    
+                    // Handle lists
+                    if (tagName === 'li') {
+                        text = '• ' + text;
+                    }
+                    
+                    paragraphs.push({ text, formatting });
+                }
+            });
+            
+            // If no structured content, use plain text
+            if (paragraphs.length === 0) {
+                const plainText = tempDiv.textContent.trim();
+                if (plainText) {
+                    plainText.split('\n').forEach(line => {
+                        if (line.trim()) {
+                            paragraphs.push({ text: line.trim(), formatting: {} });
+                        }
+                    });
+                }
+            }
+            
+            // Create DOCX document using docx library
+            const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+            
+            const docParagraphs = paragraphs.map(p => {
+                const textRun = new TextRun({
+                    text: p.text,
+                    bold: p.formatting.bold || false,
+                    size: (p.formatting.size || 12) * 2 // DOCX uses half-points
+                });
+                
+                const paragraph = new Paragraph({
+                    children: [textRun]
+                });
+                
+                if (p.formatting.heading) {
+                    paragraph.heading = HeadingLevel[`HEADING_${p.formatting.heading.slice(-1)}`];
+                }
+                
+                return paragraph;
+            });
+            
+            // Add watermark text if exists
+            if (this.watermarkSettings) {
+                docParagraphs.unshift(new Paragraph({
+                    children: [new TextRun({
+                        text: `[Watermark: ${this.watermarkSettings.text}]`,
+                        italics: true,
+                        color: "CCCCCC"
+                    })]
+                }));
+            }
+            
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: docParagraphs
+                }]
+            });
+            
+            const blob = await Packer.toBlob(doc);
+            this.downloadBlob(blob, `${title}.docx`);
+            this.closeExportMenu();
+            this.showNotification('DOCX document exported successfully!', 'success');
+            
+        } catch (error) {
+            console.error('DOCX export error:', error);
+            this.showNotification('Failed to export DOCX. Please try again.', 'error');
+        }
+    }
+
+    downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        this.downloadBlob(blob, filename);
+    }
+
+    downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${title}.html`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        this.showNotification('Document exported successfully!', 'success');
+    }
+
+    closeExportMenu() {
+        const exportMenu = document.getElementById('export-menu');
+        exportMenu.classList.remove('show');
     }
 
     setupAutoSave() {

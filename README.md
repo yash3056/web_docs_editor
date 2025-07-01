@@ -17,8 +17,9 @@ A modern, feature-rich web-based document editor built with HTML, CSS, and JavaS
 - **Undo/Redo**: Full history management with keyboard shortcuts
 - **Auto-save**: Automatic saving every 30 seconds
 - **Manual Save**: Save documents to local storage
-- **Export**: Download documents as HTML files
+- **Multiple Export Formats**: Export documents as HTML, PDF, or DOCX files
 - **Word Count**: Real-time word and character counting
+- **Watermark Support**: Add custom watermarks that appear in all export formats
 
 ### 🎨 Modern Interface
 - **Responsive Design**: Works on desktop and mobile devices
@@ -32,7 +33,7 @@ A modern, feature-rich web-based document editor built with HTML, CSS, and JavaS
 2. **Start Writing**: Click in the editor area and begin typing
 3. **Format Text**: Use the toolbar to format your text
 4. **Save Your Work**: Use Ctrl+S or click the Save button
-5. **Export**: Click Export to download your document as HTML
+5. **Export**: Click Export dropdown and choose from HTML, PDF, or DOCX formats
 
 ## Keyboard Shortcuts
 
@@ -88,6 +89,13 @@ This editor works in all modern browsers including:
 - Undo/redo with 50-step history
 - Real-time word and character counting
 - Print-friendly styles
+
+### Document Export
+- **HTML Export**: Clean HTML files with embedded CSS and watermarks
+- **PDF Export**: High-quality PDF generation with proper formatting
+- **DOCX Export**: Microsoft Word-compatible documents with basic formatting
+- All export formats preserve watermarks and basic text formatting
+- Exported documents maintain document title and structure
 
 ## Customization
 

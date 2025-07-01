@@ -102,6 +102,62 @@ body {
     transform: translateY(-1px);
 }
 
+/* Export Dropdown */
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.export-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 120px;
+    margin-top: 5px;
+}
+
+.export-menu.show {
+    display: block;
+}
+
+.export-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: #333;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.export-option:first-child {
+    border-radius: 6px 6px 0 0;
+}
+
+.export-option:last-child {
+    border-radius: 0 0 6px 6px;
+}
+
+.export-option:hover {
+    background: #f5f5f5;
+}
+
+.export-option i {
+    width: 16px;
+    color: #666;
+}
+
 /* Toolbar */
 .toolbar {
     background: white;
@@ -151,6 +207,12 @@ body {
     color: #1976d2;
 }
 
+.toolbar-btn#watermark-btn.active,
+.toolbar-btn#remove-watermark-toolbar-btn.active {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
 .font-family-select,
 .font-size-select {
     padding: 0.5rem;
@@ -193,6 +255,7 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     overflow: hidden;
+    position: relative;
 }
 
 .editor {
@@ -202,6 +265,34 @@ body {
     line-height: 1.6;
     outline: none;
     font-family: Arial, sans-serif;
+    position: relative;
+    z-index: 1;
+}
+
+/* Watermark styles */
+.watermark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.watermark-text {
+    font-size: 48px;
+    font-weight: bold;
+    color: #cccccc;
+    opacity: 0.2;
+    transform: rotate(-30deg);
+    user-select: none;
+    white-space: nowrap;
+    letter-spacing: 0.1em;
 }
 
 .editor:focus {
@@ -345,6 +436,46 @@ body {
     gap: 0.5rem;
     justify-content: flex-end;
     margin-top: 1.5rem;
+}
+
+/* Watermark modal form styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="range"] {
+    width: 70%;
+    margin-right: 0.5rem;
+}
+
+.form-group span {
+    font-weight: 500;
+    color: #666;
+    min-width: 60px;
+    display: inline-block;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-group input[type="color"] {
+    width: 60px;
+    height: 40px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 /* Responsive Design */

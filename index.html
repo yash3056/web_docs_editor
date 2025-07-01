@@ -6,6 +6,10 @@
     <title>Web Docs Editor</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Libraries for document export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -25,10 +29,27 @@
                     <i class="fas fa-save"></i>
                     Save
                 </button>
-                <button class="btn btn-secondary" id="export-btn">
-                    <i class="fas fa-download"></i>
-                    Export
-                </button>
+                <div class="export-dropdown">
+                    <button class="btn btn-secondary" id="export-btn">
+                        <i class="fas fa-download"></i>
+                        Export
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="export-menu" id="export-menu">
+                        <button class="export-option" id="export-html">
+                            <i class="fas fa-code"></i>
+                            HTML
+                        </button>
+                        <button class="export-option" id="export-pdf">
+                            <i class="fas fa-file-pdf"></i>
+                            PDF
+                        </button>
+                        <button class="export-option" id="export-docx">
+                            <i class="fas fa-file-word"></i>
+                            DOCX
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -127,24 +148,23 @@
                     <i class="fas fa-image"></i>
                 </button>
             </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="watermark-btn" title="Add Watermark">
+                    <i class="fas fa-tint"></i>
+                </button>
+                <button class="toolbar-btn" id="remove-watermark-toolbar-btn" title="Remove Watermark">
+                    <i class="fas fa-tint-slash"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Main Content -->
         <main class="main-content">
             <div class="editor-container">
                 <div class="editor" id="editor" contenteditable="true" spellcheck="true">
-                    <h1>Welcome to Web Docs Editor</h1>
-                    <p>Start typing to create your document. Use the toolbar above to format your text.</p>
-                    <p>This is a <strong>rich text editor</strong> that supports:</p>
-                    <ul>
-                        <li>Text formatting (bold, italic, underline)</li>
-                        <li>Font family and size selection</li>
-                        <li>Text alignment</li>
-                        <li>Lists (bulleted and numbered)</li>
-                        <li>Colors and highlighting</li>
-                        <li>Links and images</li>
-                    </ul>
-                    <p>Happy writing! 📝</p>
                 </div>
             </div>
         </main>
@@ -184,6 +204,41 @@
             <div class="modal-actions">
                 <button class="btn btn-primary" id="insert-image-btn">Insert</button>
                 <button class="btn btn-secondary" id="cancel-image-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="watermark-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Add Watermark</h3>
+            <input type="text" id="watermark-text" placeholder="Enter watermark text">
+            <div class="form-group">
+                <label for="watermark-opacity">Opacity:</label>
+                <input type="range" id="watermark-opacity" min="0.1" max="0.5" step="0.05" value="0.2">
+                <span id="opacity-value">0.2</span>
+            </div>
+            <div class="form-group">
+                <label for="watermark-size">Size:</label>
+                <select id="watermark-size">
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="watermark-color">Color:</label>
+                <input type="color" id="watermark-color" value="#cccccc">
+            </div>
+            <div class="form-group">
+                <label for="watermark-angle">Angle:</label>
+                <input type="range" id="watermark-angle" min="-45" max="45" step="5" value="-30">
+                <span id="angle-value">-30°</span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="apply-watermark-btn">Apply</button>
+                <button class="btn btn-secondary" id="remove-watermark-btn">Remove</button>
+                <button class="btn btn-secondary" id="cancel-watermark-btn">Cancel</button>
             </div>
         </div>
     </div>
