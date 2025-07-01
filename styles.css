@@ -208,7 +208,7 @@ body {
 }
 
 .toolbar-btn#watermark-btn.active,
-.toolbar-btn#remove-watermark-toolbar-btn.active {
+.toolbar-btn#watermark-btn.active {
     background: #fff3e0;
     color: #f57c00;
 }

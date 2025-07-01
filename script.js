@@ -55,9 +55,8 @@ class DocsEditor {
         document.getElementById('link-btn').addEventListener('click', () => this.showLinkModal());
         document.getElementById('image-btn').addEventListener('click', () => this.showImageModal());
 
-        // Watermark
-        document.getElementById('watermark-btn').addEventListener('click', () => this.showWatermarkModal());
-        document.getElementById('remove-watermark-toolbar-btn').addEventListener('click', () => this.removeWatermark());
+        // Watermark toggle (add/remove)
+        document.getElementById('watermark-btn').addEventListener('click', () => this.toggleWatermark());
 
         // Save and export
         document.getElementById('save-btn').addEventListener('click', () => this.saveDocument());
@@ -222,6 +221,15 @@ class DocsEditor {
         // Update range value displays
         this.updateRangeValue('watermark-opacity', 'opacity-value', '');
         this.updateRangeValue('watermark-angle', 'angle-value', '°');
+    }
+
+    // Toggle between adding and removing watermark
+    toggleWatermark() {
+        if (this.watermarkSettings) {
+            this.removeWatermark();
+        } else {
+            this.showWatermarkModal();
+        }
     }
 
     updateRangeValue(rangeId, displayId, suffix = '') {
@@ -399,15 +407,20 @@ class DocsEditor {
     }
 
     updateWatermarkButtonState() {
-        const removeBtn = document.getElementById('remove-watermark-toolbar-btn');
-        const addBtn = document.getElementById('watermark-btn');
-        
+        const watermarkBtn = document.getElementById('watermark-btn');
+        const icon = watermarkBtn.querySelector('i');
         if (this.watermarkSettings) {
-            removeBtn.classList.add('active');
-            addBtn.classList.add('active');
+            watermarkBtn.classList.add('active');
+            watermarkBtn.title = 'Remove Watermark';
+            if (icon.classList.contains('fa-tint')) {
+                icon.classList.replace('fa-tint', 'fa-tint-slash');
+            }
         } else {
-            removeBtn.classList.remove('active');
-            addBtn.classList.remove('active');
+            watermarkBtn.classList.remove('active');
+            watermarkBtn.title = 'Add Watermark';
+            if (icon.classList.contains('fa-tint-slash')) {
+                icon.classList.replace('fa-tint-slash', 'fa-tint');
+            }
         }
     }
 
