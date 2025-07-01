@@ -254,8 +254,27 @@ body {
     background: white;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    overflow: hidden;
+    overflow-y: auto;
     position: relative;
+}
+
+.editor-container::-webkit-scrollbar {
+    width: 12px;
+}
+
+.editor-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 8px;
+}
+
+.editor-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 8px;
+    border: 3px solid #f1f1f1;
+}
+
+.editor-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .editor {
