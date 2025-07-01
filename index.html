@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Docs Editor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="app-title">
+                    <i class="fas fa-file-alt"></i>
+                    Web Docs Editor
+                </h1>
+            </div>
+            <div class="header-center">
+                <input type="text" id="document-title" class="document-title" placeholder="Untitled Document" value="Untitled Document">
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" id="save-btn">
+                    <i class="fas fa-save"></i>
+                    Save
+                </button>
+                <button class="btn btn-secondary" id="export-btn">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+            </div>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="undo-btn" title="Undo">
+                    <i class="fas fa-undo"></i>
+                </button>
+                <button class="toolbar-btn" id="redo-btn" title="Redo">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <select class="font-family-select" id="font-family">
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Verdana">Verdana</option>
+                </select>
+                <select class="font-size-select" id="font-size">
+                    <option value="12">12</option>
+                    <option value="14" selected>14</option>
+                    <option value="16">16</option>
+                    <option value="18">18</option>
+                    <option value="20">20</option>
+                    <option value="24">24</option>
+                    <option value="28">28</option>
+                    <option value="32">32</option>
+                </select>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="bold-btn" title="Bold">
+                    <i class="fas fa-bold"></i>
+                </button>
+                <button class="toolbar-btn" id="italic-btn" title="Italic">
+                    <i class="fas fa-italic"></i>
+                </button>
+                <button class="toolbar-btn" id="underline-btn" title="Underline">
+                    <i class="fas fa-underline"></i>
+                </button>
+                <button class="toolbar-btn" id="strikethrough-btn" title="Strikethrough">
+                    <i class="fas fa-strikethrough"></i>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="align-left-btn" title="Align Left">
+                    <i class="fas fa-align-left"></i>
+                </button>
+                <button class="toolbar-btn" id="align-center-btn" title="Align Center">
+                    <i class="fas fa-align-center"></i>
+                </button>
+                <button class="toolbar-btn" id="align-right-btn" title="Align Right">
+                    <i class="fas fa-align-right"></i>
+                </button>
+                <button class="toolbar-btn" id="align-justify-btn" title="Justify">
+                    <i class="fas fa-align-justify"></i>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="bullet-list-btn" title="Bullet List">
+                    <i class="fas fa-list-ul"></i>
+                </button>
+                <button class="toolbar-btn" id="number-list-btn" title="Numbered List">
+                    <i class="fas fa-list-ol"></i>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <input type="color" id="text-color" class="color-picker" title="Text Color">
+                <input type="color" id="bg-color" class="color-picker" title="Background Color">
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="link-btn" title="Insert Link">
+                    <i class="fas fa-link"></i>
+                </button>
+                <button class="toolbar-btn" id="image-btn" title="Insert Image">
+                    <i class="fas fa-image"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="editor-container">
+                <div class="editor" id="editor" contenteditable="true" spellcheck="true">
+                    <h1>Welcome to Web Docs Editor</h1>
+                    <p>Start typing to create your document. Use the toolbar above to format your text.</p>
+                    <p>This is a <strong>rich text editor</strong> that supports:</p>
+                    <ul>
+                        <li>Text formatting (bold, italic, underline)</li>
+                        <li>Font family and size selection</li>
+                        <li>Text alignment</li>
+                        <li>Lists (bulleted and numbered)</li>
+                        <li>Colors and highlighting</li>
+                        <li>Links and images</li>
+                    </ul>
+                    <p>Happy writing! 📝</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span id="word-count">Words: 0</span>
+                <span id="char-count">Characters: 0</span>
+            </div>
+            <div class="status-right">
+                <span id="last-saved">Never saved</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="link-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Insert Link</h3>
+            <input type="text" id="link-text" placeholder="Link text">
+            <input type="url" id="link-url" placeholder="https://example.com">
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="insert-link-btn">Insert</button>
+                <button class="btn btn-secondary" id="cancel-link-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="image-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Insert Image</h3>
+            <input type="url" id="image-url" placeholder="Image URL">
+            <input type="text" id="image-alt" placeholder="Alt text">
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="insert-image-btn">Insert</button>
+                <button class="btn btn-secondary" id="cancel-image-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
