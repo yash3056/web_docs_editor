@@ -5,7 +5,7 @@ class DocsEditor {
         this.watermarkSettings = null;
         this.initializeEventListeners();
         this.updateWordCount();
-        this.setupAutoSave();
+        // this.setupAutoSave();
         this.history = [];
         this.historyIndex = -1;
         this.saveState();
