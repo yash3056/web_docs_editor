@@ -209,7 +209,184 @@ class DocsEditor {
         modal.style.display = 'block';
     }
 
+    setupImageModalEvents() {
+        // Tab switching
+        const urlTab = document.getElementById('url-tab');
+        const uploadTab = document.getElementById('upload-tab');
+        const urlContent = document.getElementById('url-content');
+        const uploadContent = document.getElementById('upload-content');
+
+        urlTab.addEventListener('click', () => {
+            urlTab.classList.add('active');
+            uploadTab.classList.remove('active');
+            urlContent.classList.add('active');
+            uploadContent.classList.remove('active');
+        });
+
+        uploadTab.addEventListener('click', () => {
+            uploadTab.classList.add('active');
+            urlTab.classList.remove('active');
+            uploadContent.classList.add('active');
+            urlContent.classList.remove('active');
+        });
+
+        // File input handling
+        const fileInput = document.getElementById('image-file');
+        const dropZone = document.getElementById('file-drop-zone');
+        const preview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+
+        // Click to browse
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.handleImageFile(file);
+            }
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    fileInput.files = files;
+                    this.handleImageFile(file);
+                } else {
+                    this.showNotification('Please select an image file', 'error');
+                }
+            }
+        });
+
+        // Insert image button
+        document.getElementById('insert-image-btn').addEventListener('click', () => {
+            this.insertImage();
+        });
+
+        // Cancel button
+        document.getElementById('cancel-image-btn').addEventListener('click', () => {
+            this.resetImageModal();
+            document.getElementById('image-modal').style.display = 'none';
+        });
+    }
+
+    handleImageFile(file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please select an image file', 'error');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            this.showNotification('Image file is too large. Maximum size is 5MB', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const previewImg = document.getElementById('preview-img');
+            const fileName = document.getElementById('file-name');
+            const fileSize = document.getElementById('file-size');
+            const preview = document.getElementById('image-preview');
+
+            previewImg.src = e.target.result;
+            fileName.textContent = file.name;
+            fileSize.textContent = this.formatFileSize(file.size);
+            preview.style.display = 'block';
+
+            // Store the image data for insertion
+            this.selectedImageData = e.target.result;
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    insertImage() {
+        const urlTab = document.getElementById('url-tab');
+        const alt = document.getElementById('image-alt').value || 'Image';
+        const width = document.getElementById('image-width').value;
+
+        let imageSrc = '';
+        let widthStyle = width ? `width: ${width}px; ` : '';
+
+        if (urlTab.classList.contains('active')) {
+            // URL tab is active
+            imageSrc = document.getElementById('image-url').value;
+            if (!imageSrc) {
+                this.showNotification('Please enter an image URL', 'error');
+                return;
+            }
+        } else {
+            // Upload tab is active
+            if (!this.selectedImageData) {
+                this.showNotification('Please select an image file', 'error');
+                return;
+            }
+            imageSrc = this.selectedImageData;
+        }
+
+        const img = `<img src="${imageSrc}" alt="${alt}" style="${widthStyle}max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0;">`;
+        this.insertHTML(img);
+        
+        this.resetImageModal();
+        document.getElementById('image-modal').style.display = 'none';
+        this.showNotification('Image inserted successfully!', 'success');
+    }
+
+    resetImageModal() {
+        // Reset URL tab
+        document.getElementById('image-url').value = '';
+        
+        // Reset upload tab
+        document.getElementById('image-file').value = '';
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('preview-img').src = '';
+        
+        // Reset common fields
+        document.getElementById('image-alt').value = '';
+        document.getElementById('image-width').value = '';
+        
+        // Reset to URL tab
+        document.getElementById('url-tab').classList.add('active');
+        document.getElementById('upload-tab').classList.remove('active');
+        document.getElementById('url-content').classList.add('active');
+        document.getElementById('upload-content').classList.remove('active');
+        
+        // Clear stored image data
+        this.selectedImageData = null;
+    }
+
     showImageModal() {
+        this.resetImageModal();
         const modal = document.getElementById('image-modal');
         modal.style.display = 'block';
     }
@@ -279,24 +456,7 @@ class DocsEditor {
         });
 
         // Image modal events
-        document.getElementById('insert-image-btn').addEventListener('click', () => {
-            const url = document.getElementById('image-url').value;
-            const alt = document.getElementById('image-alt').value;
-            
-            if (url) {
-                const img = `<img src="${url}" alt="${alt}" style="max-width: 100%; height: auto;">`;
-                this.insertHTML(img);
-                document.getElementById('image-modal').style.display = 'none';
-                document.getElementById('image-url').value = '';
-                document.getElementById('image-alt').value = '';
-            }
-        });
-
-        document.getElementById('cancel-image-btn').addEventListener('click', () => {
-            document.getElementById('image-modal').style.display = 'none';
-            document.getElementById('image-url').value = '';
-            document.getElementById('image-alt').value = '';
-        });
+        this.setupImageModalEvents();
 
         // Watermark modal events
         document.getElementById('apply-watermark-btn').addEventListener('click', () => {

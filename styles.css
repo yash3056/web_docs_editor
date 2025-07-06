@@ -497,6 +497,141 @@ body {
     cursor: pointer;
 }
 
+/* Image Modal Enhancements */
+.image-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: #666;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+.tab-btn:hover {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.file-input {
+    display: none;
+}
+
+.file-drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.file-drop-zone i {
+    font-size: 2rem;
+    color: #ccc;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.file-drop-zone:hover i,
+.file-drop-zone.dragover i {
+    color: #667eea;
+}
+
+.file-drop-zone p {
+    margin: 0.25rem 0;
+    color: #666;
+}
+
+.file-info {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.image-preview {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f9f9f9;
+}
+
+.image-preview img {
+    max-width: 200px;
+    max-height: 150px;
+    object-fit: contain;
+    border-radius: 4px;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.preview-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Enhanced modal styles */
+.modal-content {
+    max-width: 500px;
+}
+
+/* Loading states */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+}
+
+.loading-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .header {
