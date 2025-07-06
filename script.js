@@ -3,6 +3,24 @@ class DocsEditor {
         this.editor = document.getElementById('editor');
         this.documentTitle = document.getElementById('document-title');
         this.watermarkSettings = null;
+        this.selectedImageData = null;
+        
+        // Ensure editor is properly set up
+        if (this.editor) {
+            this.editor.setAttribute('contenteditable', 'true');
+            this.editor.setAttribute('spellcheck', 'true');
+            
+            // Add input event listener for real-time updates
+            this.editor.addEventListener('input', () => {
+                this.updateWordCount();
+            });
+            
+            // Add click event to ensure focus
+            this.editor.addEventListener('click', () => {
+                this.editor.focus();
+            });
+        }
+        
         this.initializeEventListeners();
         this.updateWordCount();
         // this.setupAutoSave();
@@ -10,6 +28,11 @@ class DocsEditor {
         this.historyIndex = -1;
         this.saveState();
         this.updateWatermarkButtonState();
+        
+        console.log('DocsEditor initialized:', {
+            editor: this.editor,
+            contentEditable: this.editor?.contentEditable
+        });
     }
 
     initializeEventListeners() {
@@ -379,12 +402,28 @@ class DocsEditor {
             imageSrc = this.selectedImageData;
         }
 
-        const img = `<img src="${imageSrc}" alt="${alt}" style="${widthStyle}max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0;">`;
-        this.insertHTML(img);
+        // Ensure the editor has focus before inserting
+        this.editor.focus();
         
-        this.resetImageModal();
-        document.getElementById('image-modal').style.display = 'none';
-        this.showNotification('Image inserted successfully!', 'success');
+        // Create the image HTML with better styling
+        const img = `<img src="${imageSrc}" alt="${alt}" style="${widthStyle}max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0; display: block;">`;
+        
+        console.log('Inserting image:', img); // Debug log
+        
+        try {
+            this.insertHTML(img);
+            this.resetImageModal();
+            document.getElementById('image-modal').style.display = 'none';
+            this.showNotification('Image inserted successfully!', 'success');
+            
+            // Force editor to update and trigger any change events
+            this.editor.dispatchEvent(new Event('input'));
+            this.updateWordCount();
+            
+        } catch (error) {
+            console.error('Error inserting image:', error);
+            this.showNotification('Failed to insert image. Please try again.', 'error');
+        }
     }
 
     resetImageModal() {
@@ -523,24 +562,85 @@ class DocsEditor {
     }
 
     insertHTML(html) {
-        if (document.queryCommandSupported('insertHTML')) {
-            document.execCommand('insertHTML', false, html);
-        } else {
-            // Fallback for browsers that don't support insertHTML
-            const selection = window.getSelection();
-            if (selection.rangeCount) {
-                const range = selection.getRangeAt(0);
-                range.deleteContents();
-                const div = document.createElement('div');
-                div.innerHTML = html;
-                const frag = document.createDocumentFragment();
-                let node;
-                while ((node = div.firstChild)) {
-                    frag.appendChild(node);
+        // Ensure the editor has focus
+        this.editor.focus();
+        
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount === 0) {
+            // If no selection, create one at the end of the editor
+            const range = document.createRange();
+            range.selectNodeContents(this.editor);
+            range.collapse(false); // Collapse to end
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+        
+        // Try modern approach first
+        if (document.queryCommandSupported && document.queryCommandSupported('insertHTML')) {
+            try {
+                const result = document.execCommand('insertHTML', false, html);
+                if (result) {
+                    this.saveState();
+                    return;
                 }
-                range.insertNode(frag);
+            } catch (e) {
+                console.warn('insertHTML failed, using fallback method:', e);
             }
         }
+        
+        // Fallback method that works better with modern browsers
+        try {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            
+            // Create a temporary element to parse the HTML
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            // Create document fragment and move nodes
+            const fragment = document.createDocumentFragment();
+            while (temp.firstChild) {
+                fragment.appendChild(temp.firstChild);
+            }
+            
+            // Insert the fragment
+            range.insertNode(fragment);
+            
+            // Move cursor after inserted content
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+        } catch (e) {
+            console.warn('Range-based insertion failed, using direct DOM manipulation:', e);
+            
+            // Last resort: direct DOM manipulation
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            // Get the cursor position or append to end
+            let insertPoint = this.editor;
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+                    insertPoint = range.commonAncestorContainer.parentNode;
+                } else {
+                    insertPoint = range.commonAncestorContainer;
+                }
+            }
+            
+            // Ensure we're inserting into the editor
+            if (!this.editor.contains(insertPoint)) {
+                insertPoint = this.editor;
+            }
+            
+            // Insert the content
+            while (temp.firstChild) {
+                insertPoint.appendChild(temp.firstChild);
+            }
+        }
+        
         this.saveState();
     }
 
@@ -1178,6 +1278,18 @@ class DocsEditor {
                 setTimeout(() => alert.remove(), 300);
             }
         }, 5000);
+    }
+
+    // Test method for debugging image insertion
+    testImageInsertion() {
+        console.log('Testing image insertion...');
+        console.log('Editor element:', this.editor);
+        console.log('Editor contentEditable:', this.editor.contentEditable);
+        console.log('Current selection:', window.getSelection());
+        
+        // Try inserting a simple test image
+        const testImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwZiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VGVzdDwvdGV4dD48L3N2Zz4=" alt="Test Image" style="max-width: 100px;">';
+        this.insertHTML(testImg);
     }
 }
 
