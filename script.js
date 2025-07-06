@@ -1,11 +1,27 @@
 class DocsEditor {
     constructor() {
         this.editor = document.getElementById('editor');
+        this.documentContainer = document.getElementById('document-container');
+        this.pageIndicators = document.getElementById('page-indicators');
         this.documentTitle = document.getElementById('document-title');
         this.watermarkSettings = null;
         this.selectedImageData = null;
+        this.pageHeight = 11 * 96; // 11 inches * 96 DPI
+        this.currentPage = 1;
         
-        // Ensure editor is properly set up
+        this.initializeEditor();
+        this.initializeEventListeners();
+        this.updateWordCount();
+        this.history = [];
+        this.historyIndex = -1;
+        this.saveState();
+        this.updateWatermarkButtonState();
+        this.updatePageLayout();
+        
+        console.log('DocsEditor initialized properly as Word-like editor');
+    }
+
+    initializeEditor() {
         if (this.editor) {
             this.editor.setAttribute('contenteditable', 'true');
             this.editor.setAttribute('spellcheck', 'true');
@@ -13,26 +29,50 @@ class DocsEditor {
             // Add input event listener for real-time updates
             this.editor.addEventListener('input', () => {
                 this.updateWordCount();
+                this.updatePageLayout();
+                this.saveState();
             });
             
             // Add click event to ensure focus
             this.editor.addEventListener('click', () => {
                 this.editor.focus();
             });
+
+            // Handle scroll to update current page
+            this.editor.addEventListener('scroll', () => {
+                this.updateCurrentPage();
+            });
+        }
+    }
+
+     updatePageCount() {
+        // Calculate page count based on content height
+        const editorHeight = this.editor.scrollHeight;
+        const pageHeight = this.pageHeight;
+        const numberOfPages = Math.ceil(editorHeight / pageHeight);
+        
+        // Update page count display
+        const pageCountElement = document.getElementById('page-count');
+        if (pageCountElement) {
+            pageCountElement.textContent = `Pages: ${numberOfPages}`;
         }
         
-        this.initializeEventListeners();
-        this.updateWordCount();
-        // this.setupAutoSave();
-        this.history = [];
-        this.historyIndex = -1;
-        this.saveState();
-        this.updateWatermarkButtonState();
+        return numberOfPages;
+    }
+
+    updateCurrentPage() {
+        // This can be used for showing current page in status bar
+        const scrollTop = this.editor.scrollTop || window.scrollY;
+        const pageHeight = this.pageHeight;
+        const currentPage = Math.floor(scrollTop / pageHeight) + 1;
         
-        console.log('DocsEditor initialized:', {
-            editor: this.editor,
-            contentEditable: this.editor?.contentEditable
-        });
+        // Could update a status indicator here if needed
+        return currentPage;
+    }
+
+    updatePageCount(pageCount) {
+        // This function is now redundant since updatePageCount() above handles it
+        // Remove this to avoid confusion
     }
 
     initializeEventListeners() {
@@ -139,8 +179,8 @@ class DocsEditor {
     }
 
     formatText(command, value = null) {
-        document.execCommand(command, false, value);
         this.editor.focus();
+        document.execCommand(command, false, value);
         this.updateToolbarState();
         this.saveState();
     }
@@ -185,6 +225,8 @@ class DocsEditor {
 
         document.getElementById('word-count').textContent = `Words: ${words}`;
         document.getElementById('char-count').textContent = `Characters: ${characters}`;
+        
+        // Update page count will be called by updatePageBreaks
     }
 
     saveState() {
@@ -215,6 +257,7 @@ class DocsEditor {
             this.editor.innerHTML = state.content;
             this.documentTitle.value = state.title;
             this.updateWordCount();
+            this.updatePageLayout();
         }
     }
 
@@ -225,6 +268,7 @@ class DocsEditor {
             this.editor.innerHTML = state.content;
             this.documentTitle.value = state.title;
             this.updateWordCount();
+            this.updatePageLayout();
         }
     }
 
@@ -582,6 +626,7 @@ class DocsEditor {
                 const result = document.execCommand('insertHTML', false, html);
                 if (result) {
                     this.saveState();
+                    this.updatePageLayout();
                     return;
                 }
             } catch (e) {
@@ -642,6 +687,7 @@ class DocsEditor {
         }
         
         this.saveState();
+        this.updatePageLayout();
     }
 
     applyWatermark(text, opacity, size, color, angle) {
@@ -724,7 +770,7 @@ class DocsEditor {
 
     saveDocument() {
         const title = this.documentTitle.value.trim() || 'Untitled Document';
-        const content = this.editor.innerHTML;
+        const pagesContent = this.pages.map(page => page.innerHTML);
         const currentDocId = localStorage.getItem('currentDocumentId');
         
         if (currentDocId) {
@@ -734,9 +780,10 @@ class DocsEditor {
             
             if (docIndex !== -1) {
                 documents[docIndex].title = title;
-                documents[docIndex].content = content;
+                documents[docIndex].content = pagesContent; // Store as array of pages
                 documents[docIndex].lastModified = Date.now();
-                documents[docIndex].wordCount = this.countWords(content);
+                documents[docIndex].wordCount = this.countWordsFromPages(pagesContent);
+                documents[docIndex].pageCount = this.pages.length;
                 if (this.watermarkSettings) {
                     documents[docIndex].watermark = this.watermarkSettings;
                 }
@@ -756,7 +803,7 @@ class DocsEditor {
             const newDoc = {
                 id: 'doc-' + Date.now(),
                 title: title,
-                content: content,
+                content: pagesContent, // Store as array of pages
                 description: '',
                 createdAt: Date.now(),
                 lastModified: Date.now(),
@@ -795,6 +842,17 @@ class DocsEditor {
         return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
     }
 
+    countWordsFromPages(pagesContent) {
+        let totalText = '';
+        pagesContent.forEach(pageContent => {
+            // Remove HTML tags and get plain text
+            const temp = document.createElement('div');
+            temp.innerHTML = pageContent;
+            totalText += (temp.textContent || temp.innerText || '') + ' ';
+        });
+        return totalText.trim() ? totalText.trim().split(/\s+/).length : 0;
+    }
+
     goToDashboard() {
         console.log('Dashboard button clicked'); // Debug log
         
@@ -819,7 +877,25 @@ class DocsEditor {
             
             if (currentDoc) {
                 this.documentTitle.value = currentDoc.title;
-                this.editor.innerHTML = currentDoc.content;
+                
+                // Handle both old format (single content) and new format (pages array)
+                if (Array.isArray(currentDoc.content)) {
+                    // New multi-page format
+                    currentDoc.content.forEach((pageContent, index) => {
+                        if (index === 0) {
+                            // Update first page
+                            this.pages[0].innerHTML = pageContent;
+                        } else {
+                            // Create additional pages
+                            const newPageContent = this.createNewPage();
+                            newPageContent.innerHTML = pageContent;
+                        }
+                    });
+                } else {
+                    // Old single-page format - put content in first page
+                    this.pages[0].innerHTML = currentDoc.content;
+                }
+                
                 this.updateWordCount();
                 
                 // Restore watermark if it exists
@@ -959,106 +1035,136 @@ class DocsEditor {
                 position: absolute;
                 top: -9999px;
                 left: -9999px;
-                width: 800px;
+                width: 8.5in;
                 background: white;
-                padding: 40px;
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
+                padding: 1in;
+                font-family: 'Times New Roman', serif;
+                font-size: 12pt;
+                line-height: 1.5;
+                color: #000;
+                box-sizing: border-box;
             `;
             
             // Clone editor content
             const content = this.editor.cloneNode(true);
-            content.style.cssText = 'margin: 0; padding: 0;';
+            content.style.cssText = `
+                margin: 0; 
+                padding: 0;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                color: inherit;
+            `;
             tempContainer.appendChild(content);
-            
-            // Add watermark if exists
-            if (this.watermarkSettings) {
-                const watermark = document.createElement('div');
-                watermark.style.cssText = `
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    pointer-events: none;
-                    z-index: 0;
-                `;
-                
-                const watermarkText = document.createElement('div');
-                const settings = this.watermarkSettings;
-                const sizeMap = { small: '36px', medium: '48px', large: '60px' };
-                
-                watermarkText.textContent = settings.text;
-                watermarkText.style.cssText = `
-                    font-size: ${sizeMap[settings.size]};
-                    font-weight: bold;
-                    color: ${settings.color};
-                    opacity: ${settings.opacity};
-                    transform: rotate(${settings.angle}deg);
-                    user-select: none;
-                    white-space: nowrap;
-                    letter-spacing: 0.1em;
-                `;
-                
-                watermark.appendChild(watermarkText);
-                tempContainer.appendChild(watermark);
-                content.style.position = 'relative';
-                content.style.zIndex = '1';
-            }
-            
             document.body.appendChild(tempContainer);
             
-            // Use html2canvas to render the content
-            const canvas = await html2canvas(tempContainer, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true
-            });
+            try {
+                // Convert to canvas with optimized settings
+                const canvas = await html2canvas(tempContainer, {
+                    scale: 1.5,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    removeContainer: true,
+                    imageTimeout: 0,
+                    logging: false,
+                    width: tempContainer.offsetWidth,
+                    height: tempContainer.offsetHeight
+                });
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Calculate page dimensions
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pdfWidth;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                let position = 0;
+                let heightLeft = imgHeight;
+                
+                // Add first page
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+                
+                // Add additional pages if needed
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pdfHeight;
+                }
+                
+                // Add watermark if exists
+                if (this.watermarkSettings) {
+                    const pageCount = pdf.internal.getNumberOfPages();
+                    for (let i = 1; i <= pageCount; i++) {
+                        pdf.setPage(i);
+                        this.addWatermarkToPDF(pdf, pdfWidth, pdfHeight);
+                    }
+                }
+                
+                pdf.save(`${title}.pdf`);
+                this.closeExportMenu();
+                this.showNotification('PDF exported successfully!', 'success');
+                
+            } catch (renderError) {
+                console.error('Error rendering PDF:', renderError);
+                this.showNotification('Error rendering PDF. Please try again.', 'error');
+            }
             
             document.body.removeChild(tempContainer);
             
-            // Create PDF using jsPDF
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            
-            const imgWidth = 210;
-            const pageHeight = 295;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
-            
-            let position = 0;
-            
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-            
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-            
-            pdf.save(`${title}.pdf`);
-            this.closeExportMenu();
-            this.showNotification('PDF document exported successfully!', 'success');
-            
         } catch (error) {
             console.error('PDF export error:', error);
-            this.showNotification('Failed to export PDF. Please try again.', 'error');
+            this.showNotification('Error exporting PDF. Please try again.', 'error');
         }
+    }
+
+    addWatermarkToPDF(pdf, pdfWidth, pdfHeight) {
+        const settings = this.watermarkSettings;
+        pdf.saveGraphicsState();
+        
+        // Set transparency
+        pdf.setGState(new pdf.GState({opacity: settings.opacity}));
+        
+        // Set font and color
+        const sizeMap = { small: 36, medium: 48, large: 60 };
+        pdf.setFontSize(sizeMap[settings.size] || 48);
+        pdf.setTextColor(settings.color);
+        
+        // Calculate center position
+        const centerX = pdfWidth / 2;
+        const centerY = pdfHeight / 2;
+        
+        // Add rotated text
+        pdf.text(settings.text, centerX, centerY, {
+            angle: settings.angle,
+            align: 'center',
+            baseline: 'middle'
+        });
+        
+        pdf.restoreGraphicsState();
     }
 
     async exportAsDOCX() {
         try {
             const title = this.documentTitle.value || 'document';
-            const content = this.editor.innerHTML;
+            
+            // Collect content from all pages
+            let allContent = '';
+            this.pages.forEach((page, index) => {
+                if (index > 0) {
+                    allContent += '\n\n--- Page ' + (index + 1) + ' ---\n\n';
+                }
+                allContent += page.innerHTML;
+            });
             
             // Convert HTML content to plain text for DOCX
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
+            tempDiv.innerHTML = allContent;
             
             // Extract text content and basic formatting
             const paragraphs = [];
@@ -1290,6 +1396,44 @@ class DocsEditor {
         // Try inserting a simple test image
         const testImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwZiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VGVzdDwvdGV4dD48L3N2Zz4=" alt="Test Image" style="max-width: 100px;">';
         this.insertHTML(testImg);
+    }
+
+    updatePageLayout() {
+        // Get the current content height
+        const contentHeight = this.editor.scrollHeight;
+        const pageHeight = 11 * 96; // 11 inches at 96 DPI  
+        const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
+        
+        // Update page count in status bar
+        const pageCountElement = document.getElementById('page-count');
+        if (pageCountElement) {
+            pageCountElement.textContent = `Pages: ${requiredPages}`;
+        }
+        
+        // Create visual page indicators
+        this.updatePageIndicators(requiredPages);
+        
+        // Ensure editor is tall enough for content
+        const minHeight = requiredPages * pageHeight;
+        if (this.editor.style.minHeight !== minHeight + 'px') {
+            this.editor.style.minHeight = minHeight + 'px';
+        }
+    }
+    
+    updatePageIndicators(pageCount) {
+        if (!this.pageIndicators) return;
+        
+        // Clear existing indicators
+        this.pageIndicators.innerHTML = '';
+        
+        // Add page indicators at page boundaries (like Word)
+        for (let i = 1; i < pageCount; i++) {
+            const indicator = document.createElement('div');
+            indicator.className = 'page-indicator';
+            indicator.style.top = (i * 11 * 96) + 'px'; // Position at page boundary
+            indicator.setAttribute('data-page', i + 1);
+            this.pageIndicators.appendChild(indicator);
+        }
     }
 }
 

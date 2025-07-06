@@ -169,8 +169,14 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <div class="editor-container">
-                <div class="editor" id="editor" contenteditable="true" spellcheck="true">
+            <div class="document-area">
+                <div class="document-container" id="document-container">
+                    <div class="editor" id="editor" contenteditable="true" spellcheck="true">
+                        <p>Start typing your document here...</p>
+                    </div>
+                    <div class="page-indicators" id="page-indicators">
+                        <!-- Visual page indicators will be added here -->
+                    </div>
                 </div>
             </div>
         </main>
@@ -180,6 +186,7 @@
             <div class="status-left">
                 <span id="word-count">Words: 0</span>
                 <span id="char-count">Characters: 0</span>
+                <span id="page-count">Pages: 1</span>
             </div>
             <div class="status-right">
                 <span id="last-saved">Never saved</span>
