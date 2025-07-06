@@ -662,7 +662,7 @@ class DocsEditor {
         setTimeout(() => {
             console.log('Navigating to dashboard'); // Debug log
             // Navigate to dashboard
-            window.location.href = 'dashboard.html';
+            window.location.href = 'index.html';
         }, 300);
     }
 
