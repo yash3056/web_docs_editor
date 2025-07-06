@@ -608,6 +608,15 @@ class DocsEditor {
                 localStorage.setItem('documents', JSON.stringify(documents));
             }
         } else {
+            // Check document limit before creating new document
+            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+            const maxDocuments = 20;
+            
+            if (documents.length >= maxDocuments) {
+                this.showAlert(`Document limit reached! You can store up to ${maxDocuments} documents. Please delete some documents from the dashboard first.`, 'error');
+                return;
+            }
+
             // Create new document if none selected
             const newDoc = {
                 id: 'doc-' + Date.now(),
@@ -624,7 +633,6 @@ class DocsEditor {
                 newDoc.watermark = this.watermarkSettings;
             }
             
-            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
             documents.unshift(newDoc);
             localStorage.setItem('documents', JSON.stringify(documents));
             localStorage.setItem('currentDocumentId', newDoc.id);
@@ -1070,6 +1078,71 @@ class DocsEditor {
                 document.body.removeChild(notification);
             }, 300);
         }, 3000);
+    }
+
+    showAlert(message, type = 'info') {
+        // Remove existing alert
+        const existingAlert = document.querySelector('.editor-alert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+
+        // Create alert element
+        const alert = document.createElement('div');
+        alert.className = `editor-alert editor-alert-${type}`;
+        
+        const colors = {
+            success: '#28a745',
+            error: '#dc3545',
+            info: '#007bff',
+            warning: '#ffc107'
+        };
+
+        alert.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${colors[type] || colors.info};
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-size: 14px;
+            animation: slideInRight 0.3s ease-out;
+        `;
+
+        alert.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; margin-left: auto;">&times;</button>
+            </div>
+        `;
+
+        // Add animation styles if not already added
+        if (!document.querySelector('#alert-styles')) {
+            const style = document.createElement('style');
+            style.id = 'alert-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        document.body.appendChild(alert);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.style.animation = 'slideInRight 0.3s ease-out reverse';
+                setTimeout(() => alert.remove(), 300);
+            }
+        }, 5000);
     }
 }
 

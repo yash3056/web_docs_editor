@@ -8,6 +8,7 @@ class AdvancedDocumentDashboard {
         this.documentToDelete = null;
         this.isSelectionMode = false;
         this.templates = this.initializeTemplates();
+        this.maxDocuments = 20; // Document storage limit
         
         this.init();
     }
@@ -215,6 +216,13 @@ class AdvancedDocumentDashboard {
     }
 
     createDocument(template = 'blank', customTitle = null) {
+        // Check document limit before creating
+        if (this.documents.length >= this.maxDocuments) {
+            this.showToast(`Document limit reached! You can store up to ${this.maxDocuments} documents. Please delete some documents first.`, 'error');
+            this.showStorageLimitModal();
+            return;
+        }
+
         const templateData = this.templates[template] || this.templates.blank;
         const title = customTitle || templateData.name;
         
@@ -235,6 +243,7 @@ class AdvancedDocumentDashboard {
         this.renderDocuments();
         this.updateEmptyState();
         this.populateRecentActivity();
+        this.updateStorageInfo();
 
         this.showToast(`Document "${title}" created successfully!`, 'success');
         
@@ -258,6 +267,7 @@ class AdvancedDocumentDashboard {
             this.renderDocuments();
             this.updateEmptyState();
             this.updateDocumentCount();
+            this.updateStorageInfo();
             this.populateRecentActivity();
             this.showToast(`Document "${deletedDoc.title}" deleted`, 'success');
         }
@@ -280,6 +290,7 @@ class AdvancedDocumentDashboard {
         this.renderDocuments();
         this.updateEmptyState();
         this.updateDocumentCount();
+        this.updateStorageInfo();
         this.populateRecentActivity();
 
         document.getElementById('select-all').textContent = 'Select All';
@@ -304,6 +315,7 @@ class AdvancedDocumentDashboard {
         this.saveDocuments();
         this.renderDocuments();
         this.updateDocumentCount();
+        this.updateStorageInfo();
         this.populateRecentActivity();
 
         this.showToast(`Document duplicated successfully!`, 'success');
@@ -567,6 +579,7 @@ class AdvancedDocumentDashboard {
                 this.renderDocuments();
                 this.updateEmptyState();
                 this.updateDocumentCount();
+                this.updateStorageInfo();
                 this.populateRecentActivity();
 
                 modal.style.display = 'none';
@@ -663,6 +676,7 @@ class AdvancedDocumentDashboard {
                 this.saveDocuments();
                 this.renderDocuments();
                 this.updateDocumentCount();
+                this.updateStorageInfo();
                 this.populateRecentActivity();
             };
             reader.readAsText(file);
@@ -691,6 +705,70 @@ class AdvancedDocumentDashboard {
 
     showImportModal() {
         document.getElementById('import-modal').style.display = 'flex';
+    }
+
+    showStorageLimitModal() {
+        // Create modal overlay
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+        `;
+
+        // Create modal content
+        modalOverlay.innerHTML = `
+            <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                <div style="color: #e74c3c; font-size: 48px; margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 style="color: #2c3e50; margin-bottom: 15px;">Storage Limit Reached</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px; line-height: 1.6;">
+                    You've reached the maximum limit of <strong>${this.maxDocuments} documents</strong>. 
+                    To create new documents, please delete some existing ones first.
+                </p>
+                <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <p style="margin: 0; color: #495057;">
+                        <strong>Current:</strong> ${this.documents.length}/${this.maxDocuments} documents
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="manage-docs-btn" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        Manage Documents
+                    </button>
+                    <button id="close-limit-modal" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        modalOverlay.querySelector('#close-limit-modal').addEventListener('click', () => {
+            modalOverlay.remove();
+        });
+
+        modalOverlay.querySelector('#manage-docs-btn').addEventListener('click', () => {
+            modalOverlay.remove();
+            // Enable selection mode for easier document management
+            this.toggleSelectionMode();
+        });
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.remove();
+            }
+        });
+
+        document.body.appendChild(modalOverlay);
     }
 
     // Helper methods
@@ -733,7 +811,14 @@ class AdvancedDocumentDashboard {
         const count = this.documents.length;
         const countElement = document.getElementById('document-count');
         if (countElement) {
-            countElement.textContent = `${count} document${count !== 1 ? 's' : ''}`;
+            countElement.textContent = `${count}/${this.maxDocuments} documents`;
+            
+            // Add visual indicator when approaching limit
+            if (count >= this.maxDocuments * 0.8) { // 80% of limit
+                countElement.style.color = count >= this.maxDocuments ? '#e74c3c' : '#f39c12';
+            } else {
+                countElement.style.color = '';
+            }
         }
     }
 
@@ -780,10 +865,19 @@ class AdvancedDocumentDashboard {
         const storageText = document.getElementById('storage-text');
         
         const docCount = this.documents.length;
-        const percentage = Math.min((docCount / 100) * 100, 100); // Assuming 100 docs max for demo
+        const percentage = (docCount / this.maxDocuments) * 100;
         
         storageUsed.style.width = `${percentage}%`;
-        storageText.textContent = `${docCount} of unlimited documents`;
+        storageText.textContent = `${docCount}/${this.maxDocuments} documents`;
+        
+        // Update storage bar color based on usage
+        if (percentage >= 100) {
+            storageUsed.style.backgroundColor = '#e74c3c'; // Red when full
+        } else if (percentage >= 80) {
+            storageUsed.style.backgroundColor = '#f39c12'; // Orange when near full
+        } else {
+            storageUsed.style.backgroundColor = '#3498db'; // Blue when normal
+        }
     }
 
     countWords(text) {
@@ -890,96 +984,69 @@ class AdvancedDocumentDashboard {
         }, 4000);
     }
 
-    handleKeyboardShortcuts(e) {
-        // Ctrl/Cmd + N: New document
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            this.showNewDocumentModal();
-        }
-        
-        // Escape: Close modals
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.modal-overlay').forEach(modal => {
-                modal.style.display = 'none';
-            });
-            document.getElementById('doc-context-menu').style.display = 'none';
-        }
-        
-        // Delete: Delete selected documents
-        if (e.key === 'Delete' && this.selectedDocuments.size > 0) {
-            this.deleteSelectedDocuments();
-        }
-    }
+    showStorageLimitModal() {
+        // Create modal overlay
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+        `;
 
-    exportDocument(documentId) {
-        const doc = this.documents.find(d => d.id === documentId);
-        if (!doc) return;
+        // Create modal content
+        modalOverlay.innerHTML = `
+            <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                <div style="color: #e74c3c; font-size: 48px; margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 style="color: #2c3e50; margin-bottom: 15px;">Storage Limit Reached</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px; line-height: 1.6;">
+                    You've reached the maximum limit of <strong>${this.maxDocuments} documents</strong>. 
+                    To create new documents, please delete some existing ones first.
+                </p>
+                <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <p style="margin: 0; color: #495057;">
+                        <strong>Current:</strong> ${this.documents.length}/${this.maxDocuments} documents
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="manage-docs-btn" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        Manage Documents
+                    </button>
+                    <button id="close-limit-modal" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
 
-        // Create a blob with the document content
-        const blob = new Blob([doc.content], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        
-        // Create temporary download link
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${doc.title}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        this.showToast('Document exported successfully!', 'success');
-    }
-
-    logout() {
-        if (confirm('Are you sure you want to sign out?')) {
-            localStorage.removeItem('currentDocumentId');
-            this.showToast('Signed out successfully', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        }
-    }
-
-    showSettings() {
-        this.showToast('Settings panel coming soon!', 'info');
-    }
-
-    showHelp() {
-        this.showToast('Help documentation coming soon!', 'info');
-    }
-
-    // Method to refresh documents (useful for when returning from editor)
-    refresh() {
-        this.documents = this.loadDocuments();
-        this.renderDocuments();
-        this.updateEmptyState();
-        this.updateDocumentCount();
-        this.populateRecentActivity();
-        this.updateStorageInfo();
-    }
-}
-
-// Initialize dashboard when DOM is loaded
-let dashboard;
-document.addEventListener('DOMContentLoaded', () => {
-    dashboard = new AdvancedDocumentDashboard();
-    
-    // Add event listener for create first doc button
-    const createFirstDocBtn = document.getElementById('create-first-doc');
-    if (createFirstDocBtn) {
-        createFirstDocBtn.addEventListener('click', () => {
-            dashboard.showNewDocumentModal();
+        // Add event listeners
+        modalOverlay.querySelector('#close-limit-modal').addEventListener('click', () => {
+            modalOverlay.remove();
         });
-    }
-});
 
-// Handle page visibility change to refresh when coming back from editor
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && dashboard) {
-        dashboard.refresh();
-    }
-});
+        modalOverlay.querySelector('#manage-docs-btn').addEventListener('click', () => {
+            modalOverlay.remove();
+            // Enable selection mode for easier document management
+            this.toggleSelectionMode();
+        });
 
-// Export for use in other scripts
-window.AdvancedDocumentDashboard = AdvancedDocumentDashboard;
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.remove();
+            }
+        });
+
+        document.body.appendChild(modalOverlay);
+    }
+
+    // ...existing code...
+}
