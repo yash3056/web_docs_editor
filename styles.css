@@ -416,13 +416,19 @@ body {
 
 .modal-content {
     background-color: white;
-    margin: 15% auto;
-    padding: 2rem;
+    position: fixed;
+    top: 3cm;
+    bottom: 2cm;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 1.5rem;
     border-radius: 8px;
     width: 90%;
     max-width: 500px;
-    position: relative;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .close {
@@ -464,7 +470,7 @@ body {
     display: flex;
     gap: 0.5rem;
     justify-content: flex-end;
-    margin-top: 1.5rem;
+    margin-top: auto;
 }
 
 /* Watermark modal form styles */
@@ -530,42 +536,36 @@ body {
     border-bottom-color: #667eea;
 }
 
-.tab-btn:hover {
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
-}
-
 .tab-content {
     display: none;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .tab-content.active {
     display: block;
 }
 
-.file-input {
-    display: none;
-}
-
+/* Better file drop zone */
 .file-drop-zone {
-    border: 2px dashed #ccc;
+    border: 2px dashed #ddd;
     border-radius: 8px;
-    padding: 2rem;
+    padding: 2rem 1rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    background: #fafafa;
+    margin-top: 0.5rem;
 }
 
 .file-drop-zone:hover,
 .file-drop-zone.dragover {
     border-color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
+    background-color: rgba(102, 126, 234, 0.05);
 }
 
 .file-drop-zone i {
     font-size: 2rem;
-    color: #ccc;
+    color: #999;
     margin-bottom: 0.5rem;
     display: block;
 }
@@ -587,15 +587,23 @@ body {
 
 .image-preview {
     margin-top: 1rem;
-    padding: 1rem;
+    padding: 0.75rem;
     border: 1px solid #ddd;
     border-radius: 6px;
     background: #f9f9f9;
+    max-height: 200px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
 }
 
 .image-preview img {
-    max-width: 200px;
+    max-width: 100%;
     max-height: 150px;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 4px;
     display: block;
@@ -726,4 +734,131 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* Image Modal Specific Styling */
+#image-modal .modal-content {
+    background-color: white;
+    position: fixed;
+    top: 3cm;
+    bottom: 2cm;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid #e0e0e0;
+}
+
+/* Scrollable content area */
+#image-modal .modal-content > * {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+#image-modal .modal-content h3 {
+    padding: 1rem;
+    margin: 0;
+    border-bottom: 1px solid #eee;
+    background: white;
+    flex-shrink: 0;
+}
+
+/* Create a scrollable content wrapper */
+#image-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
+}
+
+/* Ensure scrollbar is always visible when needed */
+#image-modal .modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+#image-modal .modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#image-modal .modal-body::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#image-modal .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Close button positioning */
+#image-modal .close {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    z-index: 2;
+    background: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Modal actions stay at bottom */
+#image-modal .modal-actions {
+    padding: 1rem;
+    border-top: 1px solid #eee;
+    background: white;
+    flex-shrink: 0;
+}
+
+/* Tab content styling inside modal body */
+#image-modal .image-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+#image-modal .tab-content {
+    display: none;
+}
+
+#image-modal .tab-content.active {
+    display: block;
+}
+
+#image-modal .form-group {
+    margin-bottom: 1rem;
+}
+
+/* Responsive adjustments for image modal */
+@media (max-height: 600px) {
+    #image-modal .modal-content {
+        top: 1cm;
+        bottom: 1cm;
+    }
+}
+
+@media (max-width: 500px) {
+    #image-modal .modal-content {
+        width: 95%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 0.75rem;
+    }
+    
+    .image-preview img {
+        max-height: 120px;
+    }
 }

@@ -419,11 +419,11 @@ class AdvancedDocumentDashboard {
                 </div>
                 
                 <div class="document-actions">
-                    <button class="btn btn-primary btn-sm" onclick="dashboard.openDocument('${doc.id}')">
+                    <button class="btn btn-primary btn-sm" onclick="window.dashboard.openDocument('${doc.id}')">
                         <i class="fas fa-folder-open"></i>
                         Open
                     </button>
-                    <button class="btn btn-outline btn-sm" onclick="dashboard.showContextMenu(event, '${doc.id}')">
+                    <button class="btn btn-outline btn-sm" onclick="window.dashboard.showContextMenu(event, '${doc.id}')">
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                 </div>
@@ -1047,6 +1047,9 @@ class AdvancedDocumentDashboard {
 
         document.body.appendChild(modalOverlay);
     }
-
-    // ...existing code...
 }
+
+// Initialize the dashboard when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    window.dashboard = new AdvancedDocumentDashboard();
+});

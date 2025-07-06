@@ -313,13 +313,35 @@ class DocsEditor {
             const fileSize = document.getElementById('file-size');
             const preview = document.getElementById('image-preview');
 
+            // Set image source and ensure proper sizing
             previewImg.src = e.target.result;
+            previewImg.onload = () => {
+                // Ensure the image doesn't break the modal layout
+                previewImg.style.maxWidth = '100%';
+                previewImg.style.maxHeight = '150px';
+                previewImg.style.objectFit = 'contain';
+                
+                // Force modal to recalculate scroll if needed
+                const modalBody = document.querySelector('#image-modal .modal-body');
+                if (modalBody) {
+                    modalBody.scrollTop = modalBody.scrollTop; // Trigger scroll update
+                }
+            };
+            
             fileName.textContent = file.name;
             fileSize.textContent = this.formatFileSize(file.size);
-            preview.style.display = 'block';
+            preview.style.display = 'flex'; // Use flex for better centering
 
             // Store the image data for insertion
             this.selectedImageData = e.target.result;
+            
+            // Scroll the modal body to show the preview
+            const modalBody = document.querySelector('#image-modal .modal-body');
+            if (modalBody) {
+                setTimeout(() => {
+                    modalBody.scrollTop = modalBody.scrollHeight;
+                }, 100);
+            }
         };
 
         reader.readAsDataURL(file);
@@ -392,6 +414,19 @@ class DocsEditor {
         this.resetImageModal();
         const modal = document.getElementById('image-modal');
         modal.style.display = 'block';
+        
+        // Ensure modal body starts at top and focus first input
+        setTimeout(() => {
+            const modalBody = modal.querySelector('.modal-body');
+            if (modalBody) {
+                modalBody.scrollTop = 0; // Start at top
+            }
+            // Focus on the first input for better UX
+            const firstInput = modal.querySelector('input[type="url"], input[type="text"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
     }
 
     showWatermarkModal() {

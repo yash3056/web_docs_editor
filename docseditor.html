@@ -206,51 +206,53 @@
             <span class="close">&times;</span>
             <h3>Insert Image</h3>
             
-            <!-- Image Source Tabs -->
-            <div class="image-tabs">
-                <button class="tab-btn active" id="url-tab">From URL</button>
-                <button class="tab-btn" id="upload-tab">Upload File</button>
-            </div>
-            
-            <!-- URL Tab Content -->
-            <div class="tab-content active" id="url-content">
-                <div class="form-group">
-                    <label for="image-url">Image URL:</label>
-                    <input type="url" id="image-url" placeholder="https://example.com/image.jpg">
+            <div class="modal-body">
+                <!-- Image Source Tabs -->
+                <div class="image-tabs">
+                    <button class="tab-btn active" id="url-tab">From URL</button>
+                    <button class="tab-btn" id="upload-tab">Upload File</button>
                 </div>
-            </div>
-            
-            <!-- Upload Tab Content -->
-            <div class="tab-content" id="upload-content">
-                <div class="form-group">
-                    <label for="image-file">Choose Image File:</label>
-                    <input type="file" id="image-file" accept="image/*" class="file-input">
-                    <div class="file-drop-zone" id="file-drop-zone">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Drag & drop an image here or click to browse</p>
-                        <p class="file-info">Supports: JPG, PNG, GIF, WebP</p>
+                
+                <!-- URL Tab Content -->
+                <div class="tab-content active" id="url-content">
+                    <div class="form-group">
+                        <label for="image-url">Image URL:</label>
+                        <input type="url" id="image-url" placeholder="https://example.com/image.jpg">
                     </div>
                 </div>
                 
-                <!-- Image Preview -->
-                <div class="image-preview" id="image-preview" style="display: none;">
-                    <img id="preview-img" src="" alt="Preview">
-                    <div class="preview-info">
-                        <span id="file-name"></span>
-                        <span id="file-size"></span>
+                <!-- Upload Tab Content -->
+                <div class="tab-content" id="upload-content">
+                    <div class="form-group">
+                        <label for="image-file">Choose Image File:</label>
+                        <input type="file" id="image-file" accept="image/*" class="file-input">
+                        <div class="file-drop-zone" id="file-drop-zone">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drag & drop an image here or click to browse</p>
+                            <p class="file-info">Supports: JPG, PNG, GIF, WebP</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Image Preview -->
+                    <div class="image-preview" id="image-preview" style="display: none;">
+                        <img id="preview-img" src="" alt="Preview">
+                        <div class="preview-info">
+                            <span id="file-name"></span>
+                            <span id="file-size"></span>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Common Fields -->
-            <div class="form-group">
-                <label for="image-alt">Alt Text (Description):</label>
-                <input type="text" id="image-alt" placeholder="Describe the image for accessibility">
-            </div>
-            
-            <div class="form-group">
-                <label for="image-width">Width (optional):</label>
-                <input type="number" id="image-width" placeholder="Auto" min="50" max="1000">
+                
+                <!-- Common Fields -->
+                <div class="form-group">
+                    <label for="image-alt">Alt Text (Description):</label>
+                    <input type="text" id="image-alt" placeholder="Describe the image for accessibility">
+                </div>
+                
+                <div class="form-group">
+                    <label for="image-width">Width (optional):</label>
+                    <input type="number" id="image-width" placeholder="Auto" min="50" max="1000">
+                </div>
             </div>
             
             <div class="modal-actions">
