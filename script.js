@@ -13,6 +13,9 @@ class DocsEditor {
     }
 
     initializeEventListeners() {
+        // Dashboard navigation
+        document.getElementById('dashboard-btn').addEventListener('click', () => this.goToDashboard());
+        
         // Toolbar formatting buttons
         document.getElementById('bold-btn').addEventListener('click', () => this.formatText('bold'));
         document.getElementById('italic-btn').addEventListener('click', () => this.formatText('italic'));
@@ -585,23 +588,116 @@ class DocsEditor {
     }
 
     saveDocument() {
-        const data = {
-            title: this.documentTitle.value,
-            content: this.editor.innerHTML,
+        const title = this.documentTitle.value.trim() || 'Untitled Document';
+        const content = this.editor.innerHTML;
+        const currentDocId = localStorage.getItem('currentDocumentId');
+        
+        if (currentDocId) {
+            // Update existing document in dashboard storage
+            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+            const docIndex = documents.findIndex(doc => doc.id === currentDocId);
+            
+            if (docIndex !== -1) {
+                documents[docIndex].title = title;
+                documents[docIndex].content = content;
+                documents[docIndex].lastModified = Date.now();
+                documents[docIndex].wordCount = this.countWords(content);
+                if (this.watermarkSettings) {
+                    documents[docIndex].watermark = this.watermarkSettings;
+                }
+                localStorage.setItem('documents', JSON.stringify(documents));
+            }
+        } else {
+            // Create new document if none selected
+            const newDoc = {
+                id: 'doc-' + Date.now(),
+                title: title,
+                content: content,
+                description: '',
+                createdAt: Date.now(),
+                lastModified: Date.now(),
+                template: 'blank',
+                wordCount: this.countWords(content)
+            };
+            
+            if (this.watermarkSettings) {
+                newDoc.watermark = this.watermarkSettings;
+            }
+            
+            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+            documents.unshift(newDoc);
+            localStorage.setItem('documents', JSON.stringify(documents));
+            localStorage.setItem('currentDocumentId', newDoc.id);
+        }
+        
+        // Also save to legacy format for backward compatibility
+        const legacyData = {
+            title: title,
+            content: content,
             watermark: this.watermarkSettings,
             lastModified: new Date().toISOString()
         };
-
-        localStorage.setItem('webdocs_document', JSON.stringify(data));
+        localStorage.setItem('webdocs_document', JSON.stringify(legacyData));
         
         const now = new Date().toLocaleString();
         document.getElementById('last-saved').textContent = `Last saved: ${now}`;
         
-        // Show a brief success message
         this.showNotification('Document saved successfully!', 'success');
     }
 
+    countWords(text) {
+        if (!text) return 0;
+        // Remove HTML tags and count words
+        const plainText = text.replace(/<[^>]*>/g, '');
+        return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    }
+
+    goToDashboard() {
+        console.log('Dashboard button clicked'); // Debug log
+        
+        // Save current document before navigating
+        this.saveDocument();
+        
+        // Small delay to ensure save completes
+        setTimeout(() => {
+            console.log('Navigating to dashboard'); // Debug log
+            // Navigate to dashboard
+            window.location.href = 'dashboard.html';
+        }, 300);
+    }
+
     loadDocument() {
+        const currentDocId = localStorage.getItem('currentDocumentId');
+        
+        if (currentDocId) {
+            // Load document from dashboard storage
+            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+            const currentDoc = documents.find(doc => doc.id === currentDocId);
+            
+            if (currentDoc) {
+                this.documentTitle.value = currentDoc.title;
+                this.editor.innerHTML = currentDoc.content;
+                this.updateWordCount();
+                
+                // Restore watermark if it exists
+                if (currentDoc.watermark) {
+                    this.watermarkSettings = currentDoc.watermark;
+                    this.applyWatermark(
+                        currentDoc.watermark.text,
+                        currentDoc.watermark.opacity,
+                        currentDoc.watermark.size,
+                        currentDoc.watermark.color,
+                        currentDoc.watermark.angle
+                    );
+                } else {
+                    this.updateWatermarkButtonState();
+                }
+                
+                return;
+            }
+        }
+        
+        // Fallback: try to load from legacy storage
         const saved = localStorage.getItem('webdocs_document');
         if (saved) {
             const data = JSON.parse(saved);
@@ -620,12 +716,8 @@ class DocsEditor {
                     data.watermark.angle
                 );
             } else {
-                // Ensure button state is correct when no watermark
                 this.updateWatermarkButtonState();
             }
-            
-            const lastModified = new Date(data.lastModified).toLocaleString();
-            document.getElementById('last-saved').textContent = `Last saved: ${lastModified}`;
         }
     }
 

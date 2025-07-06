@@ -91,6 +91,16 @@ body {
     transform: translateY(-1px);
 }
 
+.btn-info {
+    background: #2196F3;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #1976D2;
+    transform: translateY(-1px);
+}
+
 .btn-secondary {
     background: rgba(255,255,255,0.2);
     color: white;

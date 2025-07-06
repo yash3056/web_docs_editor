@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Dashboard - Web Docs Editor</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-left">
+                <div class="app-logo">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Web Docs</span>
+                </div>
+            </div>
+            <div class="nav-center">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search documents..." class="search-input">
+                    <button class="search-clear" id="search-clear" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="user-menu">
+                    <button class="user-btn" id="user-btn">
+                        <i class="fas fa-user-circle"></i>
+                        <span>User</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="user-dropdown" id="user-dropdown">
+                        <a href="#" id="settings-btn"><i class="fas fa-cog"></i> Settings</a>
+                        <a href="#" id="help-btn"><i class="fas fa-question-circle"></i> Help</a>
+                        <hr>
+                        <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Quick Actions</h3>
+                <button class="quick-action-btn" id="new-blank-doc">
+                    <i class="fas fa-file-plus"></i>
+                    <span>Blank Document</span>
+                </button>
+                <button class="quick-action-btn" id="new-template-doc">
+                    <i class="fas fa-file-contract"></i>
+                    <span>From Template</span>
+                </button>
+                <button class="quick-action-btn" id="import-doc">
+                    <i class="fas fa-file-import"></i>
+                    <span>Import Document</span>
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Recent Activity</h3>
+                <div class="recent-activity" id="recent-activity">
+                    <!-- Recent activities will be populated here -->
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Storage</h3>
+                <div class="storage-info">
+                    <div class="storage-bar">
+                        <div class="storage-used" id="storage-used"></div>
+                    </div>
+                    <p class="storage-text" id="storage-text">5 of unlimited documents</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header Actions -->
+            <div class="content-header">
+                <div class="header-left">
+                    <h1>My Documents</h1>
+                    <p class="document-count" id="document-count">5 documents</p>
+                </div>
+                <div class="header-right">
+                    <div class="view-controls">
+                        <button class="view-btn active" id="grid-view" title="Grid View">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button class="view-btn" id="list-view" title="List View">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                    <div class="sort-controls">
+                        <select id="sort-select" class="sort-select">
+                            <option value="modified">Last Modified</option>
+                            <option value="created">Date Created</option>
+                            <option value="name">Name A-Z</option>
+                            <option value="size">File Size</option>
+                        </select>
+                    </div>
+                    <button class="filter-btn" id="filter-btn">
+                        <i class="fas fa-filter"></i>
+                        Filters
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Start Templates -->
+            <section class="templates-section" id="templates-section">
+                <h2>Start with a template</h2>
+                <div class="templates-grid">
+                    <div class="template-card" data-template="blank">
+                        <div class="template-preview">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>Blank Document</h3>
+                        <p>Start with a clean slate</p>
+                    </div>
+                    <div class="template-card" data-template="report">
+                        <div class="template-preview">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3>Report</h3>
+                        <p>Professional report template</p>
+                    </div>
+                    <div class="template-card" data-template="letter">
+                        <div class="template-preview">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <h3>Letter</h3>
+                        <p>Formal letter template</p>
+                    </div>
+                    <div class="template-card" data-template="resume">
+                        <div class="template-preview">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h3>Resume</h3>
+                        <p>Professional resume</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Documents -->
+            <section class="recent-section">
+                <div class="section-header">
+                    <h2>Recent Documents</h2>
+                    <button class="see-all-btn" id="see-all-recent">See all</button>
+                </div>
+                <div class="documents-container" id="documents-container">
+                    <div class="documents-grid" id="documents-grid">
+                        <!-- Document cards will be dynamically generated -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- All Documents -->
+            <section class="all-documents-section" id="all-documents-section" style="display: none;">
+                <div class="section-header">
+                    <h2>All Documents</h2>
+                    <div class="bulk-actions">
+                        <button class="bulk-btn" id="select-all">Select All</button>
+                        <button class="bulk-btn danger" id="delete-selected" style="display: none;">Delete Selected</button>
+                    </div>
+                </div>
+                <div class="documents-container">
+                    <div class="documents-grid" id="all-documents-grid">
+                        <!-- All documents will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <div class="empty-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <h3>No documents yet</h3>
+                <p>Create your first document to get started</p>
+                <button class="empty-action-btn" id="create-first-doc">
+                    <i class="fas fa-plus"></i>
+                    Create Document
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- New Document Modal -->
+    <div class="modal-overlay" id="new-doc-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Create New Document</h3>
+                <button class="modal-close" id="new-doc-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="document-name">Document Name</label>
+                    <input type="text" id="document-name" placeholder="Enter document name" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="document-description">Description (Optional)</label>
+                    <textarea id="document-description" placeholder="Brief description" class="form-textarea"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-new-doc">Cancel</button>
+                <button class="btn btn-primary" id="create-new-doc">Create Document</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="delete-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Delete Document</h3>
+                <button class="modal-close" id="delete-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p>Are you sure you want to delete "<span id="delete-document-name"></span>"?</p>
+                <p class="warning-text">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-delete">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Document Modal -->
+    <div class="modal-overlay" id="import-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Import Document</h3>
+                <button class="modal-close" id="import-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="import-area">
+                    <div class="file-drop-zone" id="import-drop-zone">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drag & drop files here or click to browse</p>
+                        <p class="file-info">Supports: .txt, .html, .docx files</p>
+                    </div>
+                    <input type="file" id="import-file" accept=".txt,.html,.docx" multiple style="display: none;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-import">Cancel</button>
+                <button class="btn btn-primary" id="confirm-import">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Context Menu -->
+    <div class="context-menu" id="doc-context-menu" style="display: none;">
+        <div class="context-item" id="context-open">
+            <i class="fas fa-folder-open"></i>
+            <span>Open</span>
+        </div>
+        <div class="context-item" id="context-rename">
+            <i class="fas fa-edit"></i>
+            <span>Rename</span>
+        </div>
+        <div class="context-item" id="context-duplicate">
+            <i class="fas fa-copy"></i>
+            <span>Duplicate</span>
+        </div>
+        <div class="context-item" id="context-export">
+            <i class="fas fa-download"></i>
+            <span>Export</span>
+        </div>
+        <hr>
+        <div class="context-item danger" id="context-delete">
+            <i class="fas fa-trash"></i>
+            <span>Delete</span>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,985 @@
+class AdvancedDocumentDashboard {
+    constructor() {
+        this.documents = this.loadDocuments();
+        this.selectedDocuments = new Set();
+        this.currentView = 'grid';
+        this.currentSort = 'modified';
+        this.searchQuery = '';
+        this.documentToDelete = null;
+        this.isSelectionMode = false;
+        this.templates = this.initializeTemplates();
+        
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.renderDocuments();
+        this.updateEmptyState();
+        this.updateDocumentCount();
+        this.populateRecentActivity();
+        this.updateStorageInfo();
+    }
+
+    initializeTemplates() {
+        return {
+            blank: {
+                name: 'Blank Document',
+                content: '',
+                description: 'Start with a clean slate'
+            },
+            report: {
+                name: 'Business Report',
+                content: `<h1>Business Report</h1>
+                         <p><strong>Date:</strong> ${new Date().toDateString()}</p>
+                         <h2>Executive Summary</h2>
+                         <p>Enter your executive summary here...</p>
+                         <h2>Main Content</h2>
+                         <p>Enter your main content here...</p>
+                         <h2>Conclusion</h2>
+                         <p>Enter your conclusion here...</p>`,
+                description: 'Professional business report template'
+            },
+            letter: {
+                name: 'Formal Letter',
+                content: `<p style="text-align: right;">${new Date().toDateString()}</p>
+                         <br>
+                         <p>Dear [Recipient],</p>
+                         <br>
+                         <p>Enter your letter content here...</p>
+                         <br>
+                         <p>Sincerely,<br>[Your Name]</p>`,
+                description: 'Formal business letter template'
+            },
+            resume: {
+                name: 'Professional Resume',
+                content: `<div style="text-align: center;">
+                         <h1>[Your Name]</h1>
+                         <p>[Your Address] | [Phone] | [Email]</p>
+                         </div>
+                         <br>
+                         <h2>Professional Summary</h2>
+                         <p>Enter your professional summary here...</p>
+                         <h2>Experience</h2>
+                         <p>Enter your work experience here...</p>
+                         <h2>Education</h2>
+                         <p>Enter your education details here...</p>
+                         <h2>Skills</h2>
+                         <p>Enter your skills here...</p>`,
+                description: 'Professional resume template'
+            }
+        };
+    }
+
+    bindEvents() {
+        // Search functionality
+        const searchInput = document.getElementById('search-input');
+        const searchClear = document.getElementById('search-clear');
+
+        searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+        searchClear.addEventListener('click', () => this.clearSearch());
+
+        // User menu
+        const userBtn = document.getElementById('user-btn');
+        const userDropdown = document.getElementById('user-dropdown');
+
+        userBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', () => {
+            userDropdown.classList.remove('show');
+        });
+
+        // Quick actions
+        document.getElementById('new-blank-doc').addEventListener('click', () => this.createDocument('blank'));
+        document.getElementById('new-template-doc').addEventListener('click', () => this.showNewDocumentModal());
+        document.getElementById('import-doc').addEventListener('click', () => this.showImportModal());
+
+        // View controls
+        document.getElementById('grid-view').addEventListener('click', () => this.setView('grid'));
+        document.getElementById('list-view').addEventListener('click', () => this.setView('list'));
+
+        // Sort controls
+        document.getElementById('sort-select').addEventListener('change', (e) => this.setSortBy(e.target.value));
+
+        // Template cards
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const template = card.dataset.template;
+                this.createDocument(template);
+            });
+        });
+
+        // See all button
+        document.getElementById('see-all-recent').addEventListener('click', () => this.showAllDocuments());
+
+        // Bulk actions
+        document.getElementById('select-all').addEventListener('click', () => this.toggleSelectAll());
+        document.getElementById('delete-selected').addEventListener('click', () => this.deleteSelectedDocuments());
+
+        // Modal events
+        this.setupModalEvents();
+
+        // Context menu
+        this.setupContextMenu();
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+
+        // User menu actions
+        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
+        document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
+        document.getElementById('help-btn').addEventListener('click', () => this.showHelp());
+    }
+
+    handleSearch(query) {
+        this.searchQuery = query.toLowerCase();
+        const searchClear = document.getElementById('search-clear');
+        
+        if (query) {
+            searchClear.style.display = 'block';
+        } else {
+            searchClear.style.display = 'none';
+        }
+        
+        this.renderDocuments();
+    }
+
+    clearSearch() {
+        const searchInput = document.getElementById('search-input');
+        const searchClear = document.getElementById('search-clear');
+        
+        searchInput.value = '';
+        searchClear.style.display = 'none';
+        this.searchQuery = '';
+        this.renderDocuments();
+    }
+
+    setView(view) {
+        this.currentView = view;
+        
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`${view}-view`).classList.add('active');
+        
+        const grids = document.querySelectorAll('.documents-grid');
+        grids.forEach(grid => {
+            if (view === 'list') {
+                grid.classList.add('list-view');
+            } else {
+                grid.classList.remove('list-view');
+            }
+        });
+        
+        this.renderDocuments();
+    }
+
+    setSortBy(sortBy) {
+        this.currentSort = sortBy;
+        this.renderDocuments();
+    }
+
+    showAllDocuments() {
+        document.querySelector('.recent-section').style.display = 'none';
+        document.querySelector('.templates-section').style.display = 'none';
+        document.getElementById('all-documents-section').style.display = 'block';
+        this.renderAllDocuments();
+    }
+
+    toggleSelectAll() {
+        const selectAllBtn = document.getElementById('select-all');
+        const deleteSelectedBtn = document.getElementById('delete-selected');
+        
+        if (this.isSelectionMode) {
+            // Exit selection mode
+            this.isSelectionMode = false;
+            this.selectedDocuments.clear();
+            selectAllBtn.textContent = 'Select All';
+            deleteSelectedBtn.style.display = 'none';
+            document.querySelectorAll('.document-card').forEach(card => {
+                card.classList.remove('selection-mode', 'selected');
+            });
+        } else {
+            // Enter selection mode
+            this.isSelectionMode = true;
+            selectAllBtn.textContent = 'Deselect All';
+            deleteSelectedBtn.style.display = 'block';
+            document.querySelectorAll('.document-card').forEach(card => {
+                card.classList.add('selection-mode');
+                const docId = card.dataset.id;
+                this.selectedDocuments.add(docId);
+                card.classList.add('selected');
+            });
+        }
+    }
+
+    createDocument(template = 'blank', customTitle = null) {
+        const templateData = this.templates[template] || this.templates.blank;
+        const title = customTitle || templateData.name;
+        
+        const newDocument = {
+            id: 'doc-' + Date.now(),
+            title: title,
+            content: templateData.content,
+            description: '',
+            createdAt: Date.now(),
+            lastModified: Date.now(),
+            template: template,
+            wordCount: this.countWords(templateData.content)
+        };
+
+        this.documents.unshift(newDocument);
+        this.saveDocuments();
+        this.updateDocumentCount();
+        this.renderDocuments();
+        this.updateEmptyState();
+        this.populateRecentActivity();
+
+        this.showToast(`Document "${title}" created successfully!`, 'success');
+        
+        // Redirect to editor after a short delay
+        setTimeout(() => {
+            this.openDocument(newDocument.id);
+        }, 500);
+    }
+
+    openDocument(documentId) {
+        localStorage.setItem('currentDocumentId', documentId);
+        window.location.href = 'docseditor.html';
+    }
+
+    deleteDocument(documentId) {
+        const index = this.documents.findIndex(doc => doc.id === documentId);
+        if (index !== -1) {
+            const deletedDoc = this.documents[index];
+            this.documents.splice(index, 1);
+            this.saveDocuments();
+            this.renderDocuments();
+            this.updateEmptyState();
+            this.updateDocumentCount();
+            this.populateRecentActivity();
+            this.showToast(`Document "${deletedDoc.title}" deleted`, 'success');
+        }
+    }
+
+    deleteSelectedDocuments() {
+        if (this.selectedDocuments.size === 0) return;
+
+        const count = this.selectedDocuments.size;
+        this.selectedDocuments.forEach(docId => {
+            const index = this.documents.findIndex(doc => doc.id === docId);
+            if (index !== -1) {
+                this.documents.splice(index, 1);
+            }
+        });
+
+        this.selectedDocuments.clear();
+        this.isSelectionMode = false;
+        this.saveDocuments();
+        this.renderDocuments();
+        this.updateEmptyState();
+        this.updateDocumentCount();
+        this.populateRecentActivity();
+
+        document.getElementById('select-all').textContent = 'Select All';
+        document.getElementById('delete-selected').style.display = 'none';
+
+        this.showToast(`${count} document(s) deleted`, 'success');
+    }
+
+    duplicateDocument(documentId) {
+        const originalDoc = this.documents.find(doc => doc.id === documentId);
+        if (!originalDoc) return;
+
+        const duplicatedDoc = {
+            ...originalDoc,
+            id: 'doc-' + Date.now(),
+            title: `${originalDoc.title} - Copy`,
+            createdAt: Date.now(),
+            lastModified: Date.now()
+        };
+
+        this.documents.unshift(duplicatedDoc);
+        this.saveDocuments();
+        this.renderDocuments();
+        this.updateDocumentCount();
+        this.populateRecentActivity();
+
+        this.showToast(`Document duplicated successfully!`, 'success');
+    }
+
+    renameDocument(documentId, newTitle) {
+        const doc = this.documents.find(d => d.id === documentId);
+        if (doc) {
+            doc.title = newTitle;
+            doc.lastModified = Date.now();
+            this.saveDocuments();
+            this.renderDocuments();
+            this.populateRecentActivity();
+            this.showToast('Document renamed successfully!', 'success');
+        }
+    }
+
+    filterDocuments() {
+        let filtered = [...this.documents];
+
+        // Apply search filter
+        if (this.searchQuery) {
+            filtered = filtered.filter(doc => 
+                doc.title.toLowerCase().includes(this.searchQuery) ||
+                (doc.description && doc.description.toLowerCase().includes(this.searchQuery))
+            );
+        }
+
+        // Apply sorting
+        filtered.sort((a, b) => {
+            switch (this.currentSort) {
+                case 'name':
+                    return a.title.localeCompare(b.title);
+                case 'created':
+                    return b.createdAt - a.createdAt;
+                case 'size':
+                    return (b.wordCount || 0) - (a.wordCount || 0);
+                case 'modified':
+                default:
+                    return b.lastModified - a.lastModified;
+            }
+        });
+
+        return filtered;
+    }
+
+    renderDocuments() {
+        const grid = document.getElementById('documents-grid');
+        const filtered = this.filterDocuments();
+        
+        if (filtered.length === 0) {
+            if (this.searchQuery) {
+                grid.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-search" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3>No documents found</h3>
+                        <p>Try adjusting your search terms</p>
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = '';
+            }
+            return;
+        }
+
+        // Show only recent documents (last 6) in the main view
+        const documentsToShow = filtered.slice(0, 6);
+        
+        grid.innerHTML = documentsToShow.map(doc => this.createDocumentCard(doc)).join('');
+        this.bindDocumentCardEvents();
+    }
+
+    renderAllDocuments() {
+        const grid = document.getElementById('all-documents-grid');
+        const filtered = this.filterDocuments();
+        
+        grid.innerHTML = filtered.map(doc => this.createDocumentCard(doc)).join('');
+        this.bindDocumentCardEvents();
+    }
+
+    createDocumentCard(doc) {
+        const isListView = this.currentView === 'list';
+        const cardClass = `document-card ${isListView ? 'list-view' : ''}`;
+        
+        return `
+            <div class="${cardClass}" data-id="${doc.id}">
+                ${this.isSelectionMode ? `<input type="checkbox" class="card-checkbox" ${this.selectedDocuments.has(doc.id) ? 'checked' : ''}>` : ''}
+                
+                <div class="document-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                
+                <div class="document-info">
+                    <h3 class="document-title">${this.escapeHtml(doc.title)}</h3>
+                    <div class="document-meta">
+                        <span><i class="fas fa-clock"></i> ${this.formatDate(doc.lastModified)}</span>
+                        <span><i class="fas fa-font"></i> ${doc.wordCount || 0} words</span>
+                        ${doc.template && doc.template !== 'blank' ? `<span><i class="fas fa-bookmark"></i> ${doc.template}</span>` : ''}
+                    </div>
+                    ${doc.description ? `<p class="document-description">${this.escapeHtml(doc.description)}</p>` : ''}
+                </div>
+                
+                <div class="document-actions">
+                    <button class="btn btn-primary btn-sm" onclick="dashboard.openDocument('${doc.id}')">
+                        <i class="fas fa-folder-open"></i>
+                        Open
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="dashboard.showContextMenu(event, '${doc.id}')">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    bindDocumentCardEvents() {
+        document.querySelectorAll('.document-card').forEach(card => {
+            const checkbox = card.querySelector('.card-checkbox');
+            
+            if (checkbox) {
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    const docId = card.dataset.id;
+                    
+                    if (checkbox.checked) {
+                        this.selectedDocuments.add(docId);
+                        card.classList.add('selected');
+                    } else {
+                        this.selectedDocuments.delete(docId);
+                        card.classList.remove('selected');
+                    }
+                    
+                    // Update UI based on selection
+                    const deleteBtn = document.getElementById('delete-selected');
+                    if (this.selectedDocuments.size > 0) {
+                        deleteBtn.style.display = 'block';
+                        deleteBtn.textContent = `Delete Selected (${this.selectedDocuments.size})`;
+                    } else {
+                        deleteBtn.style.display = 'none';
+                    }
+                });
+            }
+
+            // Double click to open
+            card.addEventListener('dblclick', () => {
+                if (!this.isSelectionMode) {
+                    this.openDocument(card.dataset.id);
+                }
+            });
+
+            // Right click for context menu
+            card.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                this.showContextMenu(e, card.dataset.id);
+            });
+        });
+    }
+
+    showContextMenu(event, documentId) {
+        const contextMenu = document.getElementById('doc-context-menu');
+        const rect = document.body.getBoundingClientRect();
+        
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = event.pageX + 'px';
+        contextMenu.style.top = event.pageY + 'px';
+        
+        // Store current document ID for context actions
+        contextMenu.dataset.documentId = documentId;
+        
+        // Hide context menu when clicking elsewhere
+        setTimeout(() => {
+            document.addEventListener('click', () => {
+                contextMenu.style.display = 'none';
+            }, { once: true });
+        }, 10);
+    }
+
+    setupContextMenu() {
+        document.getElementById('context-open').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            this.openDocument(docId);
+        });
+
+        document.getElementById('context-rename').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            const doc = this.documents.find(d => d.id === docId);
+            if (doc) {
+                const newTitle = prompt('Enter new name:', doc.title);
+                if (newTitle && newTitle.trim()) {
+                    this.renameDocument(docId, newTitle.trim());
+                }
+            }
+        });
+
+        document.getElementById('context-duplicate').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            this.duplicateDocument(docId);
+        });
+
+        document.getElementById('context-export').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            this.exportDocument(docId);
+        });
+
+        document.getElementById('context-delete').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            this.showDeleteModal(docId);
+        });
+    }
+
+    setupModalEvents() {
+        // New Document Modal
+        this.setupNewDocumentModal();
+        
+        // Delete Modal
+        this.setupDeleteModal();
+        
+        // Import Modal
+        this.setupImportModal();
+        
+        // General modal close events
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal-overlay').style.display = 'none';
+            });
+        });
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    setupNewDocumentModal() {
+        const modal = document.getElementById('new-doc-modal');
+        const createBtn = document.getElementById('create-new-doc');
+        const cancelBtn = document.getElementById('cancel-new-doc');
+        const nameInput = document.getElementById('document-name');
+        const descInput = document.getElementById('document-description');
+
+        createBtn.addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            if (name) {
+                const newDoc = {
+                    id: 'doc-' + Date.now(),
+                    title: name,
+                    content: '',
+                    description: descInput.value.trim(),
+                    createdAt: Date.now(),
+                    lastModified: Date.now(),
+                    template: 'blank',
+                    wordCount: 0
+                };
+
+                this.documents.unshift(newDoc);
+                this.saveDocuments();
+                this.renderDocuments();
+                this.updateEmptyState();
+                this.updateDocumentCount();
+                this.populateRecentActivity();
+
+                modal.style.display = 'none';
+                nameInput.value = '';
+                descInput.value = '';
+
+                this.showToast(`Document "${name}" created successfully!`, 'success');
+                
+                setTimeout(() => {
+                    this.openDocument(newDoc.id);
+                }, 500);
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            nameInput.value = '';
+            descInput.value = '';
+        });
+    }
+
+    setupDeleteModal() {
+        const modal = document.getElementById('delete-modal');
+        const confirmBtn = document.getElementById('confirm-delete');
+        const cancelBtn = document.getElementById('cancel-delete');
+
+        confirmBtn.addEventListener('click', () => {
+            if (this.documentToDelete) {
+                this.deleteDocument(this.documentToDelete);
+                modal.style.display = 'none';
+                this.documentToDelete = null;
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            this.documentToDelete = null;
+        });
+    }
+
+    setupImportModal() {
+        const modal = document.getElementById('import-modal');
+        const dropZone = document.getElementById('import-drop-zone');
+        const fileInput = document.getElementById('import-file');
+        const confirmBtn = document.getElementById('confirm-import');
+        const cancelBtn = document.getElementById('cancel-import');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            this.handleImportFiles(files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            this.handleImportFiles(files);
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            fileInput.value = '';
+        });
+    }
+
+    handleImportFiles(files) {
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                const newDoc = {
+                    id: 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    content: content,
+                    description: `Imported from ${file.name}`,
+                    createdAt: Date.now(),
+                    lastModified: Date.now(),
+                    template: 'imported',
+                    wordCount: this.countWords(content)
+                };
+
+                this.documents.unshift(newDoc);
+                this.saveDocuments();
+                this.renderDocuments();
+                this.updateDocumentCount();
+                this.populateRecentActivity();
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('import-modal').style.display = 'none';
+        document.getElementById('import-file').value = '';
+        this.showToast(`${files.length} file(s) imported successfully!`, 'success');
+    }
+
+    showNewDocumentModal() {
+        document.getElementById('new-doc-modal').style.display = 'flex';
+        setTimeout(() => {
+            document.getElementById('document-name').focus();
+        }, 100);
+    }
+
+    showDeleteModal(documentId) {
+        const doc = this.documents.find(d => d.id === documentId);
+        if (!doc) return;
+
+        document.getElementById('delete-document-name').textContent = doc.title;
+        document.getElementById('delete-modal').style.display = 'flex';
+        this.documentToDelete = documentId;
+    }
+
+    showImportModal() {
+        document.getElementById('import-modal').style.display = 'flex';
+    }
+
+    // Helper methods
+    loadDocuments() {
+        const stored = localStorage.getItem('documents');
+        if (stored) {
+            return JSON.parse(stored);
+        }
+        
+        // Sample documents with more details
+        return [
+            {
+                id: 'doc-1',
+                title: 'Project Proposal',
+                content: '<h1>Project Proposal</h1><p>This is a sample project proposal...</p>',
+                description: 'Q4 marketing campaign proposal',
+                createdAt: new Date('2024-12-01').getTime(),
+                lastModified: new Date('2024-12-05').getTime(),
+                template: 'report',
+                wordCount: 450
+            },
+            {
+                id: 'doc-2',
+                title: 'Meeting Notes',
+                content: '<h2>Team Meeting - December 2024</h2><p>Agenda items and action points...</p>',
+                description: 'Weekly team sync notes',
+                createdAt: new Date('2024-12-02').getTime(),
+                lastModified: new Date('2024-12-04').getTime(),
+                template: 'blank',
+                wordCount: 230
+            }
+        ];
+    }
+
+    saveDocuments() {
+        localStorage.setItem('documents', JSON.stringify(this.documents));
+    }
+
+    updateDocumentCount() {
+        const count = this.documents.length;
+        const countElement = document.getElementById('document-count');
+        if (countElement) {
+            countElement.textContent = `${count} document${count !== 1 ? 's' : ''}`;
+        }
+    }
+
+    updateEmptyState() {
+        const emptyState = document.getElementById('empty-state');
+        const recentSection = document.querySelector('.recent-section');
+        const templatesSection = document.querySelector('.templates-section');
+        
+        if (this.documents.length === 0) {
+            emptyState.style.display = 'block';
+            recentSection.style.display = 'none';
+            templatesSection.style.display = 'block'; // Keep templates visible
+        } else {
+            emptyState.style.display = 'none';
+            recentSection.style.display = 'block';
+            templatesSection.style.display = 'block';
+        }
+    }
+
+    populateRecentActivity() {
+        const activityContainer = document.getElementById('recent-activity');
+        const recentDocs = this.documents
+            .sort((a, b) => b.lastModified - a.lastModified)
+            .slice(0, 5);
+
+        if (recentDocs.length === 0) {
+            activityContainer.innerHTML = '<div class="activity-item">No recent activity</div>';
+            return;
+        }
+
+        activityContainer.innerHTML = recentDocs.map(doc => {
+            const action = doc.createdAt === doc.lastModified ? 'Created' : 'Modified';
+            return `
+                <div class="activity-item">
+                    <strong>${action}</strong> "${doc.title}"<br>
+                    <small>${this.formatDate(doc.lastModified)}</small>
+                </div>
+            `;
+        }).join('');
+    }
+
+    updateStorageInfo() {
+        const storageUsed = document.getElementById('storage-used');
+        const storageText = document.getElementById('storage-text');
+        
+        const docCount = this.documents.length;
+        const percentage = Math.min((docCount / 100) * 100, 100); // Assuming 100 docs max for demo
+        
+        storageUsed.style.width = `${percentage}%`;
+        storageText.textContent = `${docCount} of unlimited documents`;
+    }
+
+    countWords(text) {
+        if (!text) return 0;
+        // Remove HTML tags and count words
+        const plainText = text.replace(/<[^>]*>/g, '');
+        return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
+    }
+
+    formatDate(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            return 'Yesterday';
+        } else if (diffDays < 7) {
+            return `${diffDays} days ago`;
+        } else if (diffDays < 30) {
+            const weeks = Math.floor(diffDays / 7);
+            return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+        } else {
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    showToast(message, type = 'info') {
+        // Remove existing toast
+        const existingToast = document.querySelector('.toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-content">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+
+        // Toast styles
+        const colors = {
+            success: '#28a745',
+            error: '#dc3545',
+            info: '#007bff',
+            warning: '#ffc107'
+        };
+
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${colors[type] || colors.info};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            animation: slideInRight 0.3s ease-out;
+            max-width: 400px;
+            font-size: 14px;
+        `;
+
+        // Add toast styles if not already added
+        if (!document.querySelector('#toast-styles')) {
+            const style = document.createElement('style');
+            style.id = 'toast-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                .toast-content {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        document.body.appendChild(toast);
+
+        // Auto remove after 4 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.animation = 'slideInRight 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 4000);
+    }
+
+    handleKeyboardShortcuts(e) {
+        // Ctrl/Cmd + N: New document
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            this.showNewDocumentModal();
+        }
+        
+        // Escape: Close modals
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay').forEach(modal => {
+                modal.style.display = 'none';
+            });
+            document.getElementById('doc-context-menu').style.display = 'none';
+        }
+        
+        // Delete: Delete selected documents
+        if (e.key === 'Delete' && this.selectedDocuments.size > 0) {
+            this.deleteSelectedDocuments();
+        }
+    }
+
+    exportDocument(documentId) {
+        const doc = this.documents.find(d => d.id === documentId);
+        if (!doc) return;
+
+        // Create a blob with the document content
+        const blob = new Blob([doc.content], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        
+        // Create temporary download link
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${doc.title}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.showToast('Document exported successfully!', 'success');
+    }
+
+    logout() {
+        if (confirm('Are you sure you want to sign out?')) {
+            localStorage.removeItem('currentDocumentId');
+            this.showToast('Signed out successfully', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
+
+    showSettings() {
+        this.showToast('Settings panel coming soon!', 'info');
+    }
+
+    showHelp() {
+        this.showToast('Help documentation coming soon!', 'info');
+    }
+
+    // Method to refresh documents (useful for when returning from editor)
+    refresh() {
+        this.documents = this.loadDocuments();
+        this.renderDocuments();
+        this.updateEmptyState();
+        this.updateDocumentCount();
+        this.populateRecentActivity();
+        this.updateStorageInfo();
+    }
+}
+
+// Initialize dashboard when DOM is loaded
+let dashboard;
+document.addEventListener('DOMContentLoaded', () => {
+    dashboard = new AdvancedDocumentDashboard();
+    
+    // Add event listener for create first doc button
+    const createFirstDocBtn = document.getElementById('create-first-doc');
+    if (createFirstDocBtn) {
+        createFirstDocBtn.addEventListener('click', () => {
+            dashboard.showNewDocumentModal();
+        });
+    }
+});
+
+// Handle page visibility change to refresh when coming back from editor
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && dashboard) {
+        dashboard.refresh();
+    }
+});
+
+// Export for use in other scripts
+window.AdvancedDocumentDashboard = AdvancedDocumentDashboard;
