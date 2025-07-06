@@ -77,7 +77,15 @@ class DocsEditor {
 
     initializeEventListeners() {
         // Dashboard navigation
-        document.getElementById('dashboard-btn').addEventListener('click', () => this.goToDashboard());
+        const dashboardBtn = document.getElementById('dashboard-btn');
+        if (dashboardBtn) {
+            dashboardBtn.addEventListener('click', () => {
+                console.log('Dashboard button click detected');
+                this.goToDashboard();
+            });
+        } else {
+            console.error('Dashboard button not found!');
+        }
         
         // Toolbar formatting buttons
         document.getElementById('bold-btn').addEventListener('click', () => this.formatText('bold'));
@@ -808,7 +816,7 @@ class DocsEditor {
                 createdAt: Date.now(),
                 lastModified: Date.now(),
                 template: 'blank',
-                wordCount: this.countWords(content)
+                wordCount: this.countWordsFromPages(pagesContent)
             };
             
             if (this.watermarkSettings) {
@@ -823,7 +831,7 @@ class DocsEditor {
         // Also save to legacy format for backward compatibility
         const legacyData = {
             title: title,
-            content: content,
+            content: pagesContent,
             watermark: this.watermarkSettings,
             lastModified: new Date().toISOString()
         };
@@ -856,15 +864,22 @@ class DocsEditor {
     goToDashboard() {
         console.log('Dashboard button clicked'); // Debug log
         
-        // Save current document before navigating
-        this.saveDocument();
-        
-        // Small delay to ensure save completes
-        setTimeout(() => {
-            console.log('Navigating to dashboard'); // Debug log
-            // Navigate to dashboard
+        try {
+            // Save current document before navigating
+            this.saveDocument();
+            
+            // Small delay to ensure save completes
+            setTimeout(() => {
+                console.log('Navigating to dashboard'); // Debug log
+                // Navigate to dashboard
+                window.location.href = 'index.html';
+            }, 300);
+        } catch (error) {
+            console.error('Error in goToDashboard:', error);
+            // Still navigate even if save fails
+            console.log('Navigating to dashboard after error'); // Debug log
             window.location.href = 'index.html';
-        }, 300);
+        }
     }
 
     loadDocument() {
