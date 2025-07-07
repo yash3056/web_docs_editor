@@ -12,6 +12,7 @@ class DocsEditor {
         this.pageHeight = 11 * 96; // 11 inches * 96 DPI
         this.currentPage = 1;
         this.serverAvailable = false;
+        this.isNavigating = false; // Flag to track programmatic navigation
         
         console.log('📝 Editor element found:', !!this.editor);
         console.log('📄 Document title element found:', !!this.documentTitle);
@@ -97,9 +98,9 @@ class DocsEditor {
         // Dashboard navigation
         const dashboardBtn = document.getElementById('dashboard-btn');
         if (dashboardBtn) {
-            dashboardBtn.addEventListener('click', () => {
+            dashboardBtn.addEventListener('click', async () => {
                 console.log('Dashboard button click detected');
-                this.goToDashboard();
+                await this.goToDashboard();
             });
         } else {
             console.error('Dashboard button not found!');
@@ -916,19 +917,19 @@ class DocsEditor {
         return totalText.trim() ? totalText.trim().split(/\s+/).length : 0;
     }
 
-    goToDashboard() {
+    async goToDashboard() {
         console.log('Dashboard button clicked'); // Debug log
         
         try {
-            // Save current document before navigating
-            this.saveDocument();
+            // Set flag to indicate programmatic navigation
+            this.isNavigating = true;
             
-            // Small delay to ensure save completes
-            setTimeout(() => {
-                console.log('Navigating to dashboard'); // Debug log
-                // Navigate to dashboard
-                window.location.href = 'index.html';
-            }, 300);
+            // Save current document before navigating
+            await this.saveDocument();
+            
+            console.log('Navigating to dashboard'); // Debug log
+            // Navigate to dashboard
+            window.location.href = 'index.html';
         } catch (error) {
             console.error('Error in goToDashboard:', error);
             // Still navigate even if save fails
@@ -1516,9 +1517,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Handle beforeunload to warn about unsaved changes
 window.addEventListener('beforeunload', (e) => {
-    const lastSaved = document.getElementById('last-saved').textContent;
-    if (lastSaved === 'Never saved') {
-        e.preventDefault();
-        e.returnValue = '';
+    // Don't show warning if we're navigating programmatically
+    if (window.docsEditor && window.docsEditor.isNavigating) {
+        return;
+    }
+    
+    // Check if there's actual content and it hasn't been saved
+    const editor = document.getElementById('editor');
+    const lastSaved = document.getElementById('last-saved');
+    
+    if (editor && lastSaved) {
+        const hasContent = editor.innerHTML.trim() && editor.innerHTML !== '<p><br></p>' && editor.innerHTML !== '<br>';
+        const neverSaved = lastSaved.textContent === 'Never saved' || lastSaved.textContent.includes('Never saved');
+        
+        // Only show warning if there's actual content and it's never been saved
+        if (hasContent && neverSaved) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
     }
 });
