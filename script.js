@@ -1,5 +1,8 @@
 class DocsEditor {
     constructor() {
+        console.log('🚀 DocsEditor constructor starting...');
+        
+        this.api = new DocumentAPI();
         this.editor = document.getElementById('editor');
         this.documentContainer = document.getElementById('document-container');
         this.pageIndicators = document.getElementById('page-indicators');
@@ -8,6 +11,10 @@ class DocsEditor {
         this.selectedImageData = null;
         this.pageHeight = 11 * 96; // 11 inches * 96 DPI
         this.currentPage = 1;
+        this.serverAvailable = false;
+        
+        console.log('📝 Editor element found:', !!this.editor);
+        console.log('📄 Document title element found:', !!this.documentTitle);
         
         this.initializeEditor();
         this.initializeEventListeners();
@@ -17,8 +24,19 @@ class DocsEditor {
         this.saveState();
         this.updateWatermarkButtonState();
         this.updatePageLayout();
+        this.checkServerStatus();
         
-        console.log('DocsEditor initialized properly as Word-like editor');
+        console.log('✅ DocsEditor initialized properly as Word-like editor');
+    }
+
+    async checkServerStatus() {
+        try {
+            this.serverAvailable = await this.api.checkServerHealth();
+            console.log('Server status:', this.serverAvailable ? 'Online' : 'Offline');
+        } catch (error) {
+            this.serverAvailable = false;
+            console.log('Server check failed, using offline mode');
+        }
     }
 
     initializeEditor() {
@@ -133,7 +151,17 @@ class DocsEditor {
         document.getElementById('watermark-btn').addEventListener('click', () => this.toggleWatermark());
 
         // Save and export
-        document.getElementById('save-btn').addEventListener('click', () => this.saveDocument());
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                console.log('💾 Save button clicked!');
+                this.saveDocument();
+            });
+            console.log('✅ Save button event listener attached');
+        } else {
+            console.error('❌ Save button not found!');
+        }
+        
         document.getElementById('export-btn').addEventListener('click', () => this.toggleExportMenu());
         
         // Export options
@@ -776,71 +804,98 @@ class DocsEditor {
         }
     }
 
-    saveDocument() {
+    async saveDocument() {
+        console.log('💾 Save button clicked');
+        
         const title = this.documentTitle.value.trim() || 'Untitled Document';
-        const pagesContent = this.pages.map(page => page.innerHTML);
+        
+        // Get content from the editor (single page mode)
+        const editorContent = this.editor ? this.editor.innerHTML : '';
+        const pagesContent = [editorContent]; // Wrap in array for compatibility
+        
         const currentDocId = localStorage.getItem('currentDocumentId');
         
-        if (currentDocId) {
-            // Update existing document in dashboard storage
-            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
-            const docIndex = documents.findIndex(doc => doc.id === currentDocId);
-            
-            if (docIndex !== -1) {
-                documents[docIndex].title = title;
-                documents[docIndex].content = pagesContent; // Store as array of pages
-                documents[docIndex].lastModified = Date.now();
-                documents[docIndex].wordCount = this.countWordsFromPages(pagesContent);
-                documents[docIndex].pageCount = this.pages.length;
-                if (this.watermarkSettings) {
-                    documents[docIndex].watermark = this.watermarkSettings;
-                }
-                localStorage.setItem('documents', JSON.stringify(documents));
-            }
-        } else {
-            // Check document limit before creating new document
-            const documents = JSON.parse(localStorage.getItem('documents') || '[]');
-            const maxDocuments = 20;
-            
-            if (documents.length >= maxDocuments) {
-                this.showAlert(`Document limit reached! You can store up to ${maxDocuments} documents. Please delete some documents from the dashboard first.`, 'error');
-                return;
-            }
-
-            // Create new document if none selected
-            const newDoc = {
-                id: 'doc-' + Date.now(),
-                title: title,
-                content: pagesContent, // Store as array of pages
-                description: '',
-                createdAt: Date.now(),
-                lastModified: Date.now(),
-                template: 'blank',
-                wordCount: this.countWordsFromPages(pagesContent)
-            };
-            
-            if (this.watermarkSettings) {
-                newDoc.watermark = this.watermarkSettings;
-            }
-            
-            documents.unshift(newDoc);
-            localStorage.setItem('documents', JSON.stringify(documents));
-            localStorage.setItem('currentDocumentId', newDoc.id);
-        }
-        
-        // Also save to legacy format for backward compatibility
-        const legacyData = {
+        const document = {
+            id: currentDocId || 'doc-' + Date.now(),
             title: title,
             content: pagesContent,
+            description: '',
+            lastModified: Date.now(),
+            wordCount: this.countWords(editorContent),
+            pageCount: 1
+        };
+
+        if (!currentDocId) {
+            document.createdAt = Date.now();
+            document.template = 'blank';
+        }
+
+        if (this.watermarkSettings) {
+            document.watermark = this.watermarkSettings;
+        }
+
+        console.log('📄 Saving document:', document);
+
+        try {
+            // Try server save first
+            if (this.serverAvailable) {
+                console.log('🌐 Attempting server save...');
+                const result = await this.api.saveDocument(document);
+                if (result.success) {
+                    console.log('✅ Document saved to server');
+                }
+            } else {
+                console.log('📱 Server offline, saving locally only');
+            }
+            
+            // Always save locally as backup
+            this.saveDocumentLocally(document);
+            
+            // Update current document ID if new
+            if (!currentDocId) {
+                localStorage.setItem('currentDocumentId', document.id);
+                console.log('🆔 Set document ID:', document.id);
+            }
+            
+            // Update UI
+            const now = new Date().toLocaleString();
+            const lastSavedElement = document.getElementById('last-saved');
+            if (lastSavedElement) {
+                lastSavedElement.textContent = `Last saved: ${now}`;
+            }
+            
+            this.showNotification('Document saved successfully!', 'success');
+            console.log('✅ Document saved successfully:', document.title);
+            
+        } catch (error) {
+            console.error('❌ Save error:', error);
+            // Fallback to local save only
+            this.saveDocumentLocally(document);
+            this.showNotification('Document saved locally (server offline)', 'warning');
+        }
+    }
+
+    saveDocumentLocally(document) {
+        // Save to localStorage
+        const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+        const existingIndex = documents.findIndex(doc => doc.id === document.id);
+        
+        if (existingIndex !== -1) {
+            documents[existingIndex] = document;
+        } else {
+            documents.unshift(document);
+        }
+        
+        localStorage.setItem('documents', JSON.stringify(documents));
+        
+        // Legacy format for backward compatibility
+        const legacyData = {
+            title: document.title,
+            content: document.content,
             watermark: this.watermarkSettings,
             lastModified: new Date().toISOString()
         };
         localStorage.setItem('webdocs_document', JSON.stringify(legacyData));
-        
-        const now = new Date().toLocaleString();
-        document.getElementById('last-saved').textContent = `Last saved: ${now}`;
-        
-        this.showNotification('Document saved successfully!', 'success');
     }
 
     countWords(text) {
@@ -1454,8 +1509,9 @@ class DocsEditor {
 
 // Initialize the editor when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    const editor = new DocsEditor();
-    editor.loadDocument();
+    window.docsEditor = new DocsEditor();
+    window.docsEditor.loadDocument();
+    console.log('✅ DocsEditor initialized and available globally');
 });
 
 // Handle beforeunload to warn about unsaved changes

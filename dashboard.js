@@ -1,6 +1,7 @@
 class AdvancedDocumentDashboard {
     constructor() {
-        this.documents = this.loadDocuments();
+        this.api = new DocumentAPI();
+        this.documents = [];
         this.selectedDocuments = new Set();
         this.currentView = 'grid';
         this.currentSort = 'modified';
@@ -9,11 +10,19 @@ class AdvancedDocumentDashboard {
         this.isSelectionMode = false;
         this.templates = this.initializeTemplates();
         this.maxDocuments = 20; // Document storage limit
+        this.serverAvailable = false;
         
         this.init();
     }
 
-    init() {
+    async init() {
+        // Check server availability
+        this.serverAvailable = await this.api.checkServerHealth();
+        console.log('Server available:', this.serverAvailable);
+        
+        // Load documents from server or localStorage
+        await this.loadDocuments();
+        
         this.bindEvents();
         this.renderDocuments();
         this.updateEmptyState();
@@ -772,39 +781,15 @@ class AdvancedDocumentDashboard {
     }
 
     // Helper methods
-    loadDocuments() {
-        const stored = localStorage.getItem('documents');
-        if (stored) {
-            return JSON.parse(stored);
-        }
-        
-        // Sample documents with more details
-        return [
-            {
-                id: 'doc-1',
-                title: 'Project Proposal',
-                content: '<h1>Project Proposal</h1><p>This is a sample project proposal...</p>',
-                description: 'Q4 marketing campaign proposal',
-                createdAt: new Date('2024-12-01').getTime(),
-                lastModified: new Date('2024-12-05').getTime(),
-                template: 'report',
-                wordCount: 450
-            },
-            {
-                id: 'doc-2',
-                title: 'Meeting Notes',
-                content: '<h2>Team Meeting - December 2024</h2><p>Agenda items and action points...</p>',
-                description: 'Weekly team sync notes',
-                createdAt: new Date('2024-12-02').getTime(),
-                lastModified: new Date('2024-12-04').getTime(),
-                template: 'blank',
-                wordCount: 230
-            }
-        ];
+    async loadDocuments() {
+        this.documents = await this.api.getAllDocuments();
+        console.log(`Loaded ${this.documents.length} documents from ${this.serverAvailable ? 'server' : 'localStorage'}`);
     }
 
-    saveDocuments() {
-        localStorage.setItem('documents', JSON.stringify(this.documents));
+    async saveDocuments() {
+        // Individual document saving is handled by the API
+        // This method is kept for compatibility but doesn't need to do anything
+        console.log('Documents are automatically saved via API');
     }
 
     updateDocumentCount() {
