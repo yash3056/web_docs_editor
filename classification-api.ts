@@ -276,37 +276,19 @@ Analyze the uploaded document now:
             for (const page of pages) {
                 const { width, height } = page.getSize();
                 
-                // Calculate font size to cover 70% of the page
-                const fontSize = Math.min(width, height) * 0.15; // Adjust multiplier as needed
+                // Calculate font size to cover 70% of the page width
+                const fontSize = width * 0.12; // Larger font for better coverage
                 
-                // Add diagonal watermark
+                // Calculate center position for the watermark
+                const textWidth = fontSize * classification.length * 0.6; // Approximate text width
+                const centerX = (width - textWidth) / 2;
+                const centerY = height / 2;
+                
+                // Add single large diagonal watermark in the center
                 page.drawText(classification, {
-                    x: width * 0.15,
-                    y: height * 0.5,
+                    x: centerX,
+                    y: centerY,
                     size: fontSize,
-                    color: config.color,
-                    opacity: config.opacity,
-                    rotate: degrees(45),
-                });
-
-                // Add smaller watermarks in corners for better coverage
-                const smallFontSize = fontSize * 0.4;
-                
-                // Top-left corner
-                page.drawText(classification, {
-                    x: width * 0.05,
-                    y: height * 0.85,
-                    size: smallFontSize,
-                    color: config.color,
-                    opacity: config.opacity,
-                    rotate: degrees(45),
-                });
-
-                // Bottom-right corner
-                page.drawText(classification, {
-                    x: width * 0.65,
-                    y: height * 0.15,
-                    size: smallFontSize,
                     color: config.color,
                     opacity: config.opacity,
                     rotate: degrees(45),
