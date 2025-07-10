@@ -378,6 +378,182 @@ class AdvancedDocumentDashboard {
         }
     }
 
+    exportDocument(documentId) {
+        const doc = this.documents.find(d => d.id === documentId);
+        if (!doc) {
+            this.showToast('Document not found', 'error');
+            return;
+        }
+
+        try {
+            // Hide context menu
+            document.getElementById('doc-context-menu').style.display = 'none';
+
+            // Show loading toast
+            this.showToast('Generating PDF...', 'info');
+
+            // Check if jsPDF is available
+            if (typeof window.jsPDF === 'undefined') {
+                // Fallback to browser print if jsPDF is not available
+                this.exportDocumentFallback(doc);
+                return;
+            }
+
+            // Create PDF using jsPDF
+            const { jsPDF } = window.jsPDF;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            // Set up page dimensions
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 20;
+            const lineHeight = 7;
+            const maxWidth = pageWidth - (margin * 2);
+
+            let currentY = margin;
+
+            // Add title
+            pdf.setFontSize(20);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(doc.title, margin, currentY);
+            currentY += 15;
+
+            // Add metadata
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(100);
+            const metaText = `Created: ${this.formatDate(doc.createdAt)} | Last Modified: ${this.formatDate(doc.lastModified)} | Words: ${doc.wordCount || 0}`;
+            pdf.text(metaText, margin, currentY);
+            currentY += 10;
+
+            // Add separator line
+            pdf.setDrawColor(0);
+            pdf.line(margin, currentY, pageWidth - margin, currentY);
+            currentY += 10;
+
+            // Reset text color and font for content
+            pdf.setTextColor(0);
+            pdf.setFontSize(12);
+
+            // Process document content
+            const content = doc.content && doc.content.length > 0 ? doc.content.join('') : 'No content available';
+            
+            // Strip HTML tags and convert to plain text
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+            // Split content into lines that fit the page width
+            const lines = pdf.splitTextToSize(textContent, maxWidth);
+
+            // Add content to PDF
+            for (let i = 0; i < lines.length; i++) {
+                // Check if we need a new page
+                if (currentY + lineHeight > pageHeight - margin) {
+                    pdf.addPage();
+                    currentY = margin;
+                }
+
+                pdf.text(lines[i], margin, currentY);
+                currentY += lineHeight;
+            }
+
+            // Save the PDF
+            const fileName = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            pdf.save(fileName);
+
+            this.showToast(`PDF "${fileName}" downloaded successfully!`, 'success');
+
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Failed to export document. Please try again.', 'error');
+        }
+    }
+
+    exportDocumentFallback(doc) {
+        // Fallback method using browser print
+        try {
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank');
+            const content = doc.content && doc.content.length > 0 ? doc.content.join('') : '<p>No content available</p>';
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${doc.title} - Export</title>
+                    <style>
+                        @page {
+                            size: A4;
+                            margin: 20mm;
+                        }
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 12pt;
+                            line-height: 1.6;
+                            color: #333;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .header {
+                            margin-bottom: 20px;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 10px;
+                        }
+                        h1 {
+                            margin: 0;
+                            font-size: 24pt;
+                            color: #333;
+                        }
+                        .meta {
+                            margin: 5px 0 0 0;
+                            color: #666;
+                            font-size: 10pt;
+                        }
+                        .content {
+                            margin-top: 20px;
+                        }
+                        h2, h3, h4, h5, h6 {
+                            margin: 20px 0 10px 0;
+                            color: #333;
+                        }
+                        p { margin: 10px 0; }
+                        @media print {
+                            body { margin: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>${this.escapeHtml(doc.title)}</h1>
+                        <p class="meta">
+                            Created: ${this.formatDate(doc.createdAt)} | 
+                            Last Modified: ${this.formatDate(doc.lastModified)} | 
+                            Words: ${doc.wordCount || 0}
+                        </p>
+                    </div>
+                    <div class="content">
+                        ${content}
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+
+            // Trigger print dialog
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+                this.showToast(`PDF export initiated for "${doc.title}"`, 'success');
+            }, 500);
+
+        } catch (error) {
+            console.error('Fallback export error:', error);
+            this.showToast('Failed to export document. Please try again.', 'error');
+        }
+    }
+
     filterDocuments() {
         let filtered = [...this.documents];
 
