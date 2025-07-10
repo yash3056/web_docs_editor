@@ -2,9 +2,22 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const { 
+    initDatabase, 
+    createUser, 
+    validateUser, 
+    saveDocument, 
+    getUserDocuments, 
+    getUserDocument, 
+    deleteUserDocument 
+} = require('./database');
+const { generateToken, authenticateToken } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize database
+initDatabase();
 
 // Middleware
 app.use(cors());
@@ -30,24 +43,65 @@ ensureDirectories();
 
 // API Routes
 
-// Get all documents
-app.get('/api/documents', async (req, res) => {
+// Authentication routes
+app.post('/api/register', async (req, res) => {
     try {
-        const files = await fs.readdir(DOCUMENTS_DIR);
-        const documents = [];
+        const { email, username, password } = req.body;
         
-        for (const file of files) {
-            if (file.endsWith('.json')) {
-                const filePath = path.join(DOCUMENTS_DIR, file);
-                const content = await fs.readFile(filePath, 'utf8');
-                const document = JSON.parse(content);
-                documents.push(document);
-            }
+        if (!email || !username || !password) {
+            return res.status(400).json({ error: 'Email, username, and password are required' });
         }
         
-        // Sort by last modified (newest first)
-        documents.sort((a, b) => b.lastModified - a.lastModified);
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
         
+        const user = await createUser(email, username, password);
+        const token = generateToken(user);
+        
+        res.json({ 
+            success: true, 
+            user: { id: user.id, email: user.email, username: user.username },
+            token 
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        
+        const user = await validateUser(email, password);
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        
+        const token = generateToken(user);
+        
+        res.json({ 
+            success: true, 
+            user: { id: user.id, email: user.email, username: user.username },
+            token 
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Protected document routes (require authentication)
+
+// Get all documents for authenticated user
+app.get('/api/documents', authenticateToken, async (req, res) => {
+    try {
+        const documents = getUserDocuments(req.user.id);
         res.json(documents);
     } catch (error) {
         console.error('Error fetching documents:', error);
@@ -55,28 +109,25 @@ app.get('/api/documents', async (req, res) => {
     }
 });
 
-// Get a specific document
-app.get('/api/documents/:id', async (req, res) => {
+// Get a specific document for authenticated user
+app.get('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const filePath = path.join(DOCUMENTS_DIR, `${id}.json`);
+        const document = getUserDocument(id, req.user.id);
         
-        const content = await fs.readFile(filePath, 'utf8');
-        const document = JSON.parse(content);
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
         
         res.json(document);
     } catch (error) {
-        if (error.code === 'ENOENT') {
-            res.status(404).json({ error: 'Document not found' });
-        } else {
-            console.error('Error fetching document:', error);
-            res.status(500).json({ error: 'Failed to fetch document' });
-        }
+        console.error('Error fetching document:', error);
+        res.status(500).json({ error: 'Failed to fetch document' });
     }
 });
 
-// Save/update a document
-app.post('/api/documents', async (req, res) => {
+// Save/update a document for authenticated user
+app.post('/api/documents', authenticateToken, async (req, res) => {
     try {
         const document = req.body;
         
@@ -91,11 +142,10 @@ app.post('/api/documents', async (req, res) => {
         }
         document.lastModified = Date.now();
         
-        // Save document as JSON file
-        const filePath = path.join(DOCUMENTS_DIR, `${document.id}.json`);
-        await fs.writeFile(filePath, JSON.stringify(document, null, 2));
+        // Save document to database
+        saveDocument(document, req.user.id);
         
-        console.log(`Document saved: ${document.title} (${document.id})`);
+        console.log(`Document saved: ${document.title} (${document.id}) for user ${req.user.username}`);
         res.json({ success: true, document });
     } catch (error) {
         console.error('Error saving document:', error);
@@ -103,28 +153,26 @@ app.post('/api/documents', async (req, res) => {
     }
 });
 
-// Delete a document
-app.delete('/api/documents/:id', async (req, res) => {
+// Delete a document for authenticated user
+app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const filePath = path.join(DOCUMENTS_DIR, `${id}.json`);
+        const deleted = deleteUserDocument(id, req.user.id);
         
-        await fs.unlink(filePath);
+        if (!deleted) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
         
-        console.log(`Document deleted: ${id}`);
+        console.log(`Document deleted: ${id} for user ${req.user.username}`);
         res.json({ success: true });
     } catch (error) {
-        if (error.code === 'ENOENT') {
-            res.status(404).json({ error: 'Document not found' });
-        } else {
-            console.error('Error deleting document:', error);
-            res.status(500).json({ error: 'Failed to delete document' });
-        }
+        console.error('Error deleting document:', error);
+        res.status(500).json({ error: 'Failed to delete document' });
     }
 });
 
-// Export document as DOCX and save to server
-app.post('/api/documents/:id/export', async (req, res) => {
+// Export document as DOCX and save to server (protected route)
+app.post('/api/documents/:id/export', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { format, content } = req.body;
@@ -133,10 +181,11 @@ app.post('/api/documents/:id/export', async (req, res) => {
             return res.status(400).json({ error: 'Format and content are required' });
         }
         
-        // Get document details
-        const docPath = path.join(DOCUMENTS_DIR, `${id}.json`);
-        const docContent = await fs.readFile(docPath, 'utf8');
-        const document = JSON.parse(docContent);
+        // Get document details from database
+        const document = getUserDocument(id, req.user.id);
+        if (!document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
         
         // Save exported file
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -177,8 +226,8 @@ app.get('/api/exports/:filename', (req, res) => {
     });
 });
 
-// Get list of exported files
-app.get('/api/exports', async (req, res) => {
+// Get list of exported files (protected route)
+app.get('/api/exports', authenticateToken, async (req, res) => {
     try {
         const files = await fs.readdir(EXPORTS_DIR);
         const exports = [];

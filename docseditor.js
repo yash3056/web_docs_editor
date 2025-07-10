@@ -14,6 +14,20 @@ class DocsEditor {
         this.serverAvailable = false;
         this.isNavigating = false; // Flag to track programmatic navigation
         this.autoSaveTimeout = null; // For debounced auto-save
+        this.authToken = null;
+        this.user = null;
+        
+        // Check authentication
+        this.authToken = localStorage.getItem('authToken');
+        this.user = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        if (!this.authToken || !this.user) {
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Set up API authentication
+        this.api.setAuthToken(this.authToken);
         
         console.log('📝 Editor element found:', !!this.editor);
         console.log('📄 Document title element found:', !!this.documentTitle);

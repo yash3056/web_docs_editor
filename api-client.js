@@ -2,29 +2,65 @@
 class DocumentAPI {
     constructor() {
         this.baseURL = ''; // Empty for same origin, or specify server URL
+        this.authToken = null;
+    }
+
+    setAuthToken(token) {
+        this.authToken = token;
+    }
+
+    getAuthHeaders() {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (this.authToken) {
+            headers['Authorization'] = `Bearer ${this.authToken}`;
+        }
+        
+        return headers;
+    }
+
+    async handleAuthError(response) {
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+            return true;
+        }
+        return false;
     }
 
     async getAllDocuments() {
         try {
-            const response = await fetch(`${this.baseURL}/api/documents`);
+            const response = await fetch(`${this.baseURL}/api/documents`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (await this.handleAuthError(response)) return [];
             if (!response.ok) throw new Error('Failed to fetch documents');
+            
             return await response.json();
         } catch (error) {
             console.error('Error fetching documents:', error);
-            // Fallback to localStorage if server is not available
-            return this.getLocalDocuments();
+            // No fallback to localStorage for authenticated users
+            return [];
         }
     }
 
     async getDocument(id) {
         try {
-            const response = await fetch(`${this.baseURL}/api/documents/${id}`);
+            const response = await fetch(`${this.baseURL}/api/documents/${id}`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (await this.handleAuthError(response)) return null;
             if (!response.ok) throw new Error('Failed to fetch document');
+            
             return await response.json();
         } catch (error) {
             console.error('Error fetching document:', error);
-            // Fallback to localStorage
-            return this.getLocalDocument(id);
+            return null;
         }
     }
 
@@ -32,42 +68,34 @@ class DocumentAPI {
         try {
             const response = await fetch(`${this.baseURL}/api/documents`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify(document)
             });
             
+            if (await this.handleAuthError(response)) return null;
             if (!response.ok) throw new Error('Failed to save document');
-            const result = await response.json();
             
-            // Also save to localStorage as backup
-            this.saveLocalDocument(document);
-            
-            return result;
+            return await response.json();
         } catch (error) {
             console.error('Error saving document to server:', error);
-            // Fallback to localStorage
-            return this.saveLocalDocument(document);
+            return null;
         }
     }
 
     async deleteDocument(id) {
         try {
             const response = await fetch(`${this.baseURL}/api/documents/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
             });
             
+            if (await this.handleAuthError(response)) return false;
             if (!response.ok) throw new Error('Failed to delete document');
             
-            // Also remove from localStorage
-            this.deleteLocalDocument(id);
-            
-            return await response.json();
+            return true;
         } catch (error) {
-            console.error('Error deleting document from server:', error);
-            // Fallback to localStorage
-            return this.deleteLocalDocument(id);
+            console.error('Error deleting document:', error);
+            return false;
         }
     }
 
@@ -75,13 +103,13 @@ class DocumentAPI {
         try {
             const response = await fetch(`${this.baseURL}/api/documents/${id}/export`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: this.getAuthHeaders(),
                 body: JSON.stringify({ format, content })
             });
             
+            if (await this.handleAuthError(response)) return null;
             if (!response.ok) throw new Error('Failed to export document');
+            
             return await response.json();
         } catch (error) {
             console.error('Error exporting document:', error);
@@ -91,8 +119,13 @@ class DocumentAPI {
 
     async getExports() {
         try {
-            const response = await fetch(`${this.baseURL}/api/exports`);
+            const response = await fetch(`${this.baseURL}/api/exports`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (await this.handleAuthError(response)) return [];
             if (!response.ok) throw new Error('Failed to fetch exports');
+            
             return await response.json();
         } catch (error) {
             console.error('Error fetching exports:', error);

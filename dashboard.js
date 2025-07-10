@@ -11,16 +11,30 @@ class AdvancedDocumentDashboard {
         this.templates = this.initializeTemplates();
         this.maxDocuments = 20; // Document storage limit
         this.serverAvailable = false;
+        this.user = null;
+        this.authToken = null;
         
         this.init();
     }
 
     async init() {
+        // Check authentication
+        this.authToken = localStorage.getItem('authToken');
+        this.user = JSON.parse(localStorage.getItem('user') || 'null');
+        
+        if (!this.authToken || !this.user) {
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        // Set up API authentication
+        this.api.setAuthToken(this.authToken);
+        
         // Check server availability
         this.serverAvailable = await this.api.checkServerHealth();
         console.log('Server available:', this.serverAvailable);
         
-        // Load documents from server or localStorage
+        // Load documents from server
         await this.loadDocuments();
         
         this.bindEvents();
@@ -29,6 +43,27 @@ class AdvancedDocumentDashboard {
         this.updateDocumentCount();
         this.populateRecentActivity();
         this.updateStorageInfo();
+        this.updateUserInfo();
+    }
+
+    updateUserInfo() {
+        // Add user info to header
+        const headerControls = document.querySelector('.header-controls');
+        if (headerControls && this.user) {
+            const userInfo = document.createElement('div');
+            userInfo.className = 'user-info';
+            userInfo.innerHTML = `
+                <span class="username">👤 ${this.user.username}</span>
+                <button class="logout-btn" onclick="dashboard.logout()">Logout</button>
+            `;
+            headerControls.appendChild(userInfo);
+        }
+    }
+
+    logout() {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login.html';
     }
 
     initializeTemplates() {
