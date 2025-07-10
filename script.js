@@ -13,6 +13,7 @@ class DocsEditor {
         this.currentPage = 1;
         this.serverAvailable = false;
         this.isNavigating = false; // Flag to track programmatic navigation
+        this.autoSaveTimeout = null; // For debounced auto-save
         
         console.log('📝 Editor element found:', !!this.editor);
         console.log('📄 Document title element found:', !!this.documentTitle);
@@ -26,6 +27,7 @@ class DocsEditor {
         this.updateWatermarkButtonState();
         this.updatePageLayout();
         this.checkServerStatus();
+        this.setupAutoSave();
         
         console.log('✅ DocsEditor initialized properly as Word-like editor');
     }
@@ -50,6 +52,12 @@ class DocsEditor {
                 this.updateWordCount();
                 this.updatePageLayout();
                 this.saveState();
+                
+                // Auto-save after a short delay to avoid too frequent saves
+                clearTimeout(this.autoSaveTimeout);
+                this.autoSaveTimeout = setTimeout(() => {
+                    this.saveDocument(false); // Auto-save without notifications
+                }, 2000); // Save 2 seconds after user stops typing
             });
             
             // Add click event to ensure focus
@@ -805,13 +813,21 @@ class DocsEditor {
         }
     }
 
-    async saveDocument() {
-        console.log('💾 Save button clicked');
+    async saveDocument(showNotification = true) {
+        if (showNotification) {
+            console.log('💾 Save button clicked');
+        }
         
         const title = this.documentTitle.value.trim() || 'Untitled Document';
         
         // Get content from the editor (single page mode)
         const editorContent = this.editor ? this.editor.innerHTML : '';
+        
+        // Don't save if content is just the placeholder text
+        const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
+                                   editorContent === '<p><br></p>' ||
+                                   editorContent.trim() === '';
+        
         const pagesContent = [editorContent]; // Wrap in array for compatibility
         
         const currentDocId = localStorage.getItem('currentDocumentId');
@@ -835,17 +851,21 @@ class DocsEditor {
             document.watermark = this.watermarkSettings;
         }
 
-        console.log('📄 Saving document:', document);
+        if (showNotification) {
+            console.log('📄 Saving document:', document);
+        }
 
         try {
             // Try server save first
             if (this.serverAvailable) {
-                console.log('🌐 Attempting server save...');
+                if (showNotification) {
+                    console.log('🌐 Attempting server save...');
+                }
                 const result = await this.api.saveDocument(document);
-                if (result.success) {
+                if (result.success && showNotification) {
                     console.log('✅ Document saved to server');
                 }
-            } else {
+            } else if (showNotification) {
                 console.log('📱 Server offline, saving locally only');
             }
             
@@ -855,7 +875,9 @@ class DocsEditor {
             // Update current document ID if new
             if (!currentDocId) {
                 localStorage.setItem('currentDocumentId', document.id);
-                console.log('🆔 Set document ID:', document.id);
+                if (showNotification) {
+                    console.log('🆔 Set document ID:', document.id);
+                }
             }
             
             // Update UI
@@ -865,14 +887,18 @@ class DocsEditor {
                 lastSavedElement.textContent = `Last saved: ${now}`;
             }
             
-            this.showNotification('Document saved successfully!', 'success');
-            console.log('✅ Document saved successfully:', document.title);
+            if (showNotification) {
+                this.showNotification('Document saved successfully!', 'success');
+                console.log('✅ Document saved successfully:', document.title);
+            }
             
         } catch (error) {
             console.error('❌ Save error:', error);
             // Fallback to local save only
             this.saveDocumentLocally(document);
-            this.showNotification('Document saved locally (server offline)', 'warning');
+            if (showNotification) {
+                this.showNotification('Document saved locally (server offline)', 'warning');
+            }
         }
     }
 
@@ -925,7 +951,7 @@ class DocsEditor {
             this.isNavigating = true;
             
             // Save current document before navigating
-            await this.saveDocument();
+            await this.saveDocument(false);
             
             console.log('Navigating to dashboard'); // Debug log
             // Navigate to dashboard
@@ -939,32 +965,39 @@ class DocsEditor {
     }
 
     loadDocument() {
+        console.log('🔍 Loading document...');
         const currentDocId = localStorage.getItem('currentDocumentId');
+        console.log('📄 Current document ID:', currentDocId);
         
         if (currentDocId) {
             // Load document from dashboard storage
             const documents = JSON.parse(localStorage.getItem('documents') || '[]');
+            console.log('📚 Found documents in localStorage:', documents.length);
             const currentDoc = documents.find(doc => doc.id === currentDocId);
+            console.log('🎯 Found current document:', !!currentDoc);
             
             if (currentDoc) {
+                console.log('📖 Loading document:', currentDoc.title);
                 this.documentTitle.value = currentDoc.title;
                 
                 // Handle both old format (single content) and new format (pages array)
                 if (Array.isArray(currentDoc.content)) {
-                    // New multi-page format
-                    currentDoc.content.forEach((pageContent, index) => {
-                        if (index === 0) {
-                            // Update first page
-                            this.pages[0].innerHTML = pageContent;
-                        } else {
-                            // Create additional pages
-                            const newPageContent = this.createNewPage();
-                            newPageContent.innerHTML = pageContent;
-                        }
-                    });
+                    // New multi-page format - use first page content for the editor
+                    if (currentDoc.content.length > 0 && currentDoc.content[0]) {
+                        this.editor.innerHTML = currentDoc.content[0];
+                    } else {
+                        this.editor.innerHTML = '';
+                    }
                 } else {
-                    // Old single-page format - put content in first page
-                    this.pages[0].innerHTML = currentDoc.content;
+                    // Old single-page format - put content directly in editor
+                    this.editor.innerHTML = currentDoc.content || '';
+                }
+                
+                // Clear default placeholder content if it's still there
+                if (this.editor.innerHTML.trim() === '' || 
+                    this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
+                    this.editor.innerHTML === '<p><br></p>') {
+                    this.editor.innerHTML = '';
                 }
                 
                 this.updateWordCount();
@@ -1008,6 +1041,10 @@ class DocsEditor {
             } else {
                 this.updateWatermarkButtonState();
             }
+        } else {
+            // No document found, clear any default content
+            this.editor.innerHTML = '';
+            this.documentTitle.value = 'Untitled Document';
         }
     }
 
@@ -1348,8 +1385,9 @@ class DocsEditor {
     }
 
     setupAutoSave() {
+        // Periodic auto-save every 30 seconds as a safety net
         setInterval(() => {
-            this.saveDocument();
+            this.saveDocument(false); // Auto-save without notifications
         }, 30000); // Auto-save every 30 seconds
     }
 

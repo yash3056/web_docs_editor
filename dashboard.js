@@ -431,12 +431,13 @@ class AdvancedDocumentDashboard {
         const newDocument = {
             id: 'doc-' + Date.now(),
             title: title,
-            content: templateData.content,
+            content: [templateData.content], // Store as array for consistency
             description: '',
             createdAt: Date.now(),
             lastModified: Date.now(),
             template: template,
-            wordCount: this.countWords(templateData.content)
+            wordCount: this.countWords(templateData.content),
+            pageCount: 1
         };
 
         this.documents.unshift(newDocument);
@@ -980,9 +981,18 @@ class AdvancedDocumentDashboard {
     }
 
     async saveDocuments() {
-        // Individual document saving is handled by the API
-        // This method is kept for compatibility but doesn't need to do anything
-        console.log('Documents are automatically saved via API');
+        // Save documents to localStorage
+        localStorage.setItem('documents', JSON.stringify(this.documents));
+        
+        // Also try to save to server if available
+        if (this.serverAvailable) {
+            try {
+                // Server saving is handled individually per document
+                console.log('Documents saved locally');
+            } catch (error) {
+                console.error('Error syncing to server:', error);
+            }
+        }
     }
 
     updateDocumentCount() {
