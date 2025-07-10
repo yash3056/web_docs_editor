@@ -870,40 +870,42 @@ class DocsEditor {
         }
 
         try {
-            // Try server save first
-            if (this.serverAvailable) {
+            // Always try server save first when authenticated
+            if (showNotification) {
+                console.log('🌐 Attempting server save...');
+            }
+            const result = await this.api.saveDocument(document);
+            
+            if (result && result.success) {
                 if (showNotification) {
-                    console.log('🌐 Attempting server save...');
-                }
-                const result = await this.api.saveDocument(document);
-                if (result.success && showNotification) {
                     console.log('✅ Document saved to server');
                 }
-            } else if (showNotification) {
-                console.log('📱 Server offline, saving locally only');
-            }
-            
-            // Always save locally as backup
-            this.saveDocumentLocally(document);
-            
-            // Update current document ID if new
-            if (!currentDocId) {
-                localStorage.setItem('currentDocumentId', document.id);
-                if (showNotification) {
-                    console.log('🆔 Set document ID:', document.id);
+                
+                // Update current document ID if new
+                if (!currentDocId) {
+                    localStorage.setItem('currentDocumentId', document.id);
+                    if (showNotification) {
+                        console.log('🆔 Set document ID:', document.id);
+                    }
                 }
-            }
-            
-            // Update UI
-            const now = new Date().toLocaleString();
-            const lastSavedElement = document.getElementById('last-saved');
-            if (lastSavedElement) {
-                lastSavedElement.textContent = `Last saved: ${now}`;
-            }
-            
-            if (showNotification) {
-                this.showNotification('Document saved successfully!', 'success');
-                console.log('✅ Document saved successfully:', document.title);
+                
+                // Update UI
+                const now = new Date().toLocaleString();
+                const lastSavedElement = document.getElementById('last-saved');
+                if (lastSavedElement) {
+                    lastSavedElement.textContent = `Last saved: ${now}`;
+                }
+                
+                if (showNotification) {
+                    this.showNotification('Document saved to server!', 'success');
+                    console.log('✅ Document saved successfully:', document.title);
+                }
+                
+                // Also save locally as backup
+                this.saveDocumentLocally(document);
+                return;
+            } else {
+                throw new Error('Server save failed');
             }
             
         } catch (error) {
@@ -978,20 +980,73 @@ class DocsEditor {
         }
     }
 
-    loadDocument() {
+    async loadDocument() {
         console.log('🔍 Loading document...');
         const currentDocId = localStorage.getItem('currentDocumentId');
         console.log('📄 Current document ID:', currentDocId);
         
         if (currentDocId) {
-            // Load document from dashboard storage
+            try {
+                // Try to load from server first
+                console.log('🌐 Attempting to load from server...');
+                const currentDoc = await this.api.getDocument(currentDocId);
+                
+                if (currentDoc) {
+                    console.log('📖 Loading document from server:', currentDoc.title);
+                    this.documentTitle.value = currentDoc.title;
+                    
+                    // Handle both old format (single content) and new format (pages array)
+                    if (Array.isArray(currentDoc.content)) {
+                        // New multi-page format - use first page content for the editor
+                        if (currentDoc.content.length > 0 && currentDoc.content[0]) {
+                            this.editor.innerHTML = currentDoc.content[0];
+                        } else {
+                            this.editor.innerHTML = '';
+                        }
+                    } else {
+                        // Old single-page format - put content directly in editor
+                        this.editor.innerHTML = currentDoc.content || '';
+                    }
+                    
+                    // Clear default placeholder content if it's still there
+                    if (this.editor.innerHTML.trim() === '' || 
+                        this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
+                        this.editor.innerHTML === '<p><br></p>') {
+                        this.editor.innerHTML = '';
+                    }
+                    
+                    this.updateWordCount();
+                    
+                    // Restore watermark if it exists
+                    if (currentDoc.watermark) {
+                        this.watermarkSettings = currentDoc.watermark;
+                        this.applyWatermark(
+                            currentDoc.watermark.text,
+                            currentDoc.watermark.opacity,
+                            currentDoc.watermark.size,
+                            currentDoc.watermark.color,
+                            currentDoc.watermark.angle
+                        );
+                    } else {
+                        this.updateWatermarkButtonState();
+                    }
+                    
+                    console.log('✅ Document loaded successfully from server');
+                    return;
+                }
+            } catch (error) {
+                console.error('❌ Error loading document from server:', error);
+            }
+            
+            // Fallback to localStorage if server fails
+            console.log('📱 Falling back to localStorage...');
             const documents = JSON.parse(localStorage.getItem('documents') || '[]');
             console.log('📚 Found documents in localStorage:', documents.length);
             const currentDoc = documents.find(doc => doc.id === currentDocId);
             console.log('🎯 Found current document:', !!currentDoc);
             
             if (currentDoc) {
-                console.log('📖 Loading document:', currentDoc.title);
+                console.log('📖 Loading document from localStorage:', currentDoc.title);
                 this.documentTitle.value = currentDoc.title;
                 
                 // Handle both old format (single content) and new format (pages array)
@@ -1561,9 +1616,9 @@ class DocsEditor {
 }
 
 // Initialize the editor when the page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     window.docsEditor = new DocsEditor();
-    window.docsEditor.loadDocument();
+    await window.docsEditor.loadDocument();
     console.log('✅ DocsEditor initialized and available globally');
 });
 
