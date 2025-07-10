@@ -91,10 +91,6 @@
                     <p class="document-count" id="document-count">5 documents</p>
                 </div>
                 <div class="header-right">
-                    <button class="classify-btn" id="classify-docs-btn">
-                        <i class="fas fa-shield-alt"></i>
-                        Classify Docs
-                    </button>
                     <div class="view-controls">
                         <button class="view-btn active" id="grid-view" title="Grid View">
                             <i class="fas fa-th"></i>
@@ -290,73 +286,6 @@
         <div class="context-item danger" id="context-delete">
             <i class="fas fa-trash"></i>
             <span>Delete</span>
-        </div>
-    </div>
-
-    <!-- Classification Modal -->
-    <div class="classification-modal" id="classification-modal">
-        <div class="classification-modal-content">
-            <h2>
-                <i class="fas fa-shield-alt"></i>
-                Document Security Classification
-            </h2>
-            
-            <p>Upload a PDF document to classify its security level based on Indian Government standards.</p>
-            
-            <div class="file-drop-zone" id="file-drop-zone">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <h3>Drop PDF here or click to select</h3>
-                <p>Supports PDF files up to 50MB</p>
-                <input type="file" id="pdf-file-input" accept=".pdf" style="display: none;">
-            </div>
-            
-            <div class="classification-progress" id="classification-progress">
-                <h4>Analyzing document...</h4>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-                <p>This may take a few moments depending on document size and complexity.</p>
-            </div>
-            
-            <div class="classification-result" id="classification-result">
-                <div class="classification-level" id="classification-level">
-                    UNCLASSIFIED
-                </div>
-                
-                <div class="confidence-section">
-                    <h4>Confidence Level</h4>
-                    <div class="confidence-meter">
-                        <div class="confidence-fill" id="confidence-fill"></div>
-                    </div>
-                    <span id="confidence-text">0%</span>
-                </div>
-                
-                <div class="reasoning-section">
-                    <h4>Classification Reasoning</h4>
-                    <p id="classification-reasoning">Analysis reasoning will appear here...</p>
-                </div>
-                
-                <div class="risk-factors-section" id="risk-factors-section">
-                    <h4>Key Risk Factors</h4>
-                    <ul id="risk-factors-list"></ul>
-                </div>
-                
-                <div class="recommendations-section" id="recommendations-section">
-                    <h4>Handling Recommendations</h4>
-                    <ul id="recommendations-list"></ul>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="download-watermarked-btn" id="download-watermarked-btn" style="display: none;">
-                    <i class="fas fa-download"></i>
-                    Download Watermarked PDF
-                </button>
-                <button class="close-modal-btn" id="close-classification-modal">
-                    <i class="fas fa-times"></i>
-                    Close
-                </button>
-            </div>
         </div>
     </div>
 
