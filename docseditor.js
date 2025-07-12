@@ -16,6 +16,8 @@ class DocsEditor {
         this.autoSaveTimeout = null; // For debounced auto-save
         this.authToken = null;
         this.user = null;
+        this.lastEditTime = Date.now(); // Track when user last edited
+        this.isSaving = false; // Flag to prevent concurrent saves
         
         // Check authentication
         this.authToken = localStorage.getItem('authToken');
@@ -43,6 +45,11 @@ class DocsEditor {
         this.checkServerStatus();
         this.setupAutoSave();
         
+        // Add cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            this.cleanupAutoSave();
+        });
+        
         console.log('✅ DocsEditor initialized properly as Word-like editor');
     }
 
@@ -63,6 +70,7 @@ class DocsEditor {
             
             // Add input event listener for real-time updates
             this.editor.addEventListener('input', () => {
+                this.lastEditTime = Date.now(); // Track edit time
                 this.updateWordCount();
                 this.updatePageLayout();
                 this.saveState();
@@ -70,8 +78,11 @@ class DocsEditor {
                 // Auto-save after a short delay to avoid too frequent saves
                 clearTimeout(this.autoSaveTimeout);
                 this.autoSaveTimeout = setTimeout(() => {
-                    this.saveDocument(false); // Auto-save without notifications
-                }, 2000); // Save 2 seconds after user stops typing
+                    // Only auto-save if not currently saving
+                    if (!this.isSaving) {
+                        this.saveDocument(false); // Auto-save without notifications
+                    }
+                }, 5000); // Save 5 seconds after user stops typing (increased from 2)
             });
             
             // Add click event to ensure focus
@@ -831,96 +842,145 @@ class DocsEditor {
     }
 
     async saveDocument(showNotification = true) {
+        // Prevent concurrent saves
+        if (this.isSaving) {
+            if (showNotification) {
+                console.log('⏳ Save already in progress, skipping...');
+            }
+            return;
+        }
+        
+        // Clear any pending auto-save timeout when manual save is triggered
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
+        }
+        
         return this.saveDocumentWithVersion(null, showNotification);
     }
 
     async saveDocumentWithVersion(commitMessage = null, showNotification = true) {
-        if (showNotification) {
-            console.log('💾 Saving document...');
+        // Prevent concurrent saves
+        if (this.isSaving) {
+            if (showNotification) {
+                console.log('⏳ Save already in progress, skipping duplicate...');
+            }
+            return { success: false, reason: 'Save in progress' };
         }
         
-        const title = this.documentTitle.value.trim() || 'Untitled Document';
+        this.isSaving = true; // Set saving flag
         
-        // Get content from the editor (single page mode)
-        const editorContent = this.editor ? this.editor.innerHTML : '';
-        
-        // Don't save if content is just the placeholder text
-        const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
-                                   editorContent === '<p><br></p>' ||
-                                   editorContent.trim() === '';
-        
-        const pagesContent = [editorContent]; // Wrap in array for compatibility
-        
-        const currentDocId = localStorage.getItem('currentDocumentId');
-        
-        const document = {
-            id: currentDocId || 'doc-' + Date.now(),
-            title: title,
-            content: pagesContent,
-            description: '',
-            lastModified: Date.now(),
-            wordCount: this.countWords(editorContent),
-            pageCount: 1
-        };
-
-        if (!currentDocId) {
-            localStorage.setItem('currentDocumentId', document.id);
-        }
-
-        if (this.watermarkSettings) {
-            document.watermark = this.watermarkSettings;
-        }
-
         try {
-            // Always try server save first when authenticated
             if (showNotification) {
-                console.log('🌐 Attempting server save...');
+                console.log('💾 Saving document...');
             }
             
-            const result = await this.api.saveDocumentWithVersion(
-                document, 
-                commitMessage || 'Document updated'
-            );
+            const title = this.documentTitle.value.trim() || 'Untitled Document';
             
-            if (result && result.success) {
+            // Get content from the editor (single page mode)
+            const editorContent = this.editor ? this.editor.innerHTML : '';
+            
+            // Don't save if content is just the placeholder text
+            const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
+                                       editorContent === '<p><br></p>' ||
+                                       editorContent.trim() === '';
+            
+            const pagesContent = [editorContent]; // Wrap in array for compatibility
+            
+            const currentDocId = localStorage.getItem('currentDocumentId');
+            
+            // Calculate content hash for change detection
+            const contentHash = this.calculateContentHash(editorContent, title);
+            
+            // Check if content has changed since last save
+            const lastContentHash = localStorage.getItem('lastContentHash_' + (currentDocId || 'new'));
+            const hasContentChanged = contentHash !== lastContentHash;
+            
+            if (!hasContentChanged && currentDocId) {
                 if (showNotification) {
-                    console.log('✅ Document saved to server with version control');
+                    console.log('📄 No content changes detected, skipping version creation');
+                    this.showNotification('No changes to save', 'info');
+                }
+                return { success: true, reason: 'No changes detected' };
+            }
+            
+            const document = {
+                id: currentDocId || 'doc-' + Date.now(),
+                title: title,
+                content: pagesContent,
+                description: '',
+                lastModified: Date.now(),
+                wordCount: this.countWords(editorContent),
+                pageCount: 1
+            };
+
+            if (!currentDocId) {
+                localStorage.setItem('currentDocumentId', document.id);
+            }
+
+            if (this.watermarkSettings) {
+                document.watermark = this.watermarkSettings;
+            }
+
+            try {
+                // Always try server save first when authenticated
+                if (showNotification) {
+                    console.log('🌐 Attempting server save...');
                 }
                 
-                // Update current document ID if new
-                if (!currentDocId) {
-                    localStorage.setItem('currentDocumentId', document.id);
+                const result = await this.api.saveDocumentWithVersion(
+                    document, 
+                    commitMessage || 'Document updated'
+                );
+                
+                if (result && result.success) {
                     if (showNotification) {
-                        console.log('🆔 Set document ID:', document.id);
+                        console.log('✅ Document saved to server with version control');
                     }
+                    
+                    // Store content hash to prevent duplicate saves
+                    localStorage.setItem('lastContentHash_' + document.id, contentHash);
+                    
+                    // Update current document ID if new
+                    if (!currentDocId) {
+                        localStorage.setItem('currentDocumentId', document.id);
+                        if (showNotification) {
+                            console.log('🆔 Set document ID:', document.id);
+                        }
+                    }
+                    
+                    // Update UI
+                    const now = new Date().toLocaleString();
+                    const lastSavedElement = document.getElementById('last-saved');
+                    if (lastSavedElement) {
+                        lastSavedElement.textContent = `Last saved: ${now}`;
+                    }
+                    
+                    if (showNotification) {
+                        this.showNotification('Document saved with version control!', 'success');
+                    }
+                    
+                    return result;
+                } else {
+                    throw new Error('Server save failed');
                 }
+            } catch (error) {
+                console.error('Error saving document:', error);
                 
-                // Update UI
-                const now = new Date().toLocaleString();
-                const lastSavedElement = document.getElementById('last-saved');
-                if (lastSavedElement) {
-                    lastSavedElement.textContent = `Last saved: ${now}`;
-                }
+                // Store content hash even for local save
+                localStorage.setItem('lastContentHash_' + document.id, contentHash);
+                
+                // Fallback to local save
+                this.saveDocumentLocally(document);
                 
                 if (showNotification) {
-                    this.showNotification('Document saved with version control!', 'success');
+                    this.showNotification('Document saved locally (server error)', 'warning');
                 }
                 
-                return result;
-            } else {
-                throw new Error('Server save failed');
+                return { success: true, document };
             }
-        } catch (error) {
-            console.error('Error saving document:', error);
-            
-            // Fallback to local save
-            this.saveDocumentLocally(document);
-            
-            if (showNotification) {
-                this.showNotification('Document saved locally (server error)', 'warning');
-            }
-            
-            return { success: true, document };
+        } finally {
+            this.isSaving = false; // Clear saving flag
         }
     }
 
@@ -1045,6 +1105,26 @@ class DocsEditor {
         return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
     }
 
+    // Calculate a simple hash for content comparison
+    calculateContentHash(content, title) {
+        // Normalize content by removing extra whitespace and empty paragraphs
+        const normalizedContent = content
+            .replace(/<p><br><\/p>/g, '') // Remove empty paragraphs
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        
+        const combined = `${title}|||${normalizedContent}`;
+        
+        // Simple hash function
+        let hash = 0;
+        for (let i = 0; i < combined.length; i++) {
+            const char = combined.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return hash.toString();
+    }
+
     countWordsFromPages(pagesContent) {
         let totalText = '';
         pagesContent.forEach(pageContent => {
@@ -1078,6 +1158,9 @@ class DocsEditor {
             // Set flag to indicate programmatic navigation
             this.isNavigating = true;
             
+            // Clear any pending auto-saves
+            this.cleanupAutoSave();
+            
             // Save current document before navigating
             await this.saveDocument(false);
             
@@ -1089,6 +1172,20 @@ class DocsEditor {
             // Still navigate even if save fails
             console.log('Navigating to dashboard after error'); // Debug log
             window.location.href = 'index.html';
+        }
+    }
+
+    cleanupAutoSave() {
+        // Clear the auto-save timeout
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
+        }
+        
+        // Clear the auto-save interval
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
         }
     }
 
@@ -1128,6 +1225,10 @@ class DocsEditor {
                     }
                     
                     this.updateWordCount();
+                    
+                    // Store initial content hash for change detection
+                    const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
+                    localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
                     
                     // Restore watermark if it exists
                     if (currentDoc.watermark) {
@@ -1183,6 +1284,10 @@ class DocsEditor {
                 
                 this.updateWordCount();
                 
+                // Store initial content hash for change detection
+                const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
+                localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
+                
                 // Restore watermark if it exists
                 if (currentDoc.watermark) {
                     this.watermarkSettings = currentDoc.watermark;
@@ -1208,6 +1313,13 @@ class DocsEditor {
             this.documentTitle.value = data.title;
             this.editor.innerHTML = data.content;
             this.updateWordCount();
+            
+            // Store initial content hash for legacy documents
+            const currentDocId = localStorage.getItem('currentDocumentId');
+            if (currentDocId) {
+                const initialContentHash = this.calculateContentHash(data.content, data.title);
+                localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
+            }
             
             // Restore watermark if it exists
             if (data.watermark) {
@@ -1566,10 +1678,13 @@ class DocsEditor {
     }
 
     setupAutoSave() {
-        // Periodic auto-save every 30 seconds as a safety net
-        setInterval(() => {
-            this.saveDocument(false); // Auto-save without notifications
-        }, 30000); // Auto-save every 30 seconds
+        // Store reference to the interval for cleanup
+        this.autoSaveInterval = setInterval(() => {
+            // Only auto-save if user is not actively editing (debounce) and not currently saving
+            if (!this.isSaving && Date.now() - this.lastEditTime > 5000) { // 5 seconds after last edit
+                this.saveDocument(false); // Auto-save without notifications
+            }
+        }, 60000); // Auto-save every 60 seconds (increased from 30)
     }
 
     showNotification(message, type = 'info') {
