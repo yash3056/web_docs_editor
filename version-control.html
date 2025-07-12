@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version Control - Document Editor</title>
+    <link rel="stylesheet" href="docseditor.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .version-control-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .version-header h1 {
+            margin: 0;
+            color: #333;
+            font-size: 2rem;
+        }
+        
+        .version-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .version-tab {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            background: #f9f9f9;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .version-tab.active {
+            background: #4285f4;
+            color: white;
+            border-color: #4285f4;
+        }
+        
+        .version-content {
+            display: none;
+        }
+        
+        .version-content.active {
+            display: block;
+        }
+        
+        .version-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .version-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .version-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .version-item.current {
+            border-color: #4285f4;
+            background: #f8f9ff;
+        }
+        
+        .version-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .version-number {
+            font-weight: bold;
+            color: #4285f4;
+            font-size: 1.1rem;
+        }
+        
+        .version-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .version-message {
+            color: #333;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        
+        .version-author {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .version-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .version-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .version-btn.primary {
+            background: #4285f4;
+            color: white;
+        }
+        
+        .version-btn.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .version-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .version-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .version-tags {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .version-tag {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .commit-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .commit-form h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .commit-form textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+        
+        .commit-form button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .commit-form button:hover {
+            background: #3367d6;
+        }
+        
+        .branch-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .branch-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .branch-name {
+            font-weight: bold;
+            color: #4285f4;
+            margin-bottom: 5px;
+        }
+        
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .comparison-panel {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .comparison-panel h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .comparison-content {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #2e7d32;
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #333;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .back-button:hover {
+            background: #e0e0e0;
+            transform: translateY(-1px);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            margin: 10% auto;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .modal-form input,
+        .modal-form textarea {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        
+        .modal-form textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .modal-actions .primary {
+            background: #4285f4;
+            color: white;
+        }
+        
+        .modal-actions .secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .modal-actions button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="version-control-container">
+        <div class="version-header">
+            <h1>
+                <i class="fas fa-code-branch"></i>
+                Version Control
+            </h1>
+            <div>
+                <a href="docseditor.html" class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Editor
+                </a>
+            </div>
+        </div>
+        
+        <div class="version-tabs">
+            <div class="version-tab active" data-tab="history">
+                <i class="fas fa-history"></i>
+                Version History
+            </div>
+            <div class="version-tab" data-tab="commit">
+                <i class="fas fa-save"></i>
+                Commit Changes
+            </div>
+            <div class="version-tab" data-tab="branches">
+                <i class="fas fa-code-branch"></i>
+                Branches
+            </div>
+            <div class="version-tab" data-tab="compare">
+                <i class="fas fa-exchange-alt"></i>
+                Compare Versions
+            </div>
+        </div>
+        
+        <!-- Version History Tab -->
+        <div class="version-content active" id="history-tab">
+            <div class="version-list" id="version-list">
+                <div class="loading">Loading version history...</div>
+            </div>
+        </div>
+        
+        <!-- Commit Changes Tab -->
+        <div class="version-content" id="commit-tab">
+            <div class="commit-form">
+                <h3>Commit Current Changes</h3>
+                <textarea id="commit-message" placeholder="Enter a commit message describing your changes..."></textarea>
+                <button onclick="commitChanges()">
+                    <i class="fas fa-save"></i>
+                    Commit Changes
+                </button>
+            </div>
+        </div>
+        
+        <!-- Branches Tab -->
+        <div class="version-content" id="branches-tab">
+            <div class="branch-list" id="branch-list">
+                <div class="loading">Loading branches...</div>
+            </div>
+            <button onclick="showCreateBranchModal()" class="version-btn primary" style="margin-top: 20px;">
+                <i class="fas fa-plus"></i>
+                Create New Branch
+            </button>
+        </div>
+        
+        <!-- Compare Versions Tab -->
+        <div class="version-content" id="compare-tab">
+            <div style="margin-bottom: 20px;">
+                <label>Select first version:</label>
+                <select id="compare-version-1" style="margin: 10px; padding: 5px; width: 200px;">
+                    <option value="">Select version...</option>
+                </select>
+                
+                <label>Select second version:</label>
+                <select id="compare-version-2" style="margin: 10px; padding: 5px; width: 200px;">
+                    <option value="">Select version...</option>
+                </select>
+                
+                <button onclick="compareVersions()" class="version-btn primary">
+                    <i class="fas fa-exchange-alt"></i>
+                    Compare
+                </button>
+            </div>
+            
+            <div class="comparison-container" id="comparison-container" style="display: none;">
+                <div class="comparison-panel">
+                    <h4>Version <span id="comparison-version-1-name"></span></h4>
+                    <div class="comparison-content" id="comparison-content-1"></div>
+                </div>
+                <div class="comparison-panel">
+                    <h4>Version <span id="comparison-version-2-name"></span></h4>
+                    <div class="comparison-content" id="comparison-content-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Branch Modal -->
+    <div class="modal" id="create-branch-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Branch</h3>
+                <button class="modal-close" onclick="closeModal('create-branch-modal')">×</button>
+            </div>
+            <div class="modal-form">
+                <input type="text" id="branch-name" placeholder="Branch name" required>
+                <textarea id="branch-description" placeholder="Branch description (optional)"></textarea>
+                <div class="modal-actions">
+                    <button class="secondary" onclick="closeModal('create-branch-modal')">Cancel</button>
+                    <button class="primary" onclick="createBranch()">Create Branch</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Tag Modal -->
+    <div class="modal" id="create-tag-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Version Tag</h3>
+                <button class="modal-close" onclick="closeModal('create-tag-modal')">×</button>
+            </div>
+            <div class="modal-form">
+                <input type="text" id="tag-name" placeholder="Tag name" required>
+                <textarea id="tag-description" placeholder="Tag description (optional)"></textarea>
+                <div class="modal-actions">
+                    <button class="secondary" onclick="closeModal('create-tag-modal')">Cancel</button>
+                    <button class="primary" onclick="createTag()">Create Tag</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="api-client.js"></script>
+    <script>
+        let currentDocumentId = null;
+        let versionHistory = [];
+        let currentVersionId = null;
+        let api = null;
+        
+        // Initialize the version control interface
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            const authToken = localStorage.getItem('authToken');
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            
+            if (!authToken || !user) {
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            // Initialize API client
+            api = new DocumentAPI();
+            api.setAuthToken(authToken);
+            
+            // Get current document ID
+            currentDocumentId = localStorage.getItem('currentDocumentId');
+            if (!currentDocumentId) {
+                showError('No document selected. Please go back to the editor and select a document.');
+                return;
+            }
+            
+            // Load version history
+            await loadVersionHistory();
+            await loadBranches();
+            
+            // Set up tab switching
+            setupTabSwitching();
+        });
+        
+        function setupTabSwitching() {
+            const tabs = document.querySelectorAll('.version-tab');
+            const contents = document.querySelectorAll('.version-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    document.getElementById(tabName + '-tab').classList.add('active');
+                    
+                    // Load content for specific tabs
+                    if (tabName === 'compare') {
+                        populateCompareSelects();
+                    }
+                });
+            });
+        }
+        
+        async function loadVersionHistory() {
+            try {
+                const history = await api.getDocumentVersionHistory(currentDocumentId);
+                versionHistory = history || [];
+                
+                const versionList = document.getElementById('version-list');
+                
+                if (versionHistory.length === 0) {
+                    versionList.innerHTML = '<div class="loading">No version history found.</div>';
+                    return;
+                }
+                
+                versionList.innerHTML = versionHistory.map(version => `
+                    <div class="version-item ${version.is_current_version ? 'current' : ''}">
+                        <div class="version-info">
+                            <div class="version-number">Version ${version.version_number}</div>
+                            <div class="version-date">${new Date(version.created_at).toLocaleString()}</div>
+                        </div>
+                        <div class="version-message">${version.commit_message || 'No commit message'}</div>
+                        <div class="version-author">By: ${version.author || 'Unknown'}</div>
+                        ${version.tags ? `<div class="version-tags">${version.tags.split(',').map(tag => `<span class="version-tag">${tag}</span>`).join('')}</div>` : ''}
+                        <div class="version-actions">
+                            ${!version.is_current_version ? `<button class="version-btn primary" onclick="restoreVersion(${version.id})">Restore</button>` : ''}
+                            <button class="version-btn secondary" onclick="viewVersion(${version.id})">View</button>
+                            <button class="version-btn secondary" onclick="showCreateTagModal(${version.id})">Tag</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading version history:', error);
+                showError('Failed to load version history: ' + error.message);
+            }
+        }
+        
+        async function loadBranches() {
+            try {
+                const branches = await api.getDocumentBranches(currentDocumentId);
+                
+                const branchList = document.getElementById('branch-list');
+                
+                if (branches.length === 0) {
+                    branchList.innerHTML = '<div class="loading">No branches found.</div>';
+                    return;
+                }
+                
+                branchList.innerHTML = branches.map(branch => `
+                    <div class="branch-item">
+                        <div class="branch-name">
+                            <i class="fas fa-code-branch"></i>
+                            ${branch.branch_name}
+                        </div>
+                        <div class="version-date">Created: ${new Date(branch.created_at).toLocaleString()}</div>
+                        <div class="version-actions">
+                            <button class="version-btn primary" onclick="switchToBranch('${branch.branch_name}')">Switch</button>
+                            <button class="version-btn secondary" onclick="mergeBranch('${branch.branch_name}')">Merge</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading branches:', error);
+                showError('Failed to load branches: ' + error.message);
+            }
+        }
+        
+        async function commitChanges() {
+            const commitMessage = document.getElementById('commit-message').value.trim();
+            
+            if (!commitMessage) {
+                showError('Please enter a commit message.');
+                return;
+            }
+            
+            try {
+                // Get current document from editor
+                const currentDoc = JSON.parse(localStorage.getItem('currentDocument') || '{}');
+                if (!currentDoc.id) {
+                    showError('No document to commit. Please save your document first.');
+                    return;
+                }
+                
+                const result = await api.saveDocumentWithVersion(currentDoc, commitMessage);
+                
+                if (result && result.success) {
+                    showSuccess('Changes committed successfully!');
+                    document.getElementById('commit-message').value = '';
+                    await loadVersionHistory();
+                } else {
+                    showError('Failed to commit changes.');
+                }
+                
+            } catch (error) {
+                console.error('Error committing changes:', error);
+                showError('Failed to commit changes: ' + error.message);
+            }
+        }
+        
+        async function restoreVersion(versionId) {
+            if (!confirm('Are you sure you want to restore this version? This will create a new version with the restored content.')) {
+                return;
+            }
+            
+            try {
+                const result = await api.restoreDocumentVersion(currentDocumentId, versionId);
+                
+                if (result && result.success) {
+                    showSuccess('Version restored successfully! Please refresh the editor to see the changes.');
+                    await loadVersionHistory();
+                } else {
+                    showError('Failed to restore version.');
+                }
+                
+            } catch (error) {
+                console.error('Error restoring version:', error);
+                showError('Failed to restore version: ' + error.message);
+            }
+        }
+        
+        function viewVersion(versionId) {
+            // Open the version in a new tab/window for viewing
+            const version = versionHistory.find(v => v.id === versionId);
+            if (version) {
+                const newWindow = window.open('', '_blank');
+                const doc = JSON.parse(version.content);
+                newWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Version ${version.version_number} - ${version.title}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                                .version-info { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="version-info">
+                                <h2>Version ${version.version_number}</h2>
+                                <p><strong>Title:</strong> ${version.title}</p>
+                                <p><strong>Date:</strong> ${new Date(version.created_at).toLocaleString()}</p>
+                                <p><strong>Author:</strong> ${version.author || 'Unknown'}</p>
+                                <p><strong>Commit Message:</strong> ${version.commit_message || 'No commit message'}</p>
+                            </div>
+                            <div class="content">
+                                ${doc.content ? (Array.isArray(doc.content) ? doc.content.join('') : doc.content) : 'No content'}
+                            </div>
+                        </body>
+                    </html>
+                `);
+                newWindow.document.close();
+            }
+        }
+        
+        function populateCompareSelects() {
+            const select1 = document.getElementById('compare-version-1');
+            const select2 = document.getElementById('compare-version-2');
+            
+            const options = versionHistory.map(version => 
+                `<option value="${version.id}">Version ${version.version_number} - ${new Date(version.created_at).toLocaleDateString()}</option>`
+            ).join('');
+            
+            select1.innerHTML = '<option value="">Select version...</option>' + options;
+            select2.innerHTML = '<option value="">Select version...</option>' + options;
+        }
+        
+        async function compareVersions() {
+            const versionId1 = document.getElementById('compare-version-1').value;
+            const versionId2 = document.getElementById('compare-version-2').value;
+            
+            if (!versionId1 || !versionId2) {
+                showError('Please select both versions to compare.');
+                return;
+            }
+            
+            if (versionId1 === versionId2) {
+                showError('Please select different versions to compare.');
+                return;
+            }
+            
+            try {
+                const comparison = await api.compareDocumentVersions(currentDocumentId, versionId1, versionId2);
+                
+                if (comparison) {
+                    document.getElementById('comparison-version-1-name').textContent = comparison.version1.number;
+                    document.getElementById('comparison-version-2-name').textContent = comparison.version2.number;
+                    
+                    const content1 = Array.isArray(comparison.version1.content) ? comparison.version1.content.join('') : comparison.version1.content;
+                    const content2 = Array.isArray(comparison.version2.content) ? comparison.version2.content.join('') : comparison.version2.content;
+                    
+                    document.getElementById('comparison-content-1').innerHTML = content1 || 'No content';
+                    document.getElementById('comparison-content-2').innerHTML = content2 || 'No content';
+                    
+                    document.getElementById('comparison-container').style.display = 'grid';
+                } else {
+                    showError('Failed to compare versions.');
+                }
+                
+            } catch (error) {
+                console.error('Error comparing versions:', error);
+                showError('Failed to compare versions: ' + error.message);
+            }
+        }
+        
+        function showCreateBranchModal() {
+            document.getElementById('create-branch-modal').style.display = 'block';
+        }
+        
+        function showCreateTagModal(versionId) {
+            currentVersionId = versionId;
+            document.getElementById('create-tag-modal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function createBranch() {
+            const branchName = document.getElementById('branch-name').value.trim();
+            
+            if (!branchName) {
+                showError('Please enter a branch name.');
+                return;
+            }
+            
+            try {
+                const result = await api.createDocumentBranch(currentDocumentId, branchName);
+                
+                if (result && result.success) {
+                    showSuccess('Branch created successfully!');
+                    closeModal('create-branch-modal');
+                    document.getElementById('branch-name').value = '';
+                    document.getElementById('branch-description').value = '';
+                    await loadBranches();
+                } else {
+                    showError('Failed to create branch.');
+                }
+                
+            } catch (error) {
+                console.error('Error creating branch:', error);
+                showError('Failed to create branch: ' + error.message);
+            }
+        }
+        
+        async function createTag() {
+            const tagName = document.getElementById('tag-name').value.trim();
+            const tagDescription = document.getElementById('tag-description').value.trim();
+            
+            if (!tagName) {
+                showError('Please enter a tag name.');
+                return;
+            }
+            
+            try {
+                const result = await api.createVersionTag(currentDocumentId, currentVersionId, tagName, tagDescription);
+                
+                if (result && result.success) {
+                    showSuccess('Tag created successfully!');
+                    closeModal('create-tag-modal');
+                    document.getElementById('tag-name').value = '';
+                    document.getElementById('tag-description').value = '';
+                    await loadVersionHistory();
+                } else {
+                    showError('Failed to create tag.');
+                }
+                
+            } catch (error) {
+                console.error('Error creating tag:', error);
+                showError('Failed to create tag: ' + error.message);
+            }
+        }
+        
+        function switchToBranch(branchName) {
+            showSuccess(`Switching to branch: ${branchName} (Feature not yet implemented)`);
+        }
+        
+        function mergeBranch(branchName) {
+            showSuccess(`Merging branch: ${branchName} (Feature not yet implemented)`);
+        }
+        
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.body.insertBefore(errorDiv, document.body.firstChild);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.body.insertBefore(successDiv, document.body.firstChild);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 5000);
+        }
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

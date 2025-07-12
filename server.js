@@ -6,10 +6,18 @@ const {
     initDatabase, 
     createUser, 
     validateUser, 
-    saveDocument, 
+    saveDocument,
+    saveDocumentWithVersion,
     getUserDocuments, 
     getUserDocument, 
-    deleteUserDocument 
+    deleteUserDocument,
+    getDocumentVersionHistory,
+    restoreDocumentVersion,
+    compareDocumentVersions,
+    createDocumentBranch,
+    getDocumentBranches,
+    createVersionTag,
+    getVersionTags
 } = require('./database');
 const { generateToken, authenticateToken } = require('./auth');
 
@@ -168,6 +176,164 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error deleting document:', error);
         res.status(500).json({ error: 'Failed to delete document' });
+    }
+});
+
+// VERSION CONTROL ENDPOINTS
+
+// Save document with version control
+app.post('/api/documents/:id/versions', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { document, commitMessage } = req.body;
+        
+        // Validate required fields
+        if (!document || !document.title) {
+            return res.status(400).json({ error: 'Document data is required' });
+        }
+        
+        // Ensure document ID matches the URL parameter
+        document.id = id;
+        
+        // Set timestamps
+        if (!document.createdAt) {
+            document.createdAt = Date.now();
+        }
+        document.lastModified = Date.now();
+        
+        // Save document with version control
+        saveDocumentWithVersion(document, req.user.id, commitMessage || 'Document updated');
+        
+        console.log(`Document version saved: ${document.title} (${document.id}) for user ${req.user.username}`);
+        res.json({ success: true, document });
+    } catch (error) {
+        console.error('Error saving document version:', error);
+        res.status(500).json({ error: 'Failed to save document version' });
+    }
+});
+
+// Get document version history
+app.get('/api/documents/:id/versions', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const versions = getDocumentVersionHistory(id, req.user.id);
+        
+        if (!versions) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        
+        res.json(versions);
+    } catch (error) {
+        console.error('Error fetching version history:', error);
+        res.status(500).json({ error: 'Failed to fetch version history' });
+    }
+});
+
+// Restore document to specific version
+app.post('/api/documents/:id/versions/:versionId/restore', authenticateToken, async (req, res) => {
+    try {
+        const { id, versionId } = req.params;
+        
+        const result = restoreDocumentVersion(id, parseInt(versionId), req.user.id);
+        
+        console.log(`Document restored: ${id} to version ${versionId} for user ${req.user.username}`);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('Error restoring document version:', error);
+        res.status(500).json({ error: error.message || 'Failed to restore document version' });
+    }
+});
+
+// Compare two document versions
+app.get('/api/documents/:id/versions/:versionId1/compare/:versionId2', authenticateToken, async (req, res) => {
+    try {
+        const { id, versionId1, versionId2 } = req.params;
+        
+        const comparison = compareDocumentVersions(
+            id, 
+            parseInt(versionId1), 
+            parseInt(versionId2), 
+            req.user.id
+        );
+        
+        res.json(comparison);
+    } catch (error) {
+        console.error('Error comparing document versions:', error);
+        res.status(500).json({ error: error.message || 'Failed to compare document versions' });
+    }
+});
+
+// Create document branch
+app.post('/api/documents/:id/branches', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { branchName, baseVersionId } = req.body;
+        
+        if (!branchName) {
+            return res.status(400).json({ error: 'Branch name is required' });
+        }
+        
+        const branch = createDocumentBranch(id, branchName, baseVersionId, req.user.id);
+        
+        console.log(`Document branch created: ${branchName} for document ${id} by user ${req.user.username}`);
+        res.json({ success: true, branch });
+    } catch (error) {
+        console.error('Error creating document branch:', error);
+        res.status(500).json({ error: error.message || 'Failed to create document branch' });
+    }
+});
+
+// Get document branches
+app.get('/api/documents/:id/branches', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const branches = getDocumentBranches(id, req.user.id);
+        
+        if (!branches) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        
+        res.json(branches);
+    } catch (error) {
+        console.error('Error fetching document branches:', error);
+        res.status(500).json({ error: 'Failed to fetch document branches' });
+    }
+});
+
+// Create version tag
+app.post('/api/documents/:id/versions/:versionId/tags', authenticateToken, async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const { tagName, description } = req.body;
+        
+        if (!tagName) {
+            return res.status(400).json({ error: 'Tag name is required' });
+        }
+        
+        const tag = createVersionTag(parseInt(versionId), tagName, description, req.user.id);
+        
+        console.log(`Version tag created: ${tagName} for version ${versionId} by user ${req.user.username}`);
+        res.json({ success: true, tag });
+    } catch (error) {
+        console.error('Error creating version tag:', error);
+        res.status(500).json({ error: error.message || 'Failed to create version tag' });
+    }
+});
+
+// Get version tags
+app.get('/api/documents/:id/versions/:versionId/tags', authenticateToken, async (req, res) => {
+    try {
+        const { versionId } = req.params;
+        const tags = getVersionTags(parseInt(versionId), req.user.id);
+        
+        if (!tags) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+        
+        res.json(tags);
+    } catch (error) {
+        console.error('Error fetching version tags:', error);
+        res.status(500).json({ error: 'Failed to fetch version tags' });
     }
 });
 

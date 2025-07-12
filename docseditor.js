@@ -173,6 +173,9 @@ class DocsEditor {
         // Watermark toggle (add/remove)
         document.getElementById('watermark-btn').addEventListener('click', () => this.toggleWatermark());
 
+        // Version control
+        document.getElementById('version-control-btn').addEventListener('click', () => this.openVersionControl());
+
         // Save and export
         const saveBtn = document.getElementById('save-btn');
         if (saveBtn) {
@@ -828,6 +831,100 @@ class DocsEditor {
     }
 
     async saveDocument(showNotification = true) {
+        return this.saveDocumentWithVersion(null, showNotification);
+    }
+
+    async saveDocumentWithVersion(commitMessage = null, showNotification = true) {
+        if (showNotification) {
+            console.log('💾 Saving document...');
+        }
+        
+        const title = this.documentTitle.value.trim() || 'Untitled Document';
+        
+        // Get content from the editor (single page mode)
+        const editorContent = this.editor ? this.editor.innerHTML : '';
+        
+        // Don't save if content is just the placeholder text
+        const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
+                                   editorContent === '<p><br></p>' ||
+                                   editorContent.trim() === '';
+        
+        const pagesContent = [editorContent]; // Wrap in array for compatibility
+        
+        const currentDocId = localStorage.getItem('currentDocumentId');
+        
+        const document = {
+            id: currentDocId || 'doc-' + Date.now(),
+            title: title,
+            content: pagesContent,
+            description: '',
+            lastModified: Date.now(),
+            wordCount: this.countWords(editorContent),
+            pageCount: 1
+        };
+
+        if (!currentDocId) {
+            localStorage.setItem('currentDocumentId', document.id);
+        }
+
+        if (this.watermarkSettings) {
+            document.watermark = this.watermarkSettings;
+        }
+
+        try {
+            // Always try server save first when authenticated
+            if (showNotification) {
+                console.log('🌐 Attempting server save...');
+            }
+            
+            const result = await this.api.saveDocumentWithVersion(
+                document, 
+                commitMessage || 'Document updated'
+            );
+            
+            if (result && result.success) {
+                if (showNotification) {
+                    console.log('✅ Document saved to server with version control');
+                }
+                
+                // Update current document ID if new
+                if (!currentDocId) {
+                    localStorage.setItem('currentDocumentId', document.id);
+                    if (showNotification) {
+                        console.log('🆔 Set document ID:', document.id);
+                    }
+                }
+                
+                // Update UI
+                const now = new Date().toLocaleString();
+                const lastSavedElement = document.getElementById('last-saved');
+                if (lastSavedElement) {
+                    lastSavedElement.textContent = `Last saved: ${now}`;
+                }
+                
+                if (showNotification) {
+                    this.showNotification('Document saved with version control!', 'success');
+                }
+                
+                return result;
+            } else {
+                throw new Error('Server save failed');
+            }
+        } catch (error) {
+            console.error('Error saving document:', error);
+            
+            // Fallback to local save
+            this.saveDocumentLocally(document);
+            
+            if (showNotification) {
+                this.showNotification('Document saved locally (server error)', 'warning');
+            }
+            
+            return { success: true, document };
+        }
+    }
+
+    async saveDocumentOriginal(showNotification = true) {
         if (showNotification) {
             console.log('💾 Save button clicked');
         }
@@ -957,6 +1054,21 @@ class DocsEditor {
             totalText += (temp.textContent || temp.innerText || '') + ' ';
         });
         return totalText.trim() ? totalText.trim().split(/\s+/).length : 0;
+    }
+
+    openVersionControl() {
+        // Save current document state before opening version control
+        const currentDoc = {
+            id: localStorage.getItem('currentDocumentId'),
+            title: this.documentTitle.value,
+            content: [this.editor.innerHTML],
+            lastModified: Date.now()
+        };
+        
+        localStorage.setItem('currentDocument', JSON.stringify(currentDoc));
+        
+        // Open version control in new tab
+        window.open('version-control.html', '_blank');
     }
 
     async goToDashboard() {

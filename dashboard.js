@@ -644,12 +644,24 @@ class AdvancedDocumentDashboard {
                         <i class="fas fa-folder-open"></i>
                         Open
                     </button>
+                    <button class="btn btn-outline btn-sm" onclick="window.dashboard.openVersionControl('${doc.id}')">
+                        <i class="fas fa-code-branch"></i>
+                        Versions
+                    </button>
                     <button class="btn btn-outline btn-sm" onclick="window.dashboard.showContextMenu(event, '${doc.id}')">
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
                 </div>
             </div>
         `;
+    }
+
+    openVersionControl(documentId) {
+        // Set the current document ID for version control
+        localStorage.setItem('currentDocumentId', documentId);
+        
+        // Open version control in new tab
+        window.open('version-control.html', '_blank');
     }
 
     bindDocumentCardEvents() {
@@ -1005,8 +1017,14 @@ class AdvancedDocumentDashboard {
         // Also try to save to server if available
         if (this.serverAvailable) {
             try {
-                // Server saving is handled individually per document
-                console.log('Documents saved locally');
+                // Save documents with version control when they're modified
+                for (const doc of this.documents) {
+                    if (doc.lastModified && doc.lastModified > (doc.lastSaved || 0)) {
+                        await this.api.saveDocumentWithVersion(doc, 'Auto-save from dashboard');
+                        doc.lastSaved = Date.now();
+                    }
+                }
+                console.log('Documents saved locally and synced with version control');
             } catch (error) {
                 console.error('Error syncing to server:', error);
             }
