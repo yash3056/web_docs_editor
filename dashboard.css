@@ -685,6 +685,7 @@ body {
     justify-content: center;
     z-index: 2000;
     backdrop-filter: blur(4px);
+    padding: 20px; /* Add padding to prevent modal from touching edges */
 }
 
 .modal {
@@ -694,6 +695,7 @@ body {
     max-width: 500px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     animation: modalSlideIn 0.3s ease-out;
+    margin: auto; /* Ensure centering fallback */
 }
 
 @keyframes modalSlideIn {
@@ -984,6 +986,8 @@ body {
     background: white;
     border-radius: 12px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    margin: auto; /* Ensure centering */
+    width: 90%;
 }
 
 .modal-content {
@@ -995,6 +999,7 @@ body {
     overflow-y: auto;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     animation: modalSlideIn 0.3s ease-out;
+    margin: auto; /* Ensure centering fallback */
 }
 
 .classification-results {
