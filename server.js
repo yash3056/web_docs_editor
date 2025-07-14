@@ -698,7 +698,7 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
             
             if (documentId) {
                 // Get document from database
-                const document = await getUserDocument(req.user.id, documentId);
+                const document = await getUserDocument(documentId, req.user.id);
                 if (!document) {
                     return res.status(404).json({ error: 'Document not found' });
                 }

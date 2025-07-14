@@ -1179,12 +1179,12 @@ class AdvancedDocumentDashboard {
                     throw new Error('Please select a document');
                 }
                 
-                const document = this.documents.find(doc => doc.id === documentId);
-                if (!document) {
+                const selectedDocument = this.documents.find(doc => doc.id === documentId);
+                if (!selectedDocument) {
                     throw new Error('Document not found');
                 }
                 
-                result = await this.classifyInternalDocument(document);
+                result = await this.classifyInternalDocument(selectedDocument);
             } else {
                 if (!this.selectedPdfFile) {
                     throw new Error('Please select a PDF file');
@@ -1206,7 +1206,7 @@ class AdvancedDocumentDashboard {
         }
     }
 
-    async classifyInternalDocument(document) {
+    async classifyInternalDocument(documentObj) {
         const response = await fetch('/api/classify-document', {
             method: 'POST',
             headers: {
@@ -1214,8 +1214,8 @@ class AdvancedDocumentDashboard {
                 'Authorization': `Bearer ${this.authToken}`
             },
             body: JSON.stringify({
-                documentId: document.id,
-                content: document.content
+                documentId: documentObj.id,
+                content: documentObj.content
             })
         });
         
