@@ -141,6 +141,9 @@ class AdvancedDocumentDashboard {
         document.getElementById('new-blank-doc').addEventListener('click', () => this.createDocument('blank'));
         document.getElementById('new-template-doc').addEventListener('click', () => this.showNewDocumentModal());
         document.getElementById('import-doc').addEventListener('click', () => this.showImportModal());
+        
+        // Empty state create button
+        document.getElementById('create-first-doc').addEventListener('click', () => this.createDocument('blank'));
 
         // View controls
         document.getElementById('grid-view').addEventListener('click', () => this.setView('grid'));
