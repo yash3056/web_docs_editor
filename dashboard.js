@@ -177,6 +177,12 @@ class AdvancedDocumentDashboard {
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
         document.getElementById('help-btn').addEventListener('click', () => this.showHelp());
+        
+        // Add refresh button functionality if it exists
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.refreshDocuments());
+        }
     }
 
     handleSearch(query) {
@@ -303,10 +309,27 @@ class AdvancedDocumentDashboard {
         window.location.href = 'docseditor.html';
     }
 
-    deleteDocument(documentId) {
+    async deleteDocument(documentId) {
         const index = this.documents.findIndex(doc => doc.id === documentId);
         if (index !== -1) {
             const deletedDoc = this.documents[index];
+            
+            // Delete from server if available
+            if (this.serverAvailable) {
+                try {
+                    const deleted = await this.api.deleteDocument(documentId);
+                    if (!deleted) {
+                        this.showToast(`Failed to delete "${deletedDoc.title}" from server`, 'error');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error deleting document from server:', error);
+                    this.showToast(`Failed to delete "${deletedDoc.title}" from server`, 'error');
+                    return;
+                }
+            }
+            
+            // Remove from local array
             this.documents.splice(index, 1);
             this.saveDocuments();
             this.renderDocuments();
@@ -318,11 +341,38 @@ class AdvancedDocumentDashboard {
         }
     }
 
-    deleteSelectedDocuments() {
+    async deleteSelectedDocuments() {
         if (this.selectedDocuments.size === 0) return;
 
         const count = this.selectedDocuments.size;
-        this.selectedDocuments.forEach(docId => {
+        const documentsToDelete = Array.from(this.selectedDocuments);
+        let deletedCount = 0;
+        let failedDeletions = [];
+
+        // Delete from server if available
+        if (this.serverAvailable) {
+            for (const docId of documentsToDelete) {
+                try {
+                    const deleted = await this.api.deleteDocument(docId);
+                    if (deleted) {
+                        deletedCount++;
+                    } else {
+                        failedDeletions.push(docId);
+                    }
+                } catch (error) {
+                    console.error(`Error deleting document ${docId} from server:`, error);
+                    failedDeletions.push(docId);
+                }
+            }
+
+            if (failedDeletions.length > 0) {
+                this.showToast(`Failed to delete ${failedDeletions.length} document(s) from server`, 'error');
+                return;
+            }
+        }
+
+        // Remove successfully deleted documents from local array
+        documentsToDelete.forEach(docId => {
             const index = this.documents.findIndex(doc => doc.id === docId);
             if (index !== -1) {
                 this.documents.splice(index, 1);
@@ -1004,9 +1054,33 @@ class AdvancedDocumentDashboard {
         document.body.appendChild(modalOverlay);
     }
 
-    // Helper methods
+    async refreshDocuments() {
+        this.showToast('Refreshing documents...', 'info');
+        
+        try {
+            await this.loadDocuments();
+            this.renderDocuments();
+            this.updateEmptyState();
+            this.updateDocumentCount();
+            this.populateRecentActivity();
+            this.updateStorageInfo();
+            
+            this.showToast('Documents refreshed successfully!', 'success');
+        } catch (error) {
+            console.error('Error refreshing documents:', error);
+            this.showToast('Failed to refresh documents', 'error');
+        }
+    }
+
+    // ...existing code...
     async loadDocuments() {
-        this.documents = await this.api.getAllDocuments();
+        if (this.serverAvailable) {
+            // Use sync method to ensure consistency between server and local storage
+            await this.syncDocuments();
+        } else {
+            // Fallback to local documents if server is not available
+            this.documents = await this.api.getAllDocuments();
+        }
         console.log(`Loaded ${this.documents.length} documents from ${this.serverAvailable ? 'server' : 'localStorage'}`);
     }
 
@@ -1017,17 +1091,42 @@ class AdvancedDocumentDashboard {
         // Also try to save to server if available
         if (this.serverAvailable) {
             try {
-                // Save documents with version control when they're modified
+                // Get current server documents to compare
+                const serverDocs = await this.api.getAllDocuments();
+                const localDocIds = new Set(this.documents.map(doc => doc.id));
+                const serverDocIds = new Set(serverDocs.map(doc => doc.id));
+
+                // Save/update documents that have been modified
                 for (const doc of this.documents) {
                     if (doc.lastModified && doc.lastModified > (doc.lastSaved || 0)) {
                         await this.api.saveDocumentWithVersion(doc, 'Auto-save from dashboard');
                         doc.lastSaved = Date.now();
                     }
                 }
-                console.log('Documents saved locally and synced with version control');
+
+                console.log('Documents saved locally and synced with server');
             } catch (error) {
                 console.error('Error syncing to server:', error);
             }
+        }
+    }
+
+    async syncDocuments() {
+        if (!this.serverAvailable) return;
+
+        try {
+            // Get fresh documents from server
+            const serverDocs = await this.api.getAllDocuments();
+            
+            // Update our local documents array with the server data
+            this.documents = serverDocs;
+            
+            // Save to localStorage to keep them in sync
+            localStorage.setItem('documents', JSON.stringify(this.documents));
+            
+            console.log(`Synced ${this.documents.length} documents from server`);
+        } catch (error) {
+            console.error('Error syncing documents:', error);
         }
     }
 
