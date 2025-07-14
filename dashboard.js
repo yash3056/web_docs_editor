@@ -763,11 +763,55 @@ class AdvancedDocumentDashboard {
 
     showContextMenu(event, documentId) {
         const contextMenu = document.getElementById('doc-context-menu');
-        const rect = document.body.getBoundingClientRect();
         
+        // First, show the menu to get its dimensions
         contextMenu.style.display = 'block';
-        contextMenu.style.left = event.pageX + 'px';
-        contextMenu.style.top = event.pageY + 'px';
+        contextMenu.style.visibility = 'hidden'; // Hide while positioning
+        
+        // Get menu dimensions
+        const menuRect = contextMenu.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const windowWidth = window.innerWidth;
+        const padding = 10; // Minimum distance from edges
+        
+        // Calculate available space
+        const spaceBelow = windowHeight - event.clientY;
+        const spaceAbove = event.clientY;
+        const spaceRight = windowWidth - event.clientX;
+        const spaceLeft = event.clientX;
+        
+        // Determine vertical position
+        let top = event.pageY;
+        if (spaceBelow < menuRect.height + padding && spaceAbove > menuRect.height + padding) {
+            // Not enough space below, but enough above
+            top = event.pageY - menuRect.height;
+        } else if (spaceBelow < menuRect.height + padding && spaceAbove < menuRect.height + padding) {
+            // Not enough space above or below, position to fit in available space
+            if (spaceAbove > spaceBelow) {
+                top = padding;
+            } else {
+                top = Math.max(padding, event.pageY - menuRect.height);
+            }
+        }
+        
+        // Determine horizontal position
+        let left = event.pageX;
+        if (spaceRight < menuRect.width + padding && spaceLeft > menuRect.width + padding) {
+            // Not enough space to the right, but enough to the left
+            left = event.pageX - menuRect.width;
+        } else if (spaceRight < menuRect.width + padding && spaceLeft < menuRect.width + padding) {
+            // Not enough space left or right, position to fit in available space
+            left = Math.max(padding, Math.min(event.pageX, windowWidth - menuRect.width - padding));
+        }
+        
+        // Ensure menu doesn't go off-screen
+        top = Math.max(padding, Math.min(top, windowHeight - menuRect.height - padding));
+        left = Math.max(padding, Math.min(left, windowWidth - menuRect.width - padding));
+        
+        // Apply position
+        contextMenu.style.left = left + 'px';
+        contextMenu.style.top = top + 'px';
+        contextMenu.style.visibility = 'visible'; // Show the menu
         
         // Store current document ID for context actions
         contextMenu.dataset.documentId = documentId;
