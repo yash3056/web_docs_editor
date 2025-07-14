@@ -141,6 +141,7 @@ class AdvancedDocumentDashboard {
         document.getElementById('new-blank-doc').addEventListener('click', () => this.createDocument('blank'));
         document.getElementById('new-template-doc').addEventListener('click', () => this.showNewDocumentModal());
         document.getElementById('import-doc').addEventListener('click', () => this.showImportModal());
+        document.getElementById('classify-document').addEventListener('click', () => this.showClassificationModal());
         
         // Empty state create button
         document.getElementById('create-first-doc').addEventListener('click', () => this.createDocument('blank'));
@@ -806,10 +807,27 @@ class AdvancedDocumentDashboard {
             this.exportDocument(docId);
         });
 
+        document.getElementById('context-classify').addEventListener('click', () => {
+            const docId = document.getElementById('doc-context-menu').dataset.documentId;
+            this.classifyDocumentFromContext(docId);
+        });
+
         document.getElementById('context-delete').addEventListener('click', () => {
             const docId = document.getElementById('doc-context-menu').dataset.documentId;
             this.showDeleteModal(docId);
         });
+    }
+
+    classifyDocumentFromContext(docId) {
+        const doc = this.documents.find(d => d.id === docId);
+        if (doc) {
+            // Pre-select the document in the classification modal
+            this.showClassificationModal();
+            setTimeout(() => {
+                const documentSelect = document.getElementById('document-select');
+                documentSelect.value = docId;
+            }, 100);
+        }
     }
 
     setupModalEvents() {
@@ -821,6 +839,9 @@ class AdvancedDocumentDashboard {
         
         // Import Modal
         this.setupImportModal();
+        
+        // Classification Modal
+        this.setupClassificationModal();
         
         // General modal close events
         document.querySelectorAll('.modal-close').forEach(btn => {
@@ -942,55 +963,414 @@ class AdvancedDocumentDashboard {
         });
     }
 
-    handleImportFiles(files) {
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const content = e.target.result;
-                const newDoc = {
-                    id: 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-                    title: file.name.replace(/\.[^/.]+$/, ""),
-                    content: content,
-                    description: `Imported from ${file.name}`,
-                    createdAt: Date.now(),
-                    lastModified: Date.now(),
-                    template: 'imported',
-                    wordCount: this.countWords(content)
-                };
-
-                this.documents.unshift(newDoc);
-                this.saveDocuments();
-                this.renderDocuments();
-                this.updateDocumentCount();
-                this.updateStorageInfo();
-                this.populateRecentActivity();
-            };
-            reader.readAsText(file);
+    setupClassificationModal() {
+        const modal = document.getElementById('classification-modal');
+        const closeBtn = document.getElementById('close-classification-modal');
+        const cancelBtn = document.getElementById('cancel-classification');
+        const startBtn = document.getElementById('start-classification');
+        const sourceRadios = document.querySelectorAll('input[name="classification-source"]');
+        const internalSection = document.getElementById('internal-doc-selection');
+        const externalSection = document.getElementById('external-file-selection');
+        const pdfUploadZone = document.getElementById('pdf-upload-zone');
+        const pdfFileInput = document.getElementById('pdf-file-input');
+        
+        // Modal close events
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            this.resetClassificationModal();
         });
-
-        document.getElementById('import-modal').style.display = 'none';
-        document.getElementById('import-file').value = '';
-        this.showToast(`${files.length} file(s) imported successfully!`, 'success');
+        
+        cancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            this.resetClassificationModal();
+        });
+        
+        // Source selection change
+        sourceRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'internal') {
+                    internalSection.style.display = 'block';
+                    externalSection.style.display = 'none';
+                } else {
+                    internalSection.style.display = 'none';
+                    externalSection.style.display = 'block';
+                }
+            });
+        });
+        
+        // PDF file upload
+        pdfUploadZone.addEventListener('click', () => {
+            pdfFileInput.click();
+        });
+        
+        pdfFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.handlePdfFileSelection(file);
+            }
+        });
+        
+        // Drag and drop
+        pdfUploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            pdfUploadZone.classList.add('dragover');
+        });
+        
+        pdfUploadZone.addEventListener('dragleave', () => {
+            pdfUploadZone.classList.remove('dragover');
+        });
+        
+        pdfUploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            pdfUploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                this.handlePdfFileSelection(file);
+            }
+        });
+        
+        // Start classification
+        startBtn.addEventListener('click', () => {
+            this.startClassification();
+        });
+        
+        // Results modal
+        const resultsModal = document.getElementById('classification-results-modal');
+        const closeResultsBtn = document.getElementById('close-results-modal');
+        const closeResultsBtn2 = document.getElementById('close-results');
+        const downloadBtn = document.getElementById('download-classified-pdf');
+        
+        closeResultsBtn.addEventListener('click', () => {
+            resultsModal.style.display = 'none';
+        });
+        
+        closeResultsBtn2.addEventListener('click', () => {
+            resultsModal.style.display = 'none';
+        });
+        
+        downloadBtn.addEventListener('click', () => {
+            this.downloadClassifiedPdf();
+        });
     }
 
-    showNewDocumentModal() {
-        document.getElementById('new-doc-modal').style.display = 'flex';
-        setTimeout(() => {
-            document.getElementById('document-name').focus();
-        }, 100);
+    populateDocumentSelect() {
+        const select = document.getElementById('document-select');
+        select.innerHTML = '<option value="">Select a document...</option>';
+        
+        this.documents.forEach(doc => {
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = doc.title;
+            select.appendChild(option);
+        });
     }
 
-    showDeleteModal(documentId) {
-        const doc = this.documents.find(d => d.id === documentId);
-        if (!doc) return;
-
-        document.getElementById('delete-document-name').textContent = doc.title;
-        document.getElementById('delete-modal').style.display = 'flex';
-        this.documentToDelete = documentId;
+    showClassificationModal() {
+        const modal = document.getElementById('classification-modal');
+        this.populateDocumentSelect();
+        this.resetClassificationModal();
+        modal.style.display = 'block';
     }
 
-    showImportModal() {
-        document.getElementById('import-modal').style.display = 'flex';
+    handlePdfFileSelection(file) {
+        const uploadZone = document.getElementById('pdf-upload-zone');
+        uploadZone.classList.add('has-file');
+        uploadZone.innerHTML = `
+            <i class="fas fa-file-pdf"></i>
+            <p>${file.name}</p>
+            <span class="file-info">Ready to classify</span>
+        `;
+        this.selectedPdfFile = file;
+    }
+
+    resetClassificationModal() {
+        const internalRadio = document.querySelector('input[name="classification-source"][value="internal"]');
+        const externalRadio = document.querySelector('input[name="classification-source"][value="external"]');
+        const internalSection = document.getElementById('internal-doc-selection');
+        const externalSection = document.getElementById('external-file-selection');
+        const uploadZone = document.getElementById('pdf-upload-zone');
+        const documentSelect = document.getElementById('document-select');
+        const pdfFileInput = document.getElementById('pdf-file-input');
+        
+        internalRadio.checked = true;
+        externalRadio.checked = false;
+        internalSection.style.display = 'block';
+        externalSection.style.display = 'none';
+        documentSelect.value = '';
+        pdfFileInput.value = '';
+        this.selectedPdfFile = null;
+        
+        uploadZone.classList.remove('has-file');
+        uploadZone.innerHTML = `
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Click to upload PDF file or drag and drop</p>
+            <span class="file-info">PDF files only</span>
+        `;
+    }
+
+    async startClassification() {
+        const sourceType = document.querySelector('input[name="classification-source"]:checked').value;
+        const includeWatermark = document.getElementById('include-watermark').checked;
+        const modal = document.getElementById('classification-modal');
+        const resultsModal = document.getElementById('classification-results-modal');
+        const resultsContent = document.getElementById('classification-results-content');
+        
+        // Show loading
+        resultsContent.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Analyzing document...</p>
+            </div>
+        `;
+        
+        modal.style.display = 'none';
+        resultsModal.style.display = 'block';
+        
+        try {
+            let result;
+            
+            if (sourceType === 'internal') {
+                const documentId = document.getElementById('document-select').value;
+                if (!documentId) {
+                    throw new Error('Please select a document');
+                }
+                
+                const document = this.documents.find(doc => doc.id === documentId);
+                if (!document) {
+                    throw new Error('Document not found');
+                }
+                
+                result = await this.classifyInternalDocument(document);
+            } else {
+                if (!this.selectedPdfFile) {
+                    throw new Error('Please select a PDF file');
+                }
+                
+                result = await this.classifyExternalPdf(this.selectedPdfFile, includeWatermark);
+            }
+            
+            this.displayClassificationResults(result);
+            
+        } catch (error) {
+            console.error('Classification error:', error);
+            resultsContent.innerHTML = `
+                <div class="error-message">
+                    <h3>Classification Failed</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    async classifyInternalDocument(document) {
+        const response = await fetch('/api/classify-document', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.authToken}`
+            },
+            body: JSON.stringify({
+                documentId: document.id,
+                content: document.content
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Classification failed');
+        }
+        
+        return await response.json();
+    }
+
+    async classifyExternalPdf(file, includeWatermark) {
+        const formData = new FormData();
+        formData.append('document', file);
+        
+        const endpoint = includeWatermark ? '/api/classify-and-watermark' : '/api/classify-document';
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error('Classification failed');
+        }
+        
+        return await response.json();
+    }
+
+    displayClassificationResults(result) {
+        const resultsContent = document.getElementById('classification-results-content');
+        const downloadBtn = document.getElementById('download-classified-pdf');
+        
+        if (result.download_url) {
+            downloadBtn.style.display = 'block';
+            this.currentDownloadUrl = result.download_url;
+            downloadBtn.onclick = () => {
+                this.downloadClassifiedPdf();
+            };
+        } else {
+            downloadBtn.style.display = 'none';
+        }
+        
+        const classificationClass = result.classification.replace(/\s+/g, '_');
+        const confidencePercent = Math.round(result.confidence * 100);
+        
+        resultsContent.innerHTML = `
+            <div class="classification-results">
+                <div class="classification-header ${classificationClass}">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Classification: ${result.classification}</span>
+                </div>
+                
+                <div class="classification-details">
+                    <div class="detail-section">
+                        <h4>Confidence Level</h4>
+                        <p>${confidencePercent}% confidence</p>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Analysis Time</h4>
+                        <p>${new Date(result.analysis_timestamp).toLocaleString()}</p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Reasoning</h4>
+                        <p>${result.reasoning}</p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4>Potential Damage</h4>
+                        <p>${result.potential_damage}</p>
+                    </div>
+                </div>
+                
+                ${result.key_risk_factors.length > 0 ? `
+                    <div class="detail-section">
+                        <h4>Key Risk Factors</h4>
+                        <ul>
+                            ${result.key_risk_factors.map(factor => `<li>${factor}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${result.handling_recommendations.length > 0 ? `
+                    <div class="detail-section">
+                        <h4>Handling Recommendations</h4>
+                        <ul>
+                            ${result.handling_recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${this.formatSensitiveContent(result.sensitive_content)}
+            </div>
+        `;
+    }
+
+    formatSensitiveContent(sensitiveContent) {
+        const sections = [];
+        
+        if (sensitiveContent.locations && sensitiveContent.locations.length > 0) {
+            sections.push({
+                title: 'Locations',
+                icon: 'fas fa-map-marker-alt',
+                items: sensitiveContent.locations
+            });
+        }
+        
+        if (sensitiveContent.personnel && sensitiveContent.personnel.length > 0) {
+            sections.push({
+                title: 'Personnel',
+                icon: 'fas fa-user',
+                items: sensitiveContent.personnel
+            });
+        }
+        
+        if (sensitiveContent.operations && sensitiveContent.operations.length > 0) {
+            sections.push({
+                title: 'Operations',
+                icon: 'fas fa-cogs',
+                items: sensitiveContent.operations
+            });
+        }
+        
+        if (sensitiveContent.technical && sensitiveContent.technical.length > 0) {
+            sections.push({
+                title: 'Technical',
+                icon: 'fas fa-wrench',
+                items: sensitiveContent.technical
+            });
+        }
+        
+        if (sensitiveContent.intelligence && sensitiveContent.intelligence.length > 0) {
+            sections.push({
+                title: 'Intelligence',
+                icon: 'fas fa-eye',
+                items: sensitiveContent.intelligence
+            });
+        }
+        
+        if (sections.length === 0) {
+            return '';
+        }
+        
+        return `
+            <div class="detail-section">
+                <h4>Sensitive Content Detected</h4>
+                <div class="sensitive-content">
+                    ${sections.map(section => `
+                        <div class="sensitive-item">
+                            <i class="${section.icon}"></i>
+                            <strong>${section.title}:</strong> ${section.items.join(', ')}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    downloadClassifiedPdf() {
+        if (!this.currentDownloadUrl) {
+            console.error('No download URL available');
+            return;
+        }
+        
+        // Create a download link with authentication
+        fetch(this.currentDownloadUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Create a download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `classified_document_${Date.now()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+            console.error('Download error:', error);
+            alert('Download failed. Please try again.');
+        });
     }
 
     showStorageLimitModal() {

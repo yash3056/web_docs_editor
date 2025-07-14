@@ -67,6 +67,10 @@
                     <i class="fas fa-file-import"></i>
                     <span>Import Document</span>
                 </button>
+                <button class="quick-action-btn" id="classify-document">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Classify Document</span>
+                </button>
             </div>
 
             <div class="sidebar-section">
@@ -272,6 +276,85 @@
         </div>
     </div>
 
+    <!-- Document Classification Modal -->
+    <div class="modal-overlay" id="classification-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Document Classification</h2>
+                <button class="close" id="close-classification-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="classification-options">
+                    <div class="option-group">
+                        <h3>Classification Source</h3>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="classification-source" value="internal" checked>
+                                <span>Internal Document</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="classification-source" value="external">
+                                <span>External PDF File</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="option-group" id="internal-doc-selection">
+                        <h3>Select Document</h3>
+                        <select id="document-select" class="form-select">
+                            <option value="">Select a document...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="option-group" id="external-file-selection" style="display: none;">
+                        <h3>Upload PDF File</h3>
+                        <div class="file-upload-area">
+                            <input type="file" id="pdf-file-input" accept=".pdf" style="display: none;">
+                            <div class="file-upload-zone" id="pdf-upload-zone">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Click to upload PDF file or drag and drop</p>
+                                <span class="file-info">PDF files only</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="option-group">
+                        <h3>Classification Options</h3>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="include-watermark" checked>
+                                <span>Add classification watermark (PDF only)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-classification">Cancel</button>
+                <button class="btn btn-primary" id="start-classification">Classify Document</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classification Results Modal -->
+    <div class="modal-overlay" id="classification-results-modal" style="display: none;">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h2>Classification Results</h2>
+                <button class="close" id="close-results-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="classification-results-content">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="close-results">Close</button>
+                <button class="btn btn-primary" id="download-classified-pdf" style="display: none;">Download Watermarked PDF</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Document Context Menu -->
     <div class="context-menu" id="doc-context-menu" style="display: none;">
         <div class="context-item" id="context-open">
@@ -289,6 +372,10 @@
         <div class="context-item" id="context-export">
             <i class="fas fa-file-pdf"></i>
             <span>Export to PDF</span>
+        </div>
+        <div class="context-item" id="context-classify">
+            <i class="fas fa-shield-alt"></i>
+            <span>Classify Document</span>
         </div>
         <hr>
         <div class="context-item danger" id="context-delete">
