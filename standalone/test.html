@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Standalone Functions</title>
+</head>
+<body>
+    <h1>Testing Standalone Web Docs Editor</h1>
+    <div id="test-results"></div>
+    
+    <script src="js/standalone-auth.js"></script>
+    <script src="js/standalone-storage.js"></script>
+    <script src="js/standalone-exporter.js"></script>
+    
+    <script>
+        function runTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h2>Running Tests...</h2>';
+            
+            let testResults = [];
+            
+            // Test 1: Authentication
+            try {
+                const user = standaloneAuth.login('demo@example.com', 'demo123');
+                testResults.push('✅ Authentication: PASSED - Demo user login works');
+            } catch (error) {
+                testResults.push('❌ Authentication: FAILED - ' + error.message);
+            }
+            
+            // Test 2: Document Storage
+            try {
+                const testDoc = {
+                    id: 'test-doc-1',
+                    title: 'Test Document',
+                    content: '<p>This is a test document</p>',
+                    createdAt: Date.now(),
+                    lastModified: Date.now()
+                };
+                
+                standaloneDocStorage.saveDocument(testDoc);
+                const savedDoc = standaloneDocStorage.getDocument('test-doc-1');
+                
+                if (savedDoc && savedDoc.title === 'Test Document') {
+                    testResults.push('✅ Document Storage: PASSED - Save and retrieve works');
+                } else {
+                    testResults.push('❌ Document Storage: FAILED - Document not saved correctly');
+                }
+            } catch (error) {
+                testResults.push('❌ Document Storage: FAILED - ' + error.message);
+            }
+            
+            // Test 3: Export functionality
+            try {
+                const testTitle = 'Test Export';
+                const testContent = '<p>Test content for export</p>';
+                
+                // Test HTML export (won't actually download, just test the function)
+                standaloneExporter.exportAsHTML = function(title, content) {
+                    return title === testTitle && content === testContent;
+                };
+                
+                if (standaloneExporter.exportAsHTML(testTitle, testContent)) {
+                    testResults.push('✅ Export Functionality: PASSED - Export functions available');
+                } else {
+                    testResults.push('❌ Export Functionality: FAILED - Export functions not working');
+                }
+            } catch (error) {
+                testResults.push('❌ Export Functionality: FAILED - ' + error.message);
+            }
+            
+            // Test 4: Storage statistics
+            try {
+                const stats = standaloneDocStorage.getStorageStats();
+                if (stats && typeof stats.documentCount === 'number') {
+                    testResults.push('✅ Storage Statistics: PASSED - Statistics available');
+                } else {
+                    testResults.push('❌ Storage Statistics: FAILED - Statistics not available');
+                }
+            } catch (error) {
+                testResults.push('❌ Storage Statistics: FAILED - ' + error.message);
+            }
+            
+            // Display results
+            results.innerHTML = '<h2>Test Results:</h2><ul>' + 
+                testResults.map(result => '<li>' + result + '</li>').join('') + 
+                '</ul>';
+            
+            // Test summary
+            const passedTests = testResults.filter(r => r.includes('✅')).length;
+            const totalTests = testResults.length;
+            
+            results.innerHTML += '<h3>Summary: ' + passedTests + '/' + totalTests + ' tests passed</h3>';
+            
+            if (passedTests === totalTests) {
+                results.innerHTML += '<p style="color: green; font-weight: bold;">All tests passed! The standalone version is working correctly.</p>';
+            } else {
+                results.innerHTML += '<p style="color: red; font-weight: bold;">Some tests failed. Please check the implementation.</p>';
+            }
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

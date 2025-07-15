@@ -1,0 +1,68 @@
+/* Minimal Font Awesome replacement using Unicode characters */
+.fas:before, .fa:before {
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    display: inline-block;
+    text-decoration: inherit;
+    width: 1em;
+    text-align: center;
+}
+
+.fa-file-alt:before { content: "📄"; }
+.fa-save:before { content: "💾"; }
+.fa-download:before { content: "⬇️"; }
+.fa-th-large:before { content: "⚏"; }
+.fa-search:before { content: "🔍"; }
+.fa-times:before { content: "❌"; }
+.fa-user-circle:before { content: "👤"; }
+.fa-chevron-down:before { content: "▼"; }
+.fa-cog:before { content: "⚙️"; }
+.fa-question-circle:before { content: "❓"; }
+.fa-sign-out-alt:before { content: "🚪"; }
+.fa-file-plus:before { content: "📄+"; }
+.fa-file-contract:before { content: "📋"; }
+.fa-file-import:before { content: "📥"; }
+.fa-shield-alt:before { content: "🛡️"; }
+.fa-th:before { content: "⚏"; }
+.fa-list:before { content: "≡"; }
+.fa-filter:before { content: "🔽"; }
+.fa-chart-line:before { content: "📊"; }
+.fa-envelope:before { content: "✉️"; }
+.fa-user-tie:before { content: "🤵"; }
+.fa-plus:before { content: "+"; }
+.fa-exclamation-triangle:before { content: "⚠️"; }
+.fa-cloud-upload-alt:before { content: "☁️⬆️"; }
+.fa-trash:before { content: "🗑️"; }
+.fa-folder-open:before { content: "📂"; }
+.fa-edit:before { content: "✏️"; }
+.fa-copy:before { content: "📋"; }
+.fa-file-pdf:before { content: "📄"; }
+.fa-bold:before { content: "B"; font-weight: bold; }
+.fa-italic:before { content: "I"; font-style: italic; }
+.fa-underline:before { content: "U"; text-decoration: underline; }
+.fa-strikethrough:before { content: "S"; text-decoration: line-through; }
+.fa-align-left:before { content: "≡"; }
+.fa-align-center:before { content: "≡"; }
+.fa-align-right:before { content: "≡"; }
+.fa-align-justify:before { content: "≡"; }
+.fa-list-ul:before { content: "•"; }
+.fa-list-ol:before { content: "1."; }
+.fa-link:before { content: "🔗"; }
+.fa-image:before { content: "🖼️"; }
+.fa-undo:before { content: "↶"; }
+.fa-redo:before { content: "↷"; }
+.fa-palette:before { content: "🎨"; }
+.fa-highlighter:before { content: "🖍️"; }
+.fa-eye:before { content: "👁️"; }
+.fa-print:before { content: "🖨️"; }
+.fa-file-word:before { content: "📄"; }
+.fa-file-code:before { content: "📄"; }
+.fa-info-circle:before { content: "ℹ️"; }
+.fa-history:before { content: "🕒"; }
+.fa-code-branch:before { content: "🌿"; }
+.fa-tag:before { content: "🏷️"; }
+.fa-clock:before { content: "⏰"; }
+.fa-calendar:before { content: "📅"; }
+.fa-compress:before { content: "⤏"; }
+.fa-expand:before { content: "⤢"; }

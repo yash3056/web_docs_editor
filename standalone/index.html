@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Docs Editor - Standalone</title>
+    <link rel="stylesheet" href="css/font-awesome-minimal.css">
+    <link rel="stylesheet" href="../docseditor.css">
+    <style>
+        /* Additional styles for standalone version */
+        .standalone-notice {
+            background: #e8f4f8;
+            border: 1px solid #bee5eb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #0c5460;
+        }
+        
+        .auth-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .auth-form input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .auth-form button {
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .auth-form button:hover {
+            background: #0056b3;
+        }
+        
+        .auth-toggle {
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        .auth-toggle a {
+            color: #007bff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .success-message {
+            color: #28a745;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .demo-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Screen -->
+    <div id="auth-screen" class="auth-container">
+        <h1 style="text-align: center; margin-bottom: 30px;">
+            <i class="fas fa-file-alt"></i>
+            Web Docs Editor
+        </h1>
+        
+        <div class="standalone-notice">
+            <strong>Standalone Version</strong> - This version works without internet connection or server installation.
+        </div>
+        
+        <div class="demo-info">
+            <strong>Demo Account:</strong> email: demo@example.com, password: demo123
+        </div>
+        
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button type="submit">Login</button>
+            <div id="login-error" class="error-message" style="display: none;"></div>
+        </form>
+        
+        <!-- Register Form -->
+        <form id="register-form" class="auth-form" style="display: none;">
+            <h2>Register</h2>
+            <input type="email" id="register-email" placeholder="Email" required>
+            <input type="text" id="register-username" placeholder="Username" required>
+            <input type="password" id="register-password" placeholder="Password (min 6 characters)" required>
+            <button type="submit">Register</button>
+            <div id="register-error" class="error-message" style="display: none;"></div>
+            <div id="register-success" class="success-message" style="display: none;"></div>
+        </form>
+        
+        <div class="auth-toggle">
+            <span id="login-toggle">Don't have an account? <a id="show-register">Register</a></span>
+            <span id="register-toggle" style="display: none;">Already have an account? <a id="show-login">Login</a></span>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" style="display: none;">
+        <div class="app-container">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 class="app-title">
+                        <i class="fas fa-file-alt"></i>
+                        Web Docs Editor
+                    </h1>
+                </div>
+                <div class="header-center">
+                    <input type="text" id="document-title" class="document-title" placeholder="Untitled Document" value="Untitled Document">
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-info" id="dashboard-btn">
+                        <i class="fas fa-th-large"></i>
+                        Dashboard
+                    </button>
+                    <button class="btn btn-primary" id="save-btn">
+                        <i class="fas fa-save"></i>
+                        Save
+                    </button>
+                    <div class="export-dropdown">
+                        <button class="btn btn-secondary" id="export-btn">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                        <div class="export-menu" id="export-menu">
+                            <a href="#" id="export-html">
+                                <i class="fas fa-file-code"></i>
+                                HTML
+                            </a>
+                            <a href="#" id="export-pdf">
+                                <i class="fas fa-file-pdf"></i>
+                                PDF
+                            </a>
+                            <a href="#" id="export-word">
+                                <i class="fas fa-file-word"></i>
+                                Word
+                            </a>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" id="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <button class="tool-btn" id="undo-btn" title="Undo (Ctrl+Z)">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="tool-btn" id="redo-btn" title="Redo (Ctrl+Y)">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <select id="font-family" class="font-select">
+                        <option value="Arial">Arial</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Verdana">Verdana</option>
+                    </select>
+                    <select id="font-size" class="font-size-select">
+                        <option value="12">12px</option>
+                        <option value="14">14px</option>
+                        <option value="16" selected>16px</option>
+                        <option value="18">18px</option>
+                        <option value="20">20px</option>
+                        <option value="24">24px</option>
+                        <option value="28">28px</option>
+                        <option value="32">32px</option>
+                    </select>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <button class="tool-btn format-btn" id="bold-btn" title="Bold (Ctrl+B)">
+                        <i class="fas fa-bold"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="italic-btn" title="Italic (Ctrl+I)">
+                        <i class="fas fa-italic"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="underline-btn" title="Underline (Ctrl+U)">
+                        <i class="fas fa-underline"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="strikethrough-btn" title="Strikethrough">
+                        <i class="fas fa-strikethrough"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <button class="tool-btn format-btn" id="align-left-btn" title="Align Left">
+                        <i class="fas fa-align-left"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="align-center-btn" title="Align Center">
+                        <i class="fas fa-align-center"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="align-right-btn" title="Align Right">
+                        <i class="fas fa-align-right"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="align-justify-btn" title="Justify">
+                        <i class="fas fa-align-justify"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <button class="tool-btn format-btn" id="bullet-list-btn" title="Bullet List">
+                        <i class="fas fa-list-ul"></i>
+                    </button>
+                    <button class="tool-btn format-btn" id="number-list-btn" title="Numbered List">
+                        <i class="fas fa-list-ol"></i>
+                    </button>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <label for="text-color" class="color-label">
+                        <i class="fas fa-palette"></i>
+                        <input type="color" id="text-color" class="color-input" value="#000000" title="Text Color">
+                    </label>
+                    <label for="bg-color" class="color-label">
+                        <i class="fas fa-highlighter"></i>
+                        <input type="color" id="bg-color" class="color-input" value="#ffff00" title="Background Color">
+                    </label>
+                </div>
+
+                <div class="toolbar-separator"></div>
+
+                <div class="toolbar-group">
+                    <button class="tool-btn" id="link-btn" title="Insert Link">
+                        <i class="fas fa-link"></i>
+                    </button>
+                    <button class="tool-btn" id="image-btn" title="Insert Image">
+                        <i class="fas fa-image"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Editor -->
+            <div class="editor-container">
+                <div class="editor-wrapper">
+                    <div id="editor" class="editor" contenteditable="true">
+                        <p>Start typing your document here...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-left">
+                    <span id="word-count">Words: 0</span>
+                    <span id="char-count">Characters: 0</span>
+                </div>
+                <div class="status-right">
+                    <span id="save-status">Ready</span>
+                    <span id="user-info"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include JavaScript files -->
+    <script src="js/standalone-auth.js"></script>
+    <script src="js/standalone-storage.js"></script>
+    <script src="js/standalone-exporter.js"></script>
+    <script src="js/standalone-editor.js"></script>
+    <script>
+        // Standalone application initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is authenticated
+            if (standaloneAuth.isAuthenticated()) {
+                showMainApp();
+            } else {
+                showAuthScreen();
+            }
+            
+            // Set up authentication event listeners
+            setupAuthListeners();
+            
+            // Initialize the editor if authenticated
+            if (standaloneAuth.isAuthenticated()) {
+                initializeStandaloneEditor();
+            }
+        });
+
+        function showAuthScreen() {
+            document.getElementById('auth-screen').style.display = 'block';
+            document.getElementById('main-app').style.display = 'none';
+        }
+
+        function showMainApp() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            updateUserInfo();
+        }
+
+        function setupAuthListeners() {
+            // Toggle between login and register forms
+            document.getElementById('show-register').addEventListener('click', function() {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'block';
+                document.getElementById('login-toggle').style.display = 'none';
+                document.getElementById('register-toggle').style.display = 'block';
+            });
+
+            document.getElementById('show-login').addEventListener('click', function() {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('login-toggle').style.display = 'block';
+                document.getElementById('register-toggle').style.display = 'none';
+            });
+
+            // Login form submission
+            document.getElementById('login-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                
+                try {
+                    standaloneAuth.login(email, password);
+                    showMainApp();
+                    initializeStandaloneEditor();
+                } catch (error) {
+                    const errorElement = document.getElementById('login-error');
+                    errorElement.textContent = error.message;
+                    errorElement.style.display = 'block';
+                }
+            });
+
+            // Register form submission
+            document.getElementById('register-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('register-email').value;
+                const username = document.getElementById('register-username').value;
+                const password = document.getElementById('register-password').value;
+                
+                try {
+                    standaloneAuth.register(email, username, password);
+                    const successElement = document.getElementById('register-success');
+                    successElement.textContent = 'Registration successful! You can now login.';
+                    successElement.style.display = 'block';
+                    
+                    // Clear form
+                    document.getElementById('register-form').reset();
+                    
+                    // Hide error if any
+                    document.getElementById('register-error').style.display = 'none';
+                    
+                    // Switch to login form after a delay
+                    setTimeout(() => {
+                        document.getElementById('show-login').click();
+                    }, 2000);
+                } catch (error) {
+                    const errorElement = document.getElementById('register-error');
+                    errorElement.textContent = error.message;
+                    errorElement.style.display = 'block';
+                    document.getElementById('register-success').style.display = 'none';
+                }
+            });
+
+            // Logout button
+            document.getElementById('logout-btn').addEventListener('click', function() {
+                standaloneAuth.logout();
+                showAuthScreen();
+            });
+        }
+
+        function updateUserInfo() {
+            const user = standaloneAuth.getCurrentUser();
+            if (user) {
+                document.getElementById('user-info').textContent = `Logged in as: ${user.username}`;
+            }
+        }
+
+        function initializeStandaloneEditor() {
+            // Override the server-based functions with localStorage versions
+            window.saveDocument = function(document) {
+                return standaloneDocStorage.saveDocument(document);
+            };
+
+            window.loadDocument = function(documentId) {
+                return standaloneDocStorage.getDocument(documentId);
+            };
+
+            window.loadDocuments = function() {
+                return standaloneDocStorage.getDocuments();
+            };
+
+            window.deleteDocument = function(documentId) {
+                return standaloneDocStorage.deleteDocument(documentId);
+            };
+
+            // Initialize the editor
+            if (typeof initializeEditor === 'function') {
+                initializeEditor();
+            }
+        }
+    </script>
+</body>
+</html>

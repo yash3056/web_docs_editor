@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Dashboard - Web Docs Editor</title>
+    <link rel="stylesheet" href="css/font-awesome-minimal.css">
+    <link rel="stylesheet" href="../dashboard.css">
+    <style>
+        /* Additional styles for standalone version */
+        .standalone-notice {
+            background: #e8f4f8;
+            border: 1px solid #bee5eb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #0c5460;
+        }
+        
+        .offline-indicator {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #0c5460;
+        }
+        
+        .storage-local {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .storage-local h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .storage-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-left">
+                <div class="app-logo">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Web Docs - Standalone</span>
+                </div>
+                <div class="offline-indicator">
+                    <i class="fas fa-wifi" style="color: #dc3545;"></i>
+                    Offline Mode
+                </div>
+            </div>
+            <div class="nav-center">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search documents..." class="search-input">
+                    <button class="search-clear" id="search-clear" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="user-menu">
+                    <button class="user-btn" id="user-btn">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="user-name">User</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="user-dropdown" id="user-dropdown">
+                        <a href="#" id="settings-btn"><i class="fas fa-cog"></i> Settings</a>
+                        <a href="#" id="help-btn"><i class="fas fa-question-circle"></i> Help</a>
+                        <hr>
+                        <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Quick Actions</h3>
+                <button class="quick-action-btn" id="new-blank-doc">
+                    <i class="fas fa-file-plus"></i>
+                    <span>Blank Document</span>
+                </button>
+                <button class="quick-action-btn" id="new-template-doc">
+                    <i class="fas fa-file-contract"></i>
+                    <span>From Template</span>
+                </button>
+                <button class="quick-action-btn" id="import-doc">
+                    <i class="fas fa-file-import"></i>
+                    <span>Import Document</span>
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Storage</h3>
+                <div class="storage-info">
+                    <div class="storage-bar">
+                        <div class="storage-used" id="storage-used"></div>
+                    </div>
+                    <p class="storage-text" id="storage-text">0 documents</p>
+                    <div class="storage-local">
+                        <h4>Local Storage</h4>
+                        <div class="storage-stats">
+                            <span id="docs-count">0 documents</span>
+                            <span id="storage-size">0 KB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="standalone-notice">
+                <strong>Standalone Mode:</strong> Documents are stored locally in your browser. 
+                Export important documents to backup them.
+            </div>
+            
+            <!-- Header Actions -->
+            <div class="content-header">
+                <div class="header-left">
+                    <h1>My Documents</h1>
+                    <p class="document-count" id="document-count">0 documents</p>
+                </div>
+                <div class="header-right">
+                    <div class="view-controls">
+                        <button class="view-btn active" id="grid-view" title="Grid View">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button class="view-btn" id="list-view" title="List View">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                    <div class="sort-controls">
+                        <select id="sort-select" class="sort-select">
+                            <option value="modified">Last Modified</option>
+                            <option value="created">Date Created</option>
+                            <option value="name">Name A-Z</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Start Templates -->
+            <section class="templates-section" id="templates-section">
+                <h2>Start with a template</h2>
+                <div class="templates-grid">
+                    <div class="template-card" data-template="blank">
+                        <div class="template-preview">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>Blank Document</h3>
+                        <p>Start with a clean slate</p>
+                    </div>
+                    <div class="template-card" data-template="report">
+                        <div class="template-preview">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3>Report</h3>
+                        <p>Professional report template</p>
+                    </div>
+                    <div class="template-card" data-template="letter">
+                        <div class="template-preview">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <h3>Letter</h3>
+                        <p>Formal letter template</p>
+                    </div>
+                    <div class="template-card" data-template="resume">
+                        <div class="template-preview">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h3>Resume</h3>
+                        <p>Professional resume</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Documents -->
+            <section class="recent-section">
+                <div class="section-header">
+                    <h2>All Documents</h2>
+                </div>
+                <div class="documents-container" id="documents-container">
+                    <div class="documents-grid" id="documents-grid">
+                        <!-- Document cards will be dynamically generated -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <div class="empty-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <h3>No documents yet</h3>
+                <p>Create your first document to get started</p>
+                <button class="empty-action-btn" id="create-first-doc">
+                    <i class="fas fa-plus"></i>
+                    Create Document
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- New Document Modal -->
+    <div class="modal-overlay" id="new-doc-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Create New Document</h3>
+                <button class="modal-close" id="new-doc-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="document-name">Document Name</label>
+                    <input type="text" id="document-name" placeholder="Enter document name" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="document-description">Description (Optional)</label>
+                    <textarea id="document-description" placeholder="Brief description" class="form-textarea"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-new-doc">Cancel</button>
+                <button class="btn btn-primary" id="create-new-doc">Create Document</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="delete-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Delete Document</h3>
+                <button class="modal-close" id="delete-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p>Are you sure you want to delete "<span id="delete-document-name"></span>"?</p>
+                <p class="warning-text">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-delete">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Context Menu -->
+    <div class="context-menu" id="doc-context-menu" style="display: none;">
+        <div class="context-item" id="context-open">
+            <i class="fas fa-folder-open"></i>
+            <span>Open</span>
+        </div>
+        <div class="context-item" id="context-rename">
+            <i class="fas fa-edit"></i>
+            <span>Rename</span>
+        </div>
+        <div class="context-item" id="context-duplicate">
+            <i class="fas fa-copy"></i>
+            <span>Duplicate</span>
+        </div>
+        <div class="context-item" id="context-export">
+            <i class="fas fa-file-pdf"></i>
+            <span>Export</span>
+        </div>
+        <hr>
+        <div class="context-item danger" id="context-delete">
+            <i class="fas fa-trash"></i>
+            <span>Delete</span>
+        </div>
+    </div>
+
+    <!-- Include JavaScript files -->
+    <script src="js/standalone-auth.js"></script>
+    <script src="js/standalone-storage.js"></script>
+    <script>
+        // Standalone Dashboard functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            if (!standaloneAuth.isAuthenticated()) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            initializeDashboard();
+        });
+
+        function initializeDashboard() {
+            updateUserInfo();
+            loadDocuments();
+            updateStorageInfo();
+            setupEventListeners();
+        }
+
+        function updateUserInfo() {
+            const user = standaloneAuth.getCurrentUser();
+            if (user) {
+                document.getElementById('user-name').textContent = user.username;
+            }
+        }
+
+        function loadDocuments() {
+            const documents = standaloneDocStorage.getDocuments();
+            const documentsGrid = document.getElementById('documents-grid');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (documents.length === 0) {
+                documentsGrid.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            documentsGrid.style.display = 'grid';
+            emptyState.style.display = 'none';
+            
+            // Sort documents by last modified (newest first)
+            documents.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
+            
+            documentsGrid.innerHTML = '';
+            
+            documents.forEach(doc => {
+                const docCard = createDocumentCard(doc);
+                documentsGrid.appendChild(docCard);
+            });
+            
+            // Update document count
+            document.getElementById('document-count').textContent = `${documents.length} documents`;
+        }
+
+        function createDocumentCard(doc) {
+            const card = document.createElement('div');
+            card.className = 'document-card';
+            card.dataset.documentId = doc.id;
+            
+            const lastModified = new Date(doc.lastModified || doc.createdAt).toLocaleDateString();
+            const wordCount = doc.content ? doc.content.split(/\s+/).filter(word => word.length > 0).length : 0;
+            
+            card.innerHTML = `
+                <div class="document-preview">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="document-info">
+                    <h3 class="document-title">${doc.title || 'Untitled Document'}</h3>
+                    <p class="document-meta">
+                        <span class="document-date">${lastModified}</span>
+                        <span class="document-size">${wordCount} words</span>
+                    </p>
+                </div>
+                <div class="document-actions">
+                    <button class="doc-action-btn" onclick="openDocument('${doc.id}')">
+                        <i class="fas fa-folder-open"></i>
+                    </button>
+                    <button class="doc-action-btn" onclick="deleteDocument('${doc.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function updateStorageInfo() {
+            const stats = standaloneDocStorage.getStorageStats();
+            const sizeKB = Math.round(stats.totalSize / 1024);
+            
+            document.getElementById('docs-count').textContent = `${stats.documentCount} documents`;
+            document.getElementById('storage-size').textContent = `${sizeKB} KB`;
+            document.getElementById('storage-text').textContent = `${stats.documentCount} documents`;
+            
+            // Update storage bar (assuming 1MB limit for visual purposes)
+            const maxSize = 1024 * 1024; // 1MB
+            const percentage = Math.min((stats.totalSize / maxSize) * 100, 100);
+            document.getElementById('storage-used').style.width = percentage + '%';
+        }
+
+        function setupEventListeners() {
+            // Create new document
+            document.getElementById('new-blank-doc').addEventListener('click', () => {
+                createNewDocument('blank');
+            });
+            
+            document.getElementById('create-first-doc').addEventListener('click', () => {
+                createNewDocument('blank');
+            });
+            
+            // Template cards
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const template = card.dataset.template;
+                    createNewDocument(template);
+                });
+            });
+            
+            // Logout
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                standaloneAuth.logout();
+                window.location.href = 'index.html';
+            });
+            
+            // Search functionality
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                filterDocuments(e.target.value);
+            });
+            
+            // Sort functionality
+            document.getElementById('sort-select').addEventListener('change', (e) => {
+                sortDocuments(e.target.value);
+            });
+        }
+
+        function createNewDocument(template) {
+            const docId = standaloneDocStorage.generateDocumentId();
+            const doc = {
+                id: docId,
+                title: 'Untitled Document',
+                content: getTemplateContent(template),
+                template: template,
+                createdAt: Date.now(),
+                lastModified: Date.now()
+            };
+            
+            standaloneDocStorage.saveDocument(doc);
+            window.location.href = `index.html?doc=${docId}`;
+        }
+
+        function getTemplateContent(template) {
+            switch (template) {
+                case 'report':
+                    return `<h1>Report Title</h1>
+                           <h2>Executive Summary</h2>
+                           <p>Brief overview of the report...</p>
+                           <h2>Introduction</h2>
+                           <p>Background information...</p>
+                           <h2>Findings</h2>
+                           <p>Key findings...</p>
+                           <h2>Conclusion</h2>
+                           <p>Summary and recommendations...</p>`;
+                case 'letter':
+                    return `<p>[Your Name]<br>
+                           [Your Address]<br>
+                           [City, State ZIP Code]<br>
+                           [Date]</p>
+                           <p>[Recipient Name]<br>
+                           [Recipient Address]<br>
+                           [City, State ZIP Code]</p>
+                           <p>Dear [Recipient Name],</p>
+                           <p>Letter content goes here...</p>
+                           <p>Sincerely,<br>
+                           [Your Name]</p>`;
+                case 'resume':
+                    return `<h1>[Your Name]</h1>
+                           <p>[Your Email] | [Your Phone] | [Your Address]</p>
+                           <h2>Objective</h2>
+                           <p>Career objective...</p>
+                           <h2>Experience</h2>
+                           <p><strong>Job Title</strong> - Company Name (Date)<br>
+                           Job description...</p>
+                           <h2>Education</h2>
+                           <p><strong>Degree</strong> - Institution (Date)</p>
+                           <h2>Skills</h2>
+                           <p>List of skills...</p>`;
+                default:
+                    return '<p>Start typing your document here...</p>';
+            }
+        }
+
+        function openDocument(docId) {
+            window.location.href = `index.html?doc=${docId}`;
+        }
+
+        function deleteDocument(docId) {
+            if (confirm('Are you sure you want to delete this document?')) {
+                standaloneDocStorage.deleteDocument(docId);
+                loadDocuments();
+                updateStorageInfo();
+            }
+        }
+
+        function filterDocuments(searchTerm) {
+            const cards = document.querySelectorAll('.document-card');
+            cards.forEach(card => {
+                const title = card.querySelector('.document-title').textContent.toLowerCase();
+                const isVisible = title.includes(searchTerm.toLowerCase());
+                card.style.display = isVisible ? 'block' : 'none';
+            });
+        }
+
+        function sortDocuments(sortBy) {
+            const documents = standaloneDocStorage.getDocuments();
+            
+            switch (sortBy) {
+                case 'name':
+                    documents.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                    break;
+                case 'created':
+                    documents.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    break;
+                case 'modified':
+                default:
+                    documents.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
+                    break;
+            }
+            
+            const documentsGrid = document.getElementById('documents-grid');
+            documentsGrid.innerHTML = '';
+            
+            documents.forEach(doc => {
+                const docCard = createDocumentCard(doc);
+                documentsGrid.appendChild(docCard);
+            });
+        }
+    </script>
+</body>
+</html>
