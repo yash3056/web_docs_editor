@@ -41,51 +41,98 @@ function startServer() {
             process.env.PORT = PORT.toString();
             process.env.ELECTRON_USER_DATA = userDataPath;
             
-            console.log('Starting server directly...');
+            console.log('Starting server in same process...');
+            console.log('Current working directory:', process.cwd());
+            console.log('__dirname:', __dirname);
+            console.log('process.resourcesPath:', process.resourcesPath);
+            console.log('app.getAppPath():', app.getAppPath());
             
-            // In packaged app, require the server directly
-            const serverPath = path.join(__dirname, 'server.js');
+            // For packaged apps, we need to handle module resolution differently
+            if (!isDev) {
+                // In packaged environment, modules are in the asar archive
+                const originalModuleLoad = require('module')._load;
+                require('module')._load = function(id, parent) {
+                    // First try normal resolution
+                    try {
+                        return originalModuleLoad.apply(this, arguments);
+                    } catch (error) {
+                        // If that fails and we're looking for a local module
+                        if (error.code === 'MODULE_NOT_FOUND' && id.startsWith('./')) {
+                            // Try resolving relative to app path
+                            const appPath = app.getAppPath();
+                            const fullPath = path.resolve(appPath, id);
+                            try {
+                                return originalModuleLoad.call(this, fullPath, parent);
+                            } catch (innerError) {
+                                throw error; // Throw original error
+                            }
+                        }
+                        throw error;
+                    }
+                };
+            }
+            
+            // Determine server path
+            let serverPath;
+            if (isDev) {
+                serverPath = path.join(__dirname, 'server.js');
+            } else {
+                serverPath = path.join(app.getAppPath(), 'server.js');
+            }
+            
             console.log('Server path:', serverPath);
             
+            // Verify server file exists
+            if (!fs.existsSync(serverPath)) {
+                throw new Error(`Server file not found at: ${serverPath}`);
+            }
+            
             // Clear require cache to ensure fresh start
-            delete require.cache[require.resolve(serverPath)];
+            const resolvedServerPath = require.resolve(serverPath);
+            delete require.cache[resolvedServerPath];
             
-            // Set up error handling for module loading
-            const originalConsoleError = console.error;
-            let moduleError = null;
+            // Set up error capture
+            let serverError = null;
+            const originalProcessOn = process.on;
             
-            console.error = (...args) => {
-                const errorStr = args.join(' ');
-                if (errorStr.includes('Cannot find module') || errorStr.includes('MODULE_NOT_FOUND')) {
-                    moduleError = new Error(errorStr);
-                }
-                originalConsoleError.apply(console, args);
+            const errorHandler = (error) => {
+                serverError = error;
+                console.error('Server error:', error);
             };
+            
+            process.on('uncaughtException', errorHandler);
+            process.on('unhandledRejection', errorHandler);
             
             // Try to require the server
             try {
+                console.log('Loading server module...');
                 require(serverPath);
                 console.log('Server module loaded successfully');
+                
+                // Remove error handlers
+                process.removeListener('uncaughtException', errorHandler);
+                process.removeListener('unhandledRejection', errorHandler);
+                
+                if (serverError) {
+                    throw serverError;
+                }
+                
             } catch (error) {
-                console.error = originalConsoleError;
+                // Remove error handlers
+                process.removeListener('uncaughtException', errorHandler);
+                process.removeListener('unhandledRejection', errorHandler);
+                
+                console.error('Error loading server module:', error);
                 throw error;
-            }
-            
-            // Restore original console.error
-            console.error = originalConsoleError;
-            
-            // Check if there was a module error
-            if (moduleError) {
-                throw moduleError;
             }
             
             // Wait for server to be ready by checking if it responds
             let checkCount = 0;
-            const maxChecks = 30; // 15 seconds maximum wait time
+            const maxChecks = 60; // 30 seconds maximum wait time
             
             const checkServer = () => {
                 if (checkCount >= maxChecks) {
-                    reject(new Error('Server startup timeout - server did not respond within 15 seconds'));
+                    reject(new Error('Server startup timeout - server did not respond within 30 seconds'));
                     return;
                 }
                 
@@ -94,13 +141,13 @@ function startServer() {
                 const options = {
                     hostname: 'localhost',
                     port: PORT,
-                    path: '/api/health',
+                    path: '/',
                     method: 'GET',
                     timeout: 1000
                 };
                 
                 const req = http.request(options, (res) => {
-                    if (res.statusCode === 200) {
+                    if (res.statusCode === 200 || res.statusCode === 404) {
                         console.log('Server is ready and responding');
                         resolve();
                     } else {

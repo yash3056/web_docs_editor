@@ -229,7 +229,12 @@ initDatabase();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static('.'));
+
+// Serve static files from the correct directory
+// In Electron, we need to serve from the app directory
+const staticPath = process.env.ELECTRON_USER_DATA ? __dirname : '.';
+console.log('Serving static files from:', staticPath);
+app.use(express.static(staticPath));
 
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
@@ -856,6 +861,15 @@ app.get('/api/health', (req, res) => {
         exportsDir: EXPORTS_DIR,
         classifiedExportsDir: CLASSIFIED_EXPORTS_DIR
     });
+});
+
+// Add explicit routes for splash and root
+app.get('/splash.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'splash.html'));
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Start server
