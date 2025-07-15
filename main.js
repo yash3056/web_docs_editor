@@ -24,6 +24,34 @@ if (!fs.existsSync(userDataPath)) {
     fs.mkdirSync(userDataPath, { recursive: true });
 }
 
+// Helper function to stop server
+function stopServer() {
+    return new Promise((resolve) => {
+        if (!serverProcess || serverProcess.killed) {
+            resolve();
+            return;
+        }
+        
+        console.log('Stopping server process...');
+        
+        const timeout = setTimeout(() => {
+            if (serverProcess && !serverProcess.killed) {
+                console.log('Force killing server process...');
+                serverProcess.kill('SIGKILL');
+            }
+            resolve();
+        }, 3000);
+        
+        serverProcess.on('close', () => {
+            clearTimeout(timeout);
+            serverProcess = null;
+            resolve();
+        });
+        
+        serverProcess.kill('SIGTERM');
+    });
+}
+
 // Function to start the Express server
 function startServer() {
     return new Promise((resolve, reject) => {
@@ -70,6 +98,7 @@ function startServer() {
 
         serverProcess.on('close', (code) => {
             console.log(`Server process exited with code ${code}`);
+            serverProcess = null;
             if (!serverStarted) {
                 reject(new Error(`Server failed to start (exit code: ${code})`));
             }
@@ -77,6 +106,7 @@ function startServer() {
 
         serverProcess.on('error', (error) => {
             console.error('Failed to start server:', error);
+            serverProcess = null;
             reject(error);
         });
 
@@ -122,7 +152,9 @@ function createWindow() {
     });
 
     // Handle window closed
-    mainWindow.on('closed', () => {
+    mainWindow.on('closed', async () => {
+        console.log('Main window closed, stopping server...');
+        await stopServer();
         mainWindow = null;
     });
 
@@ -258,7 +290,10 @@ app.whenReady().then(async () => {
     }
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+    console.log('All windows closed, stopping server...');
+    await stopServer();
+    
     if (process.platform !== 'darwin') {
         app.quit();
     }
@@ -270,25 +305,22 @@ app.on('activate', () => {
     }
 });
 
-app.on('before-quit', () => {
-    if (serverProcess) {
-        console.log('Stopping server process...');
-        serverProcess.kill('SIGTERM');
+app.on('before-quit', async (event) => {
+    console.log('App is quitting, stopping server...');
+    if (serverProcess && !serverProcess.killed) {
+        event.preventDefault();
+        await stopServer();
+        app.quit();
     }
 });
 
 // Handle app quit
-app.on('will-quit', (event) => {
-    if (serverProcess) {
+app.on('will-quit', async (event) => {
+    if (serverProcess && !serverProcess.killed) {
         event.preventDefault();
-        serverProcess.kill('SIGTERM');
-        
-        setTimeout(() => {
-            if (serverProcess) {
-                serverProcess.kill('SIGKILL');
-            }
-            app.quit();
-        }, 3000);
+        console.log('Final server shutdown...');
+        await stopServer();
+        app.quit();
     }
 });
 
