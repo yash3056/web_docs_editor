@@ -1,0 +1,181 @@
+name: Build and Release Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a new release'
+        required: false
+        default: 'false'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: node18-linux-x64
+            output_name: web-docs-editor-linux-x64
+          - os: windows-latest
+            target: node18-win-x64
+            output_name: web-docs-editor-windows-x64.exe
+          - os: macos-latest
+            target: node18-macos-x64
+            output_name: web-docs-editor-macos-x64
+          - os: macos-14
+            target: node18-macos-arm64
+            output_name: web-docs-editor-macos-arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install Python 3.10 (for building if needed)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Build executable
+      run: |
+        mkdir -p dist
+        npx pkg . --targets ${{ matrix.target }} --out-path dist
+      continue-on-error: true
+
+    - name: Try alternative build with --no-native-build
+      if: failure()
+      run: |
+        mkdir -p dist
+        npx pkg . --targets ${{ matrix.target }} --out-path dist --no-native-build
+      continue-on-error: true
+
+    - name: Fallback to simple file copy
+      if: failure()
+      run: |
+        echo "Building executable failed, creating portable version instead"
+        mkdir -p dist
+        cp -r . dist/web-docs-editor-portable-${{ matrix.os }}
+        cd dist/web-docs-editor-portable-${{ matrix.os }}
+        npm ci --production
+        echo "#!/bin/bash" > start.sh
+        echo "node server.js" >> start.sh
+        chmod +x start.sh
+        tar -czf ../web-docs-editor-portable-${{ matrix.os }}.tar.gz .
+        cd ..
+        rm -rf web-docs-editor-portable-${{ matrix.os }}
+
+    - name: List dist directory
+      run: ls -la dist/
+
+    - name: Rename executable (if exists)
+      run: |
+        if [ -f dist/web-docs-editor ]; then
+          mv dist/web-docs-editor dist/${{ matrix.output_name }}
+          chmod +x dist/${{ matrix.output_name }}
+        elif [ -f dist/web-docs-editor.exe ]; then
+          mv dist/web-docs-editor.exe dist/${{ matrix.output_name }}
+        fi
+      shell: bash
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.output_name }}
+        path: dist/
+        if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List artifacts
+      run: find artifacts -type f -name "*" | head -20
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Web Docs Editor ${{ github.ref_name }}
+          
+          Cross-platform executables for the Web Docs Editor application.
+          
+          ### Downloads
+          Choose the appropriate version for your platform:
+          
+          #### Standalone Executables (if available)
+          - **Windows (x64)**: web-docs-editor-windows-x64.exe
+          - **Linux (x64)**: web-docs-editor-linux-x64
+          - **macOS (x64)**: web-docs-editor-macos-x64
+          - **macOS (ARM64)**: web-docs-editor-macos-arm64
+          
+          #### Portable Versions (if standalone failed)
+          - **Windows Portable**: web-docs-editor-portable-windows-latest.tar.gz
+          - **Linux Portable**: web-docs-editor-portable-ubuntu-latest.tar.gz
+          - **macOS Portable**: web-docs-editor-portable-macos-latest.tar.gz
+          
+          ### Usage
+          
+          #### For Standalone Executables:
+          1. Download the appropriate executable for your platform
+          2. Make it executable (Linux/macOS): `chmod +x web-docs-editor-*`
+          3. Run the executable to start the Web Docs Editor server
+          4. Open your browser to http://localhost:3000
+          
+          #### For Portable Versions:
+          1. Download and extract the tar.gz file
+          2. Ensure Node.js is installed on your system
+          3. Run `./start.sh` (Linux/macOS) or `node server.js` (Windows)
+          4. Open your browser to http://localhost:3000
+          
+          ### Features
+          - Web-based document editor with rich text formatting
+          - Authentication and user management
+          - Document versioning and collaboration
+          - Export to multiple formats (HTML, PDF, DOCX)
+          - AI-powered security classification
+
+    - name: Upload Release Assets
+      run: |
+        for artifact in artifacts/*/; do
+          if [ -d "$artifact" ]; then
+            artifact_name=$(basename "$artifact")
+            for file in "$artifact"*; do
+              if [ -f "$file" ]; then
+                echo "Uploading $file as $artifact_name"
+                curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                     -H "Content-Type: application/octet-stream" \
+                     --data-binary @"$file" \
+                     "${{ steps.create_release.outputs.upload_url }}?name=$(basename "$file")"
+              fi
+            done
+          fi
+        done
