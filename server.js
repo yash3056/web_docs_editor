@@ -21,7 +21,21 @@ const {
     getDocumentBranches,
     createVersionTag,
     getVersionTags
-} = require('./database');
+} = (() => {
+    // Use simple database if running as pkg executable
+    if (process.pkg) {
+        console.log('Running as pkg executable, using simple database');
+        return require('./database-simple');
+    }
+    
+    try {
+        console.log('Using full database with SQLite');
+        return require('./database');
+    } catch (error) {
+        console.log('Primary database module failed, using simple database:', error.message);
+        return require('./database-simple');
+    }
+})();
 const { generateToken, authenticateToken } = require('./auth');
 
 // Classification interfaces and classes
