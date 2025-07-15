@@ -1,24 +1,37 @@
 {
   "name": "web-docs-editor",
+  "productName": "Web Docs Editor",
   "version": "1.0.0",
-  "description": "A web-based document editor with server-side storage",
-  "main": "server.js",
+  "description": "A modern document editor with version control",
+  "main": "main.js",
+  "homepage": ".",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "electron": "electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-pack": "electron-builder",
+    "build": "electron-builder --win --x64",
+    "build-all": "electron-builder --win --mac --linux",
+    "dist": "npm run build"
   },
   "dependencies": {
     "@google/generative-ai": "^0.7.1",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
     "cors": "^2.8.5",
+    "electron-store": "^10.1.0",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "concurrently": "^9.2.0",
+    "electron": "^37.2.2",
+    "electron-builder": "^26.0.12",
+    "nodemon": "^3.0.1",
+    "wait-on": "^8.0.3"
   },
   "keywords": [
     "document",
@@ -28,5 +41,46 @@
     "word"
   ],
   "author": "Yash Prakash Narayan",
-  "license": "MIT"
+  "license": "MIT",
+  "build": {
+    "appId": "com.yashprakash.webdocseditor",
+    "productName": "Web Docs Editor",
+    "directories": {
+      "output": "dist-windows"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "!dist-windows/**/*",
+      "!.git/**/*",
+      "!.gitignore",
+      "!README.md",
+      "!AUTH_GUIDE.md",
+      "!SERVER_SETUP.md",
+      "!VERSION_CONTROL_README.md",
+      "!setup-version-control.sh"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "images/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "images/logo.png",
+      "uninstallerIcon": "images/logo.png",
+      "installerHeaderIcon": "images/logo.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "images/logo.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "images/logo.png"
+    }
+  }
 }

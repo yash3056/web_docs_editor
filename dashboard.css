@@ -29,6 +29,23 @@ body {
     line-height: 1.5;
 }
 
+/* Electron-specific styles */
+.electron-app {
+    -webkit-app-region: no-drag;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.electron-app .top-nav {
+    -webkit-app-region: drag;
+}
+
+.electron-app .top-nav button,
+.electron-app .top-nav input,
+.electron-app .top-nav .user-menu {
+    -webkit-app-region: no-drag;
+}
+
 .dashboard-container {
     display: grid;
     grid-template-areas: 
@@ -1268,5 +1285,5 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--secondary-color);
+    background: var(--dark-gray);
 }

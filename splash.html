@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Docs Editor</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .logo {
+            text-align: center;
+        }
+        .logo i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        .logo h1 {
+            font-size: 2.5rem;
+            margin: 0;
+        }
+    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="logo">
+        <i class="fas fa-file-alt"></i>
+        <h1>Web Docs Editor</h1>
+        <p>Loading application...</p>
+    </div>
+    <script>
+        // Redirect to main app after a short delay
+        setTimeout(() => {
+            window.location.href = '/index.html';
+        }, 2000);
+    </script>
+</body>
+</html>

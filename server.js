@@ -220,6 +220,9 @@ Analyze the document content:
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Check if running in Electron
+const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
+
 // Initialize database
 initDatabase();
 
@@ -858,6 +861,11 @@ app.get('/api/health', (req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server listening on port ${PORT}`);
     console.log(`Documents stored in: ${DOCUMENTS_DIR}`);
     console.log(`Exports stored in: ${EXPORTS_DIR}`);
+    console.log(`Running in ${isElectron ? 'Electron' : 'standalone'} mode`);
+    if (isElectron) {
+        console.log(`Database path: ${process.env.ELECTRON_USER_DATA}`);
+    }
 });

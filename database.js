@@ -2,9 +2,33 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
 
-// Initialize database
-const dbPath = path.join(__dirname, 'app.db');
+// Initialize database with proper path handling
+function getDatabasePath() {
+    let dbPath;
+    
+    if (process.env.ELECTRON_USER_DATA) {
+        // Running in Electron - use the user data directory
+        dbPath = path.join(process.env.ELECTRON_USER_DATA, 'app.db');
+    } else if (process.env.NODE_ENV === 'development') {
+        // Development mode - use current directory
+        dbPath = path.join(__dirname, 'app.db');
+    } else {
+        // Production mode - use AppData directory
+        const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
+        if (!fs.existsSync(appDataPath)) {
+            fs.mkdirSync(appDataPath, { recursive: true });
+        }
+        dbPath = path.join(appDataPath, 'app.db');
+    }
+    
+    console.log('Database path:', dbPath);
+    return dbPath;
+}
+
+const dbPath = getDatabasePath();
 const db = new Database(dbPath);
 
 // Enable foreign keys
