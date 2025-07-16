@@ -1648,18 +1648,23 @@ class DocsEditor {
         try {
             const title = this.documentTitle.value || 'document';
             
-            // Collect content from all pages
-            let allContent = '';
-            this.pages.forEach((page, index) => {
-                if (index > 0) {
-                    allContent += '\n\n--- Page ' + (index + 1) + ' ---\n\n';
-                }
-                allContent += page.innerHTML;
-            });
+            // Check if editor has content
+            const editorContent = this.editor.innerHTML.trim();
+            if (!editorContent || editorContent === '<p><br></p>' || editorContent === '<br>') {
+                this.showNotification('No content to export', 'warning');
+                return;
+            }
+            
+            // Check if docx library is available
+            if (typeof docx === 'undefined' || !docx) {
+                console.error('DOCX library not found');
+                this.showNotification('DOCX library not available. Please refresh the page and try again.', 'error');
+                return;
+            }
             
             // Convert HTML content to plain text for DOCX
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = allContent;
+            tempDiv.innerHTML = editorContent;
             
             // Extract text content and basic formatting
             const paragraphs = [];
@@ -1674,7 +1679,7 @@ class DocsEditor {
                     // Handle headings
                     if (tagName.startsWith('h')) {
                         const level = parseInt(tagName.slice(1));
-                        formatting.heading = `Heading${level}`;
+                        formatting.heading = level;
                         formatting.size = Math.max(24 - (level * 2), 14);
                         formatting.bold = true;
                     }
@@ -1710,15 +1715,35 @@ class DocsEditor {
                     size: (p.formatting.size || 12) * 2 // DOCX uses half-points
                 });
                 
-                const paragraph = new Paragraph({
+                const paragraphOptions = {
                     children: [textRun]
-                });
+                };
                 
+                // Add heading level if it exists
                 if (p.formatting.heading) {
-                    paragraph.heading = HeadingLevel[`HEADING_${p.formatting.heading.slice(-1)}`];
+                    switch (p.formatting.heading) {
+                        case 1:
+                            paragraphOptions.heading = HeadingLevel.HEADING_1;
+                            break;
+                        case 2:
+                            paragraphOptions.heading = HeadingLevel.HEADING_2;
+                            break;
+                        case 3:
+                            paragraphOptions.heading = HeadingLevel.HEADING_3;
+                            break;
+                        case 4:
+                            paragraphOptions.heading = HeadingLevel.HEADING_4;
+                            break;
+                        case 5:
+                            paragraphOptions.heading = HeadingLevel.HEADING_5;
+                            break;
+                        case 6:
+                            paragraphOptions.heading = HeadingLevel.HEADING_6;
+                            break;
+                    }
                 }
                 
-                return paragraph;
+                return new Paragraph(paragraphOptions);
             });
             
             // Add watermark text if exists
@@ -1746,7 +1771,9 @@ class DocsEditor {
             
         } catch (error) {
             console.error('DOCX export error:', error);
-            this.showNotification('Failed to export DOCX. Please try again.', 'error');
+            console.error('Error details:', error.message);
+            console.error('Stack trace:', error.stack);
+            this.showNotification(`Failed to export DOCX: ${error.message}`, 'error');
         }
     }
 
