@@ -446,81 +446,47 @@ class AdvancedDocumentDashboard {
             // Show loading toast
             this.showToast('Generating PDF...', 'info');
 
-            // Check if jsPDF is available
-            if (typeof window.jsPDF === 'undefined') {
-                // Fallback to browser print if jsPDF is not available
-                this.exportDocumentFallback(doc);
-                return;
-            }
-
-            // Create PDF using jsPDF
-            const { jsPDF } = window.jsPDF;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-
-            // Set up page dimensions
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 20;
-            const lineHeight = 7;
-            const maxWidth = pageWidth - (margin * 2);
-
-            let currentY = margin;
-
-            // Add title
-            pdf.setFontSize(20);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text(doc.title, margin, currentY);
-            currentY += 15;
-
-            // Add metadata
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(100);
-            const metaText = `Created: ${this.formatDate(doc.createdAt)} | Last Modified: ${this.formatDate(doc.lastModified)} | Words: ${doc.wordCount || 0}`;
-            pdf.text(metaText, margin, currentY);
-            currentY += 10;
-
-            // Add separator line
-            pdf.setDrawColor(0);
-            pdf.line(margin, currentY, pageWidth - margin, currentY);
-            currentY += 10;
-
-            // Reset text color and font for content
-            pdf.setTextColor(0);
-            pdf.setFontSize(12);
-
-            // Process document content
-            const content = doc.content && doc.content.length > 0 ? doc.content.join('') : 'No content available';
-            
-            // Strip HTML tags and convert to plain text
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            const textContent = tempDiv.textContent || tempDiv.innerText || '';
-
-            // Split content into lines that fit the page width
-            const lines = pdf.splitTextToSize(textContent, maxWidth);
-
-            // Add content to PDF
-            for (let i = 0; i < lines.length; i++) {
-                // Check if we need a new page
-                if (currentY + lineHeight > pageHeight - margin) {
-                    pdf.addPage();
-                    currentY = margin;
-                }
-
-                pdf.text(lines[i], margin, currentY);
-                currentY += lineHeight;
-            }
-
-            // Save the PDF
-            const fileName = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
-            pdf.save(fileName);
-
-            this.showToast(`PDF "${fileName}" downloaded successfully!`, 'success');
-
+            this.exportDocumentAsPDF(doc);
         } catch (error) {
             console.error('Export error:', error);
-            this.showToast('Failed to export document. Please try again.', 'error');
+            this.showToast('Failed to export document', 'error');
+        }
+    }
+
+    async exportDocumentAsPDF(doc) {
+        try {
+            const title = doc.title || 'document';
+            
+            // Get document content
+            let editorContent = '';
+            if (Array.isArray(doc.content)) {
+                // New multi-page format - use first page content
+                editorContent = doc.content[0] || '';
+            } else {
+                // Old single-page format
+                editorContent = doc.content || '';
+            }
+            
+            // Check if document has content
+            if (!editorContent.trim() || editorContent === '<p><br></p>' || editorContent === '<br>') {
+                this.showToast('Document has no content to export', 'warning');
+                return;
+            }
+            
+            // Check if ExportUtils is available
+            if (typeof ExportUtils === 'undefined') {
+                this.showToast('Export utility not available. Please refresh the page.', 'error');
+                return;
+            }
+            
+            // Use the shared export utility
+            await ExportUtils.exportContentAsPDF(editorContent, title, doc.watermark);
+            
+            this.showToast('PDF exported successfully!', 'success');
+            
+        } catch (error) {
+            console.error('PDF export error:', error);
+            this.showToast('Error exporting PDF. Please try again.', 'error');
         }
     }
 
