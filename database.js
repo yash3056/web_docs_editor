@@ -576,19 +576,152 @@ function getVersionChanges(documentId, versionId, userId) {
     const prevText = extractTextContent(prevDoc.content);
     const currText = extractTextContent(currDoc.content);
     
-    const lineDiff = diff.diffLines(prevText, currText);
+    // Special case: if current text starts with previous text, it's likely just an append
+    if (currText.startsWith(prevText)) {
+        const appendedText = currText.substring(prevText.length);
+        if (appendedText.trim()) {
+            const processedDiff = [];
+            
+            // Show context if previous text is not too long
+            if (prevText.length < 100) {
+                processedDiff.push({ value: prevText, added: false, removed: false });
+            } else {
+                // Show end of previous text as context
+                const words = prevText.split(' ');
+                const contextText = '... ' + words.slice(-10).join(' ');
+                processedDiff.push({ value: contextText, added: false, removed: false });
+            }
+            
+            // Show the appended text
+            processedDiff.push({ value: appendedText, added: true, removed: false });
+            
+            return {
+                version: {
+                    id: currentVersion.id,
+                    number: currentVersion.version_number,
+                    title: currentVersion.title,
+                    createdAt: currentVersion.created_at,
+                    commitMessage: currentVersion.commit_message
+                },
+                previousVersion: {
+                    id: previousVersion.id,
+                    number: previousVersion.version_number,
+                    title: previousVersion.title
+                },
+                changes: {
+                    type: 'append',
+                    added: (appendedText.match(/\S+/g) || []).length,
+                    removed: 0,
+                    modified: 0
+                },
+                diff: {
+                    lines: processedDiff,
+                    words: [
+                        { value: prevText, added: false, removed: false },
+                        { value: appendedText, added: true, removed: false }
+                    ]
+                }
+            };
+        }
+    }
     
-    // Generate word-level diff for better granularity
+    // Special case: if previous text starts with current text, it's likely a deletion
+    if (prevText.startsWith(currText)) {
+        const deletedText = prevText.substring(currText.length);
+        if (deletedText.trim()) {
+            const processedDiff = [];
+            
+            // Show context if current text is not too long
+            if (currText.length < 100) {
+                processedDiff.push({ value: currText, added: false, removed: false });
+            } else {
+                // Show end of current text as context
+                const words = currText.split(' ');
+                const contextText = '... ' + words.slice(-10).join(' ');
+                processedDiff.push({ value: contextText, added: false, removed: false });
+            }
+            
+            // Show the deleted text
+            processedDiff.push({ value: deletedText, added: false, removed: true });
+            
+            return {
+                version: {
+                    id: currentVersion.id,
+                    number: currentVersion.version_number,
+                    title: currentVersion.title,
+                    createdAt: currentVersion.created_at,
+                    commitMessage: currentVersion.commit_message
+                },
+                previousVersion: {
+                    id: previousVersion.id,
+                    number: previousVersion.version_number,
+                    title: previousVersion.title
+                },
+                changes: {
+                    type: 'delete',
+                    added: 0,
+                    removed: (deletedText.match(/\S+/g) || []).length,
+                    modified: 0
+                },
+                diff: {
+                    lines: processedDiff,
+                    words: [
+                        { value: currText, added: false, removed: false },
+                        { value: deletedText, added: false, removed: true }
+                    ]
+                }
+            };
+        }
+    }
+    
+    // Fall back to word-level diff for more complex changes
     const wordDiff = diff.diffWords(prevText, currText);
     
-    // Calculate statistics
+    // Convert word diff to line-like format for display
+    const processedDiff = [];
+    let currentLine = '';
+    
+    wordDiff.forEach(change => {
+        if (change.added) {
+            if (currentLine.trim()) {
+                processedDiff.push({ value: currentLine, added: false, removed: false });
+                currentLine = '';
+            }
+            processedDiff.push({ value: change.value, added: true, removed: false });
+        } else if (change.removed) {
+            if (currentLine.trim()) {
+                processedDiff.push({ value: currentLine, added: false, removed: false });
+                currentLine = '';
+            }
+            processedDiff.push({ value: change.value, added: false, removed: true });
+        } else {
+            // For unchanged content, only show if it's short or at boundaries
+            if (change.value.length < 50) {
+                currentLine += change.value;
+            } else {
+                // Show beginning and end of long unchanged content
+                const words = change.value.split(' ');
+                if (words.length > 10) {
+                    currentLine += words.slice(0, 3).join(' ') + ' ... ' + words.slice(-3).join(' ');
+                } else {
+                    currentLine += change.value;
+                }
+            }
+        }
+    });
+    
+    if (currentLine.trim()) {
+        processedDiff.push({ value: currentLine, added: false, removed: false });
+    }
+    
+    // Calculate statistics based on word changes
     let added = 0, removed = 0;
     
-    lineDiff.forEach(change => {
+    wordDiff.forEach(change => {
         if (change.added) {
-            added += (change.value.match(/\n/g) || []).length + 1;
+            added += (change.value.match(/\S+/g) || []).length;
         } else if (change.removed) {
-            removed += (change.value.match(/\n/g) || []).length + 1;
+            removed += (change.value.match(/\S+/g) || []).length;
         }
     });
     
@@ -612,7 +745,7 @@ function getVersionChanges(documentId, versionId, userId) {
             modified: 0
         },
         diff: {
-            lines: lineDiff,
+            lines: processedDiff,
             words: wordDiff
         }
     };
@@ -622,36 +755,52 @@ function getVersionChanges(documentId, versionId, userId) {
 function extractTextContent(content) {
     if (!content) return '';
     
+    // Function to clean text by removing HTML tags and decoding entities
+    function cleanText(text) {
+        if (!text) return '';
+        
+        // Remove HTML tags
+        let cleaned = text.replace(/<[^>]*>/g, '');
+        
+        // Decode common HTML entities
+        cleaned = cleaned
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+        
+        return cleaned;
+    }
+    
     // If content is an array (blocks), extract text from each block
     if (Array.isArray(content)) {
         return content.map(block => {
             if (typeof block === 'string') {
-                // Remove HTML tags from string content
-                return block.replace(/<[^>]*>/g, '');
+                return cleanText(block);
             }
             if (block.text) {
-                // Remove HTML tags from text property
-                return block.text.replace(/<[^>]*>/g, '');
+                return cleanText(block.text);
             }
             if (block.content) {
-                // Remove HTML tags from content property
-                return block.content.replace(/<[^>]*>/g, '');
+                return cleanText(block.content);
             }
             return '';
         }).filter(text => text.trim()).join('\n');
     }
     
-    // If content is a string, return it (remove HTML tags)
+    // If content is a string, return it cleaned
     if (typeof content === 'string') {
-        return content.replace(/<[^>]*>/g, '');
+        return cleanText(content);
     }
     
     // If content is an object with text property
     if (content.text) {
-        return content.text.replace(/<[^>]*>/g, '');
+        return cleanText(content.text);
     }
     if (content.content) {
-        return content.content.replace(/<[^>]*>/g, '');
+        return cleanText(content.content);
     }
     
     return '';

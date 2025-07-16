@@ -986,24 +986,18 @@
             }
             
             return diffLines.map(change => {
+                const value = change.value.trim();
+                if (!value) return '';
+                
                 if (change.added) {
-                    return `<div class="diff-line added">+ ${escapeHtml(change.value.trim())}</div>`;
+                    return `<div class="diff-line added">+ ${escapeHtml(value)}</div>`;
                 } else if (change.removed) {
-                    return `<div class="diff-line removed">- ${escapeHtml(change.value.trim())}</div>`;
+                    return `<div class="diff-line removed">- ${escapeHtml(value)}</div>`;
                 } else {
-                    // For unchanged lines, show only a snippet if it's too long
-                    const lines = change.value.split('\n').filter(line => line.trim());
-                    if (lines.length > 3) {
-                        return `<div class="diff-line unchanged">  ${escapeHtml(lines[0])}</div>
-                                <div class="diff-line unchanged">  ...</div>
-                                <div class="diff-line unchanged">  ${escapeHtml(lines[lines.length - 1])}</div>`;
-                    } else {
-                        return lines.map(line => 
-                            `<div class="diff-line unchanged">  ${escapeHtml(line)}</div>`
-                        ).join('');
-                    }
+                    // For unchanged content, show with context styling
+                    return `<div class="diff-line unchanged">  ${escapeHtml(value)}</div>`;
                 }
-            }).join('');
+            }).filter(line => line).join('');
         }
         
         function renderSideBySideDiff(diffLines, originalContent, newContent) {
