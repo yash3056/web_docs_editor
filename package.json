@@ -20,6 +20,7 @@
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
     "cors": "^2.8.5",
+    "diff": "^8.0.2",
     "electron-store": "^10.1.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",

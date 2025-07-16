@@ -367,6 +367,82 @@
         .modal-actions button:hover {
             opacity: 0.9;
         }
+        
+        .version-changes {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .changes-summary {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .change-stat {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .change-stat.added {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .change-stat.removed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .change-stat.modified {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .changes-preview {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .diff-line {
+            padding: 2px 4px;
+            margin: 1px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .diff-line.added {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+        }
+        
+        .diff-line.removed {
+            background: #f8d7da;
+            border-left: 3px solid #dc3545;
+        }
+        
+        .diff-line.unchanged {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+        
+        .diff-line.placeholder {
+            background: #fafafa;
+            color: transparent;
+            border-left: 3px solid transparent;
+            min-height: 1.2em;
+        }
     </style>
 </head>
 <body>
@@ -574,22 +650,60 @@
                     return;
                 }
                 
-                versionList.innerHTML = versionHistory.map(version => `
-                    <div class="version-item ${version.is_current_version ? 'current' : ''}">
+                versionList.innerHTML = '';
+                
+                // Load changes for each version
+                for (const version of versionHistory) {
+                    const changes = await api.getVersionChanges(currentDocumentId, version.id);
+                    
+                    const versionItem = document.createElement('div');
+                    versionItem.className = `version-item ${version.is_current_version ? 'current' : ''}`;
+                    versionItem.innerHTML = `
                         <div class="version-info">
                             <div class="version-number">Version ${version.version_number}</div>
                             <div class="version-date">${new Date(version.created_at).toLocaleString()}</div>
                         </div>
                         <div class="version-message">${version.commit_message || 'No commit message'}</div>
-                        <div class="version-author">By: ${version.author || 'Unknown'}</div>
-                        ${version.tags ? `<div class="version-tags">${version.tags.split(',').map(tag => `<span class="version-tag">${tag}</span>`).join('')}</div>` : ''}
+                        <div class="version-author">by ${version.author || 'Unknown'}</div>
+                        ${changes ? `
+                            <div class="version-changes">
+                                <div class="changes-summary">
+                                    <span class="change-stat added">+${changes.changes.added}</span>
+                                    <span class="change-stat removed">-${changes.changes.removed}</span>
+                                    ${changes.changes.modified > 0 ? `<span class="change-stat modified">~${changes.changes.modified}</span>` : ''}
+                                </div>
+                                <div class="changes-preview" id="changes-${version.id}" style="display: none;">
+                                    ${renderDiffPreview(changes.diff.lines)}
+                                </div>
+                            </div>
+                        ` : ''}
                         <div class="version-actions">
-                            ${!version.is_current_version ? `<button class="version-btn primary" onclick="restoreVersion(${version.id})">Restore</button>` : ''}
-                            <button class="version-btn secondary" onclick="viewVersion(${version.id})">View</button>
-                            <button class="version-btn secondary" onclick="showCreateTagModal(${version.id})">Tag</button>
+                            <button class="version-btn primary" onclick="restoreVersion(${version.id})" ${version.is_current_version ? 'disabled' : ''}>
+                                <i class="fas fa-undo"></i>
+                                Restore
+                            </button>
+                            <button class="version-btn secondary" onclick="viewVersion(${version.id})">
+                                <i class="fas fa-eye"></i>
+                                View
+                            </button>
+                            <button class="version-btn secondary" onclick="toggleChanges(${version.id})">
+                                <i class="fas fa-code"></i>
+                                Show Changes
+                            </button>
+                            <button class="version-btn secondary" onclick="showCreateTagModal(${version.id})">
+                                <i class="fas fa-tag"></i>
+                                Tag
+                            </button>
                         </div>
-                    </div>
-                `).join('');
+                        ${version.tags ? `
+                            <div class="version-tags">
+                                ${version.tags.split(',').map(tag => `<span class="version-tag">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    versionList.appendChild(versionItem);
+                }
                 
             } catch (error) {
                 console.error('Error loading version history:', error);
@@ -747,11 +861,15 @@
                     document.getElementById('comparison-version-1-name').textContent = comparison.version1.number;
                     document.getElementById('comparison-version-2-name').textContent = comparison.version2.number;
                     
-                    const content1 = Array.isArray(comparison.version1.content) ? comparison.version1.content.join('') : comparison.version1.content;
-                    const content2 = Array.isArray(comparison.version2.content) ? comparison.version2.content.join('') : comparison.version2.content;
+                    // Show side-by-side comparison with diff highlighting
+                    const content1 = comparison.version1.content || 'No content';
+                    const content2 = comparison.version2.content || 'No content';
                     
-                    document.getElementById('comparison-content-1').innerHTML = content1 || 'No content';
-                    document.getElementById('comparison-content-2').innerHTML = content2 || 'No content';
+                    // Create side-by-side diff view
+                    const diffHtml = renderSideBySideDiff(comparison.diff.lines, content1, content2);
+                    
+                    document.getElementById('comparison-content-1').innerHTML = diffHtml.left;
+                    document.getElementById('comparison-content-2').innerHTML = diffHtml.right;
                     
                     document.getElementById('comparison-container').style.display = 'grid';
                 } else {
@@ -860,6 +978,76 @@
             setTimeout(() => {
                 successDiv.remove();
             }, 5000);
+        }
+        
+        function renderDiffPreview(diffLines) {
+            if (!diffLines || diffLines.length === 0) {
+                return '<div class="diff-line">No changes</div>';
+            }
+            
+            return diffLines.map(change => {
+                if (change.added) {
+                    return `<div class="diff-line added">+ ${escapeHtml(change.value.trim())}</div>`;
+                } else if (change.removed) {
+                    return `<div class="diff-line removed">- ${escapeHtml(change.value.trim())}</div>`;
+                } else {
+                    // For unchanged lines, show only a snippet if it's too long
+                    const lines = change.value.split('\n').filter(line => line.trim());
+                    if (lines.length > 3) {
+                        return `<div class="diff-line unchanged">  ${escapeHtml(lines[0])}</div>
+                                <div class="diff-line unchanged">  ...</div>
+                                <div class="diff-line unchanged">  ${escapeHtml(lines[lines.length - 1])}</div>`;
+                    } else {
+                        return lines.map(line => 
+                            `<div class="diff-line unchanged">  ${escapeHtml(line)}</div>`
+                        ).join('');
+                    }
+                }
+            }).join('');
+        }
+        
+        function renderSideBySideDiff(diffLines, originalContent, newContent) {
+            const leftLines = [];
+            const rightLines = [];
+            
+            diffLines.forEach(line => {
+                if (line.removed) {
+                    leftLines.push(`<div class="diff-line removed">- ${escapeHtml(line.value)}</div>`);
+                    // Add placeholder for right side
+                    rightLines.push(`<div class="diff-line placeholder"></div>`);
+                } else if (line.added) {
+                    rightLines.push(`<div class="diff-line added">+ ${escapeHtml(line.value)}</div>`);
+                    // Add placeholder for left side
+                    leftLines.push(`<div class="diff-line placeholder"></div>`);
+                } else {
+                    // Unchanged line appears on both sides
+                    const content = `<div class="diff-line unchanged">  ${escapeHtml(line.value)}</div>`;
+                    leftLines.push(content);
+                    rightLines.push(content);
+                }
+            });
+            
+            return {
+                left: leftLines.join(''),
+                right: rightLines.join('')
+            };
+        }
+        
+        function toggleChanges(versionId) {
+            const changesElement = document.getElementById(`changes-${versionId}`);
+            if (changesElement) {
+                if (changesElement.style.display === 'none') {
+                    changesElement.style.display = 'block';
+                } else {
+                    changesElement.style.display = 'none';
+                }
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         // Close modals when clicking outside

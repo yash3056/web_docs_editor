@@ -302,6 +302,22 @@ class DocumentAPI {
         }
     }
 
+    async getVersionChanges(documentId, versionId) {
+        try {
+            const response = await fetch(`${this.baseURL}/api/documents/${documentId}/versions/${versionId}/changes`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (await this.handleAuthError(response)) return null;
+            if (!response.ok) throw new Error('Failed to get version changes');
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting version changes:', error);
+            return null;
+        }
+    }
+
     // Server health check
     async checkServerHealth() {
         try {

@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
+const diff = require('diff');
 
 // Initialize database with proper path handling
 function getDatabasePath() {
@@ -414,12 +415,31 @@ function compareDocumentVersions(documentId, versionId1, versionId2, userId) {
     const doc1 = JSON.parse(version1.content);
     const doc2 = JSON.parse(version2.content);
     
+    const text1 = extractTextContent(doc1.content);
+    const text2 = extractTextContent(doc2.content);
+    
+    // Generate sentence-level diff for better readability
+    const sentences1 = text1.split(/[.!?]+/).filter(s => s.trim());
+    const sentences2 = text2.split(/[.!?]+/).filter(s => s.trim());
+    
+    // Generate character-level diff
+    const charDiff = diff.diffChars(text1, text2);
+    
+    // Generate word-level diff for better readability
+    const wordDiff = diff.diffWords(text1, text2);
+    
+    // Generate line-level diff
+    const lineDiff = diff.diffLines(text1, text2);
+    
+    // Generate sentence-level diff
+    const sentenceDiff = diff.diffArrays(sentences1, sentences2);
+    
     return {
         version1: {
             id: version1.id,
             number: version1.version_number,
             title: version1.title,
-            content: doc1.content,
+            content: text1,
             createdAt: version1.created_at,
             commitMessage: version1.commit_message
         },
@@ -427,9 +447,15 @@ function compareDocumentVersions(documentId, versionId1, versionId2, userId) {
             id: version2.id,
             number: version2.version_number,
             title: version2.title,
-            content: doc2.content,
+            content: text2,
             createdAt: version2.created_at,
             commitMessage: version2.commit_message
+        },
+        diff: {
+            chars: charDiff,
+            words: wordDiff,
+            lines: lineDiff,
+            sentences: sentenceDiff
         }
     };
 }
@@ -502,6 +528,135 @@ function getVersionTags(versionId, userId) {
     return versionQueries.getTagsByVersionId.all(versionId);
 }
 
+function getVersionChanges(documentId, versionId, userId) {
+    // Verify user has access to this document
+    const doc = documentQueries.findByIdAndUserId.get(documentId, userId);
+    if (!doc) {
+        throw new Error('Document not found or access denied');
+    }
+    
+    const currentVersion = versionQueries.getVersionById.get(versionId);
+    if (!currentVersion || currentVersion.document_id !== documentId) {
+        throw new Error('Version not found');
+    }
+    
+    // Get the previous version
+    const previousVersion = versionQueries.getVersionsByDocumentId.all(documentId)
+        .find(v => v.version_number === currentVersion.version_number - 1);
+    
+    if (!previousVersion) {
+        // This is the first version, show the entire content as additions
+        const doc = JSON.parse(currentVersion.content);
+        const text = extractTextContent(doc.content);
+        
+        return {
+            version: {
+                id: currentVersion.id,
+                number: currentVersion.version_number,
+                title: currentVersion.title,
+                createdAt: currentVersion.created_at,
+                commitMessage: currentVersion.commit_message
+            },
+            changes: {
+                type: 'initial',
+                added: text.split('\n').length,
+                removed: 0,
+                modified: 0
+            },
+            diff: {
+                lines: [{ added: true, value: text }]
+            }
+        };
+    }
+    
+    // Compare with previous version
+    const prevDoc = JSON.parse(previousVersion.content);
+    const currDoc = JSON.parse(currentVersion.content);
+    
+    const prevText = extractTextContent(prevDoc.content);
+    const currText = extractTextContent(currDoc.content);
+    
+    const lineDiff = diff.diffLines(prevText, currText);
+    
+    // Generate word-level diff for better granularity
+    const wordDiff = diff.diffWords(prevText, currText);
+    
+    // Calculate statistics
+    let added = 0, removed = 0;
+    
+    lineDiff.forEach(change => {
+        if (change.added) {
+            added += (change.value.match(/\n/g) || []).length + 1;
+        } else if (change.removed) {
+            removed += (change.value.match(/\n/g) || []).length + 1;
+        }
+    });
+    
+    return {
+        version: {
+            id: currentVersion.id,
+            number: currentVersion.version_number,
+            title: currentVersion.title,
+            createdAt: currentVersion.created_at,
+            commitMessage: currentVersion.commit_message
+        },
+        previousVersion: {
+            id: previousVersion.id,
+            number: previousVersion.version_number,
+            title: previousVersion.title
+        },
+        changes: {
+            type: 'update',
+            added: added,
+            removed: removed,
+            modified: 0
+        },
+        diff: {
+            lines: lineDiff,
+            words: wordDiff
+        }
+    };
+}
+
+// Helper function to extract text content from document structure
+function extractTextContent(content) {
+    if (!content) return '';
+    
+    // If content is an array (blocks), extract text from each block
+    if (Array.isArray(content)) {
+        return content.map(block => {
+            if (typeof block === 'string') {
+                // Remove HTML tags from string content
+                return block.replace(/<[^>]*>/g, '');
+            }
+            if (block.text) {
+                // Remove HTML tags from text property
+                return block.text.replace(/<[^>]*>/g, '');
+            }
+            if (block.content) {
+                // Remove HTML tags from content property
+                return block.content.replace(/<[^>]*>/g, '');
+            }
+            return '';
+        }).filter(text => text.trim()).join('\n');
+    }
+    
+    // If content is a string, return it (remove HTML tags)
+    if (typeof content === 'string') {
+        return content.replace(/<[^>]*>/g, '');
+    }
+    
+    // If content is an object with text property
+    if (content.text) {
+        return content.text.replace(/<[^>]*>/g, '');
+    }
+    if (content.content) {
+        return content.content.replace(/<[^>]*>/g, '');
+    }
+    
+    return '';
+}
+
 module.exports = {
     initDatabase,
     createUser,
@@ -515,6 +670,7 @@ module.exports = {
     getDocumentVersionHistory,
     restoreDocumentVersion,
     compareDocumentVersions,
+    getVersionChanges,
     createDocumentBranch,
     getDocumentBranches,
     createVersionTag,

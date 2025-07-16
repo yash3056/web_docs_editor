@@ -17,6 +17,7 @@ const {
     getDocumentVersionHistory,
     restoreDocumentVersion,
     compareDocumentVersions,
+    getVersionChanges,
     createDocumentBranch,
     getDocumentBranches,
     createVersionTag,
@@ -870,6 +871,20 @@ app.get('/splash.html', (req, res) => {
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Get version changes (differences from previous version)
+app.get('/api/documents/:id/versions/:versionId/changes', authenticateToken, async (req, res) => {
+    try {
+        const { id, versionId } = req.params;
+        
+        const changes = getVersionChanges(id, parseInt(versionId), req.user.id);
+        
+        res.json(changes);
+    } catch (error) {
+        console.error('Error getting version changes:', error);
+        res.status(500).json({ error: error.message || 'Failed to get version changes' });
+    }
 });
 
 // Start server
