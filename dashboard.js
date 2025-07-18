@@ -1339,7 +1339,7 @@ class AdvancedDocumentDashboard {
                     ${sections.map(section => `
                         <div class="sensitive-item">
                             <i class="${section.icon}"></i>
-                            <strong>${section.title}:</strong> ${section.items.join(', ')}
+                            <strong>${section.title}:</strong> ${Array.isArray(section.items) ? section.items.join(', ') : section.items}
                         </div>
                     `).join('')}
                 </div>

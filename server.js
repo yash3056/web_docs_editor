@@ -3,7 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
 const { 
     initDatabase, 
@@ -26,119 +26,33 @@ const {
 const { generateToken, authenticateToken } = require('./auth');
 
 // Classification interfaces and classes
-class GeminiSecurityClassifier {
-    constructor(apiKey, modelName = "gemini-1.5-flash") {
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: modelName });
-    }
-
-    createSecurityAnalysisPrompt() {
-        return `
-You are an expert security analyst for the Indian Government. Analyze this document thoroughly and classify its security level based on official Indian Government security classification standards.
-
-**OFFICIAL INDIAN CLASSIFICATION LEVELS:**
-
-🔴 **TOP SECRET**
-   - Damage Criteria: Exceptionally grave damage to national security
-   - Access Requirements: Joint Secretary level and above
-   - Examples: Nuclear weapons details, highest level intelligence operations, critical defense strategies
-
-🟠 **SECRET**
-   - Damage Criteria: Serious damage or embarrassment to government
-   - Access Requirements: Senior officials
-   - Examples: Military operations, diplomatic negotiations, intelligence reports
-
-🟡 **CONFIDENTIAL**
-   - Damage Criteria: Damage or prejudice to national security
-   - Access Requirements: Under-Secretary rank and above
-   - Examples: Defense procurement, sensitive policy documents, operational plans
-
-🔵 **RESTRICTED**
-   - Damage Criteria: Official use only, no public disclosure
-   - Access Requirements: Authorized officials
-   - Examples: Internal government communications, administrative procedures, draft policies
-
-⚪ **UNCLASSIFIED**
-   - Damage Criteria: No security classification
-   - Access Requirements: Public under RTI Act
-   - Examples: Published reports, public announcements, general information
-
-**CRITICAL ANALYSIS AREAS:**
-
-1. **STRATEGIC LOCATIONS & INFRASTRUCTURE:** Military installations, bases, airfields, critical infrastructure
-2. **MILITARY & DEFENSE:** Troop movements, weapons systems, defense strategies
-3. **PERSONNEL SECURITY:** Government officials, military personnel, security clearances
-4. **INTELLIGENCE & SURVEILLANCE:** Reconnaissance, satellite imagery, intelligence operations
-5. **DIPLOMATIC & FOREIGN RELATIONS:** International negotiations, foreign policy
-6. **ECONOMIC & STRATEGIC RESOURCES:** Natural resources, strategic economic information
-7. **CYBERSECURITY & COMMUNICATIONS:** Communication protocols, encryption methods
-8. **NUCLEAR & WMD:** Nuclear facilities, weapons of mass destruction
-
-**OUTPUT FORMAT:**
-Provide your analysis in this exact JSON structure:
-{
-    "classification": "CLASSIFICATION_LEVEL",
-    "confidence": 0.95,
-    "reasoning": "Detailed explanation of why this classification was chosen",
-    "key_risk_factors": ["Specific sensitive elements identified"],
-    "sensitive_content": {
-        "locations": ["Any strategic locations mentioned"],
-        "personnel": ["Any sensitive personnel references"],
-        "operations": ["Any operational details"],
-        "technical": ["Any technical specifications"],
-        "intelligence": ["Any intelligence-related content"]
-    },
-    "potential_damage": "Assessment of potential damage from unauthorized disclosure",
-    "handling_recommendations": ["Specific recommendations for document handling and distribution"]
-}
-
-**IMPORTANT:** Be thorough and err on the side of caution. If in doubt between two classification levels, choose the higher one.
-
-Analyze the document content:
-`;
+// Classification interfaces and classes
+class LocalClassifier {
+    constructor(apiUrl) {
+        this.apiUrl = apiUrl;
     }
 
     async classifyDocument(documentContent) {
         try {
-            const prompt = this.createSecurityAnalysisPrompt() + `\n\nDocument Content:\n${documentContent}`;
+            console.log("Analyzing document with local classifier...");
 
-            console.log("Analyzing document with Gemini...");
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            // Ensure content is a string for the Python API
+            // Print the document content for debugging
+            console.log("Document content:", documentContent);
 
-            console.log(`API Response length: ${text.length} characters`);
+            const contentString = Array.isArray(documentContent) 
+                ? documentContent.join('\n') 
+                : String(documentContent);
 
-            if (!text.trim()) {
-                throw new Error("Empty response from Gemini API");
-            }
+            // Strip HTML tags for better analysis
+            const plainTextContent = contentString.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+            console.log("Cleaned content for analysis:", plainTextContent);
 
-            let analysis;
-            try {
-                analysis = JSON.parse(text);
-            } catch (jsonError) {
-                // Try to extract JSON from response
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    try {
-                        analysis = JSON.parse(jsonMatch[0]);
-                        console.log("Successfully extracted JSON from wrapped response");
-                    } catch (extractError) {
-                        throw new Error(`Could not parse JSON: ${text}`);
-                    }
-                } else {
-                    // Default response if JSON parsing fails
-                    analysis = {
-                        classification: "RESTRICTED",
-                        confidence: 0.75,
-                        reasoning: "Classification based on document analysis. Manual review recommended for final determination.",
-                        key_risk_factors: ["Document contains potentially sensitive information"],
-                        sensitive_content: {},
-                        potential_damage: "Potential unauthorized disclosure could impact operations",
-                        handling_recommendations: ["Follow standard security protocols", "Restrict access as appropriate", "Consider manual review"]
-                    };
-                }
-            }
+            const response = await axios.post(`${this.apiUrl}/classify`, {
+                content: plainTextContent
+            });
+            
+            const analysis = response.data;
 
             // Validate and add defaults for missing fields
             const requiredFields = {
@@ -161,7 +75,10 @@ Analyze the document content:
             return analysis;
 
         } catch (error) {
-            console.error("Error during classification:", error);
+            console.error("Error during classification:", error.message);
+            if (error.response) {
+                console.error("Error response from classification server:", error.response.data);
+            }
             return {
                 classification: "RESTRICTED",
                 confidence: 0.0,
@@ -240,9 +157,9 @@ app.use(express.static(staticPath));
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Initialize Gemini classifier
-const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA5NoUp9CNLveuTI1tigytCZMQRUBd9hIk";
-const classifier = new GeminiSecurityClassifier(API_KEY);
+// Initialize Local classifier
+const CLASSIFICATION_API_URL = process.env.CLASSIFICATION_API_URL || "http://localhost:8000";
+const classifier = new LocalClassifier(CLASSIFICATION_API_URL);
 
 // Create directories
 const DOCUMENTS_DIR = path.join(__dirname, 'documents');
