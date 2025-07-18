@@ -11,3 +11,8 @@ dist-windows/
 build/
 *.exe
 *.spec
+exports/
+dist/
+.venv/
+__pycache__/
+uploads/
