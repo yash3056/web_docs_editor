@@ -680,8 +680,8 @@ class AdvancedDocumentDashboard {
         // Set the current document ID for version control
         localStorage.setItem('currentDocumentId', documentId);
         
-        // Open version control in new tab
-        window.open('version-control.html', '_blank');
+        // Open version control in same window
+        window.location.href = 'version-control.html';
     }
 
     bindDocumentCardEvents() {

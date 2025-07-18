@@ -1147,8 +1147,8 @@ class DocsEditor {
         
         localStorage.setItem('currentDocument', JSON.stringify(currentDoc));
         
-        // Open version control in new tab
-        window.open('version-control.html', '_blank');
+        // Open version control in same window
+        window.location.href = 'version-control.html';
     }
 
     async goToDashboard() {
