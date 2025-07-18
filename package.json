@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.7.1",
+    "axios": "^1.7.2",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
     "cors": "^2.8.5",
@@ -25,8 +26,8 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
-    "pdf-lib": "^1.17.1",
-    "axios": "^1.7.2"
+    "node-llama-cpp": "^3.10.0",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
