@@ -1,3 +1,9 @@
+"""
+To export it to exectuable file, run the following command:
+```bash
+pyinstaller --onefile --console --name classification_server --hidden-import llama_cpp --collect-all llama_cpp classification_server.py
+```
+"""
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from llama_cpp import Llama
@@ -7,7 +13,6 @@ app = FastAPI()
 
 # TODO: Update this path to your local model
 # Model configuration
-MODEL_REPO = "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF" #"LiquidAI/LFM2-1.2B-GGUF" #"ggml-org/gemma-3-1b-it-GGUF"
 MODEL_FILENAME = "DeepSeek-R1-Distill-Qwen-1.5B-BF16.gguf" #"LFM2-1.2B-F16.gguf"#"gemma-3-1b-it-f16.gguf"
 CONTEXT_SIZE = 32768
 
@@ -15,9 +20,8 @@ CONTEXT_SIZE = 32768
 def get_llm_instance():
     """Create a fresh LLM instance to avoid state carryover between requests"""
     try:
-        llm = Llama.from_pretrained(
-            repo_id=MODEL_REPO,
-            filename=MODEL_FILENAME,
+        llm = Llama(
+            model_path=MODEL_FILENAME,
             n_ctx=CONTEXT_SIZE,
             verbose=False,
             n_batch=512,  # Smaller batch size

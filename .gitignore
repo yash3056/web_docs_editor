@@ -8,3 +8,6 @@ classified-exports/
 app.db
 dist-windows/
 *.gguf
+build/
+*.exe
+*.spec
