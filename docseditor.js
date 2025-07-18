@@ -896,12 +896,43 @@ class DocsEditor {
             const lastContentHash = localStorage.getItem('lastContentHash_' + (currentDocId || 'new'));
             const hasContentChanged = contentHash !== lastContentHash;
             
-            if (!hasContentChanged && currentDocId) {
+            // Also check if this is essentially empty content (for new documents)
+            const isEmptyContent = editorContent.trim() === '' || 
+                                 editorContent === '<p><br></p>' || 
+                                 editorContent === '<br>' ||
+                                 editorContent === '<p></p>' ||
+                                 editorContent.replace(/<[^>]*>/g, '').trim() === '';
+            
+            // Get plain text content for additional validation
+            const plainTextContent = editorContent.replace(/<[^>]*>/g, '').trim();
+            const hasRealContent = plainTextContent.length > 0;
+            
+            if (showNotification) {
+                console.log('🔍 Content analysis:', {
+                    hasContentChanged,
+                    isEmptyContent,
+                    hasRealContent,
+                    currentDocId: !!currentDocId,
+                    lastContentHash: !!lastContentHash,
+                    plainTextLength: plainTextContent.length
+                });
+            }
+            
+            // Skip saving if no changes detected OR if trying to save empty content for existing document
+            if ((!hasContentChanged && currentDocId) || (isEmptyContent && lastContentHash) || (!hasRealContent && lastContentHash)) {
                 if (showNotification) {
-                    console.log('📄 No content changes detected, skipping version creation');
-                    this.showNotification('No changes to save', 'info');
+                    if (!hasContentChanged) {
+                        console.log('📄 No content changes detected, skipping version creation');
+                        this.showNotification('No changes to save', 'info');
+                    } else if (!hasRealContent) {
+                        console.log('📄 No real content detected, skipping version creation');
+                        this.showNotification('Cannot save empty document', 'warning');
+                    } else {
+                        console.log('📄 Empty content detected, skipping version creation');
+                        this.showNotification('Cannot save empty document', 'warning');
+                    }
                 }
-                return { success: true, reason: 'No changes detected' };
+                return { success: true, reason: hasContentChanged ? 'Empty content' : 'No changes detected' };
             }
             
             const document = {
@@ -1110,6 +1141,8 @@ class DocsEditor {
         // Normalize content by removing extra whitespace and empty paragraphs
         const normalizedContent = content
             .replace(/<p><br><\/p>/g, '') // Remove empty paragraphs
+            .replace(/<p><\/p>/g, '') // Remove empty paragraphs without br
+            .replace(/<br>/g, '') // Remove standalone br tags
             .replace(/\s+/g, ' ') // Normalize whitespace
             .trim();
         
@@ -1335,9 +1368,16 @@ class DocsEditor {
                 this.updateWatermarkButtonState();
             }
         } else {
-            // No document found, clear any default content
+            // No document found, clear any default content and initialize hash
             this.editor.innerHTML = '';
             this.documentTitle.value = 'Untitled Document';
+            
+            // Initialize content hash for new document to prevent empty saves
+            const currentDocId = localStorage.getItem('currentDocumentId');
+            if (currentDocId) {
+                const initialContentHash = this.calculateContentHash('', 'Untitled Document');
+                localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
+            }
         }
     }
 
