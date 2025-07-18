@@ -13,7 +13,8 @@
     "electron-pack": "electron-builder",
     "build": "electron-builder --win --x64",
     "build-all": "electron-builder --win --mac --linux",
-    "dist": "npm run build"
+    "dist": "npm run build",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@google/generative-ai": "^0.7.1",
@@ -26,11 +27,9 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
-    "node-llama-cpp": "^3.10.0",
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.1",
     "concurrently": "^9.2.0",
     "electron": "^37.2.2",
     "electron-builder": "^26.0.12",
@@ -55,14 +54,17 @@
     "files": [
       "**/*",
       "!dist-windows/**/*",
+      "!*.gguf",
+      "!*.py",
+      "!*.md",
       "!.git/**/*",
       "!.gitignore",
-      "!README.md",
-      "!AUTH_GUIDE.md",
-      "!SERVER_SETUP.md",
-      "!VERSION_CONTROL_README.md",
+      "!.python-version",
+      "!uv.lock",
+      "!.venv/**/*",
+      "!pyproject.toml",
       "!setup-version-control.sh",
-      "!test-packaged-app.bat",
+      "!test-packaged-app.bat", 
       "!build-app.bat",
       "!run-electron.bat"
     ],
