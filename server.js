@@ -3,7 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { pipeline } = require('@huggingface/transformers');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
 const { 
     initDatabase, 
@@ -26,10 +26,26 @@ const {
 const { generateToken, authenticateToken } = require('./auth');
 
 // Classification interfaces and classes
-class GeminiSecurityClassifier {
-    constructor(apiKey, modelName = "gemini-1.5-flash") {
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: modelName });
+class HuggingFaceSecurityClassifier {
+    constructor() {
+        this.generator = null;
+        this.initialize();
+    }
+
+    async initialize() {
+        try {
+            console.log('Loading the text-generation model...');
+            const startTime = process.hrtime.bigint();
+            this.generator = await pipeline(
+              "text-generation",
+              "onnx-community/Llama-3.2-1B-Instruct",
+               { dtype: "fp16" },
+            );
+            const loadTime = Number(process.hrtime.bigint() - startTime) / 1e9;
+            console.log(`Model loaded successfully in ${loadTime.toFixed(2)}s.`);
+        } catch (error) {
+            console.error('Failed to load the model:', error);
+        }
     }
 
     createSecurityAnalysisPrompt() {
@@ -99,35 +115,43 @@ Analyze the document content:
     }
 
     async classifyDocument(documentContent) {
+        if (!this.generator) {
+            throw new Error("Model not initialized. Please wait and try again.");
+        }
         try {
             const prompt = this.createSecurityAnalysisPrompt() + `\n\nDocument Content:\n${documentContent}`;
 
-            console.log("Analyzing document with Gemini...");
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            console.log("Analyzing document with local LLM...");
+            const outputs = await this.generator(prompt, {
+                max_new_tokens: 2048,
+                num_return_sequences: 1,
+                repetition_penalty: 1.2,
+                do_sample: true,
+                eos_token_id: this.generator.tokenizer.eos_token_id,
+            });
 
-            console.log(`API Response length: ${text.length} characters`);
-
-            if (!text.trim()) {
-                throw new Error("Empty response from Gemini API");
+            if (!outputs || outputs.length === 0 || !outputs[0].generated_text) {
+                throw new Error("Empty response from the local LLM");
             }
+
+            const generatedText = outputs[0].generated_text;
+            const answer = generatedText.substring(prompt.length).trim();
+
+            console.log("Raw model output:", answer);
 
             let analysis;
             try {
-                analysis = JSON.parse(text);
+                analysis = JSON.parse(answer);
             } catch (jsonError) {
-                // Try to extract JSON from response
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                const jsonMatch = answer.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     try {
                         analysis = JSON.parse(jsonMatch[0]);
                         console.log("Successfully extracted JSON from wrapped response");
                     } catch (extractError) {
-                        throw new Error(`Could not parse JSON: ${text}`);
+                        throw new Error(`Could not parse JSON: ${answer}`);
                     }
                 } else {
-                    // Default response if JSON parsing fails
                     analysis = {
                         classification: "RESTRICTED",
                         confidence: 0.75,
@@ -140,7 +164,6 @@ Analyze the document content:
                 }
             }
 
-            // Validate and add defaults for missing fields
             const requiredFields = {
                 classification: "RESTRICTED",
                 confidence: 0.0,
@@ -240,9 +263,8 @@ app.use(express.static(staticPath));
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Initialize Gemini classifier
-const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyA5NoUp9CNLveuTI1tigytCZMQRUBd9hIk";
-const classifier = new GeminiSecurityClassifier(API_KEY);
+// Initialize HuggingFace classifier
+const classifier = new HuggingFaceSecurityClassifier();
 
 // Create directories
 const DOCUMENTS_DIR = path.join(__dirname, 'documents');
