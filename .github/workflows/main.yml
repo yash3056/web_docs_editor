@@ -1,0 +1,38 @@
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ python-integration ]
+  pull_request:
+    branches: [ python-integration ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install dependencies
+      run: node -v ; npm ci
+      
+    - name: Rebuild better-sqlite3
+      run: npm rebuild better-sqlite3
+
+    - name: Run tests
+      run: npm test
+    
+    - name: Build project
+      run: npm run build
+
+    # - name: Create Release
+    #   uses: softprops/action-gh-release@v1
+    #   if: startsWith(github.ref, 'refs/tags/')
+    #   with:
+    #     files: |
+    #       dist-windows/Web Docs Editor Setup ${{ github.ref_name }}.exe
+    #     token: ${{ secrets.GITHUB_TOKEN }}

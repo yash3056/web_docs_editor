@@ -8,6 +8,10 @@ const diff = require('diff');
 
 // Initialize database with proper path handling
 function getDatabasePath() {
+    if (process.env.NODE_ENV === 'test') {
+        return ':memory:';
+    }
+
     let dbPath;
     
     if (process.env.ELECTRON_USER_DATA) {
