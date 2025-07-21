@@ -1,7 +1,7 @@
 class DocsEditor {
     constructor() {
         console.log('🚀 DocsEditor constructor starting...');
-        
+
         this.api = new DocumentAPI();
         this.editor = document.getElementById('editor');
         this.documentContainer = document.getElementById('document-container');
@@ -18,22 +18,22 @@ class DocsEditor {
         this.user = null;
         this.lastEditTime = Date.now(); // Track when user last edited
         this.isSaving = false; // Flag to prevent concurrent saves
-        
+
         // Check authentication
         this.authToken = localStorage.getItem('authToken');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
-        
+
         if (!this.authToken || !this.user) {
             window.location.href = '/login.html';
             return;
         }
-        
+
         // Set up API authentication
         this.api.setAuthToken(this.authToken);
-        
+
         console.log('📝 Editor element found:', !!this.editor);
         console.log('📄 Document title element found:', !!this.documentTitle);
-        
+
         this.initializeEditor();
         this.initializeEventListeners();
         this.updateWordCount();
@@ -44,12 +44,12 @@ class DocsEditor {
         this.updatePageLayout();
         this.checkServerStatus();
         this.setupAutoSave();
-        
+
         // Add cleanup on page unload
         window.addEventListener('beforeunload', () => {
             this.cleanupAutoSave();
         });
-        
+
         console.log('✅ DocsEditor initialized properly as Word-like editor');
     }
 
@@ -67,14 +67,14 @@ class DocsEditor {
         if (this.editor) {
             this.editor.setAttribute('contenteditable', 'true');
             this.editor.setAttribute('spellcheck', 'true');
-            
+
             // Add input event listener for real-time updates
             this.editor.addEventListener('input', () => {
                 this.lastEditTime = Date.now(); // Track edit time
                 this.updateWordCount();
                 this.updatePageLayout();
                 this.saveState();
-                
+
                 // Auto-save after a short delay to avoid too frequent saves
                 clearTimeout(this.autoSaveTimeout);
                 this.autoSaveTimeout = setTimeout(() => {
@@ -84,7 +84,7 @@ class DocsEditor {
                     }
                 }, 5000); // Save 5 seconds after user stops typing (increased from 2)
             });
-            
+
             // Add click event to ensure focus
             this.editor.addEventListener('click', () => {
                 this.editor.focus();
@@ -97,18 +97,18 @@ class DocsEditor {
         }
     }
 
-     updatePageCount() {
+    updatePageCount() {
         // Calculate page count based on content height
         const editorHeight = this.editor.scrollHeight;
         const pageHeight = this.pageHeight;
         const numberOfPages = Math.ceil(editorHeight / pageHeight);
-        
+
         // Update page count display
         const pageCountElement = document.getElementById('page-count');
         if (pageCountElement) {
             pageCountElement.textContent = `Pages: ${numberOfPages}`;
         }
-        
+
         return numberOfPages;
     }
 
@@ -117,7 +117,7 @@ class DocsEditor {
         const scrollTop = this.editor.scrollTop || window.scrollY;
         const pageHeight = this.pageHeight;
         const currentPage = Math.floor(scrollTop / pageHeight) + 1;
-        
+
         // Could update a status indicator here if needed
         return currentPage;
     }
@@ -138,7 +138,7 @@ class DocsEditor {
         } else {
             console.error('Dashboard button not found!');
         }
-        
+
         // Toolbar formatting buttons
         document.getElementById('bold-btn').addEventListener('click', () => this.formatText('bold'));
         document.getElementById('italic-btn').addEventListener('click', () => this.formatText('italic'));
@@ -198,9 +198,9 @@ class DocsEditor {
         } else {
             console.error('❌ Save button not found!');
         }
-        
+
         document.getElementById('export-btn').addEventListener('click', () => this.toggleExportMenu());
-        
+
         // Export options
         document.getElementById('export-html').addEventListener('click', () => this.exportAsHTML());
         document.getElementById('export-pdf').addEventListener('click', () => this.exportAsPDF());
@@ -223,7 +223,7 @@ class DocsEditor {
 
         this.editor.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
-                switch(e.key) {
+                switch (e.key) {
                     case 's':
                         e.preventDefault();
                         this.saveDocument();
@@ -298,7 +298,7 @@ class DocsEditor {
 
         document.getElementById('word-count').textContent = `Words: ${words}`;
         document.getElementById('char-count').textContent = `Characters: ${characters}`;
-        
+
         // Update page count will be called by updatePageBreaks
     }
 
@@ -460,21 +460,21 @@ class DocsEditor {
                 previewImg.style.maxWidth = '100%';
                 previewImg.style.maxHeight = '150px';
                 previewImg.style.objectFit = 'contain';
-                
+
                 // Force modal to recalculate scroll if needed
                 const modalBody = document.querySelector('#image-modal .modal-body');
                 if (modalBody) {
                     modalBody.scrollTop = modalBody.scrollTop; // Trigger scroll update
                 }
             };
-            
+
             fileName.textContent = file.name;
             fileSize.textContent = this.formatFileSize(file.size);
             preview.style.display = 'flex'; // Use flex for better centering
 
             // Store the image data for insertion
             this.selectedImageData = e.target.result;
-            
+
             // Scroll the modal body to show the preview
             const modalBody = document.querySelector('#image-modal .modal-body');
             if (modalBody) {
@@ -521,22 +521,22 @@ class DocsEditor {
 
         // Ensure the editor has focus before inserting
         this.editor.focus();
-        
+
         // Create the image HTML with better styling
         const img = `<img src="${imageSrc}" alt="${alt}" style="${widthStyle}max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0; display: block;">`;
-        
+
         console.log('Inserting image:', img); // Debug log
-        
+
         try {
             this.insertHTML(img);
             this.resetImageModal();
             document.getElementById('image-modal').style.display = 'none';
             this.showNotification('Image inserted successfully!', 'success');
-            
+
             // Force editor to update and trigger any change events
             this.editor.dispatchEvent(new Event('input'));
             this.updateWordCount();
-            
+
         } catch (error) {
             console.error('Error inserting image:', error);
             this.showNotification('Failed to insert image. Please try again.', 'error');
@@ -546,22 +546,22 @@ class DocsEditor {
     resetImageModal() {
         // Reset URL tab
         document.getElementById('image-url').value = '';
-        
+
         // Reset upload tab
         document.getElementById('image-file').value = '';
         document.getElementById('image-preview').style.display = 'none';
         document.getElementById('preview-img').src = '';
-        
+
         // Reset common fields
         document.getElementById('image-alt').value = '';
         document.getElementById('image-width').value = '';
-        
+
         // Reset to URL tab
         document.getElementById('url-tab').classList.add('active');
         document.getElementById('upload-tab').classList.remove('active');
         document.getElementById('url-content').classList.add('active');
         document.getElementById('upload-content').classList.remove('active');
-        
+
         // Clear stored image data
         this.selectedImageData = null;
     }
@@ -570,7 +570,7 @@ class DocsEditor {
         this.resetImageModal();
         const modal = document.getElementById('image-modal');
         modal.style.display = 'block';
-        
+
         // Ensure modal body starts at top and focus first input
         setTimeout(() => {
             const modalBody = modal.querySelector('.modal-body');
@@ -588,7 +588,7 @@ class DocsEditor {
     showWatermarkModal() {
         const modal = document.getElementById('watermark-modal');
         modal.style.display = 'block';
-        
+
         // Update range value displays
         this.updateRangeValue('watermark-opacity', 'opacity-value', '');
         this.updateRangeValue('watermark-angle', 'angle-value', '°');
@@ -607,7 +607,7 @@ class DocsEditor {
         const range = document.getElementById(rangeId);
         const display = document.getElementById(displayId);
         display.textContent = range.value + suffix;
-        
+
         range.addEventListener('input', () => {
             display.textContent = range.value + suffix;
         });
@@ -633,7 +633,7 @@ class DocsEditor {
         document.getElementById('insert-link-btn').addEventListener('click', () => {
             const text = document.getElementById('link-text').value;
             const url = document.getElementById('link-url').value;
-            
+
             if (url) {
                 const link = `<a href="${url}" target="_blank">${text || url}</a>`;
                 this.insertHTML(link);
@@ -659,7 +659,7 @@ class DocsEditor {
             const size = document.getElementById('watermark-size').value;
             const color = document.getElementById('watermark-color').value;
             const angle = document.getElementById('watermark-angle').value;
-            
+
             if (text.trim()) {
                 this.applyWatermark(text, opacity, size, color, angle);
                 document.getElementById('watermark-modal').style.display = 'none';
@@ -681,9 +681,9 @@ class DocsEditor {
     insertHTML(html) {
         // Ensure the editor has focus
         this.editor.focus();
-        
+
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount === 0) {
             // If no selection, create one at the end of the editor
             const range = document.createRange();
@@ -692,7 +692,7 @@ class DocsEditor {
             selection.removeAllRanges();
             selection.addRange(range);
         }
-        
+
         // Try modern approach first
         if (document.queryCommandSupported && document.queryCommandSupported('insertHTML')) {
             try {
@@ -706,37 +706,37 @@ class DocsEditor {
                 console.warn('insertHTML failed, using fallback method:', e);
             }
         }
-        
+
         // Fallback method that works better with modern browsers
         try {
             const range = selection.getRangeAt(0);
             range.deleteContents();
-            
+
             // Create a temporary element to parse the HTML
             const temp = document.createElement('div');
             temp.innerHTML = html;
-            
+
             // Create document fragment and move nodes
             const fragment = document.createDocumentFragment();
             while (temp.firstChild) {
                 fragment.appendChild(temp.firstChild);
             }
-            
+
             // Insert the fragment
             range.insertNode(fragment);
-            
+
             // Move cursor after inserted content
             range.collapse(false);
             selection.removeAllRanges();
             selection.addRange(range);
-            
+
         } catch (e) {
             console.warn('Range-based insertion failed, using direct DOM manipulation:', e);
-            
+
             // Last resort: direct DOM manipulation
             const temp = document.createElement('div');
             temp.innerHTML = html;
-            
+
             // Get the cursor position or append to end
             let insertPoint = this.editor;
             if (selection.rangeCount > 0) {
@@ -747,18 +747,18 @@ class DocsEditor {
                     insertPoint = range.commonAncestorContainer;
                 }
             }
-            
+
             // Ensure we're inserting into the editor
             if (!this.editor.contains(insertPoint)) {
                 insertPoint = this.editor;
             }
-            
+
             // Insert the content
             while (temp.firstChild) {
                 insertPoint.appendChild(temp.firstChild);
             }
         }
-        
+
         this.saveState();
         this.updatePageLayout();
     }
@@ -766,34 +766,34 @@ class DocsEditor {
     applyWatermark(text, opacity, size, color, angle) {
         // Remove existing watermark
         this.removeWatermark();
-        
+
         // Create watermark element
         const watermark = document.createElement('div');
         watermark.className = 'watermark';
         watermark.id = 'document-watermark';
-        
+
         const watermarkText = document.createElement('div');
         watermarkText.className = 'watermark-text';
         watermarkText.textContent = text;
-        
+
         // Apply styles based on settings
         const sizeMap = {
             small: '36px',
             medium: '48px',
             large: '60px'
         };
-        
+
         watermarkText.style.fontSize = sizeMap[size];
         watermarkText.style.color = color;
         watermarkText.style.opacity = opacity;
         watermarkText.style.transform = `rotate(${angle}deg)`;
-        
+
         watermark.appendChild(watermarkText);
-        
+
         // Insert watermark into editor container
         const editorContainer = document.querySelector('.editor-container');
         editorContainer.appendChild(watermark);
-        
+
         // Save watermark settings
         this.watermarkSettings = {
             text,
@@ -802,10 +802,10 @@ class DocsEditor {
             color,
             angle
         };
-        
+
         // Update toolbar button state
         this.updateWatermarkButtonState();
-        
+
         this.showNotification('Watermark applied successfully!', 'success');
     }
 
@@ -815,7 +815,7 @@ class DocsEditor {
             existingWatermark.remove();
             this.watermarkSettings = null;
             this.showNotification('Watermark removed successfully!', 'success');
-            
+
             // Update toolbar button state
             this.updateWatermarkButtonState();
         } else {
@@ -849,13 +849,13 @@ class DocsEditor {
             }
             return;
         }
-        
+
         // Clear any pending auto-save timeout when manual save is triggered
         if (this.autoSaveTimeout) {
             clearTimeout(this.autoSaveTimeout);
             this.autoSaveTimeout = null;
         }
-        
+
         return this.saveDocumentWithVersion(null, showNotification);
     }
 
@@ -867,46 +867,46 @@ class DocsEditor {
             }
             return { success: false, reason: 'Save in progress' };
         }
-        
+
         this.isSaving = true; // Set saving flag
-        
+
         try {
             if (showNotification) {
                 console.log('💾 Saving document...');
             }
-            
+
             const title = this.documentTitle.value.trim() || 'Untitled Document';
-            
+
             // Get content from the editor (single page mode)
             const editorContent = this.editor ? this.editor.innerHTML : '';
-            
+
             // Don't save if content is just the placeholder text
-            const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
-                                       editorContent === '<p><br></p>' ||
-                                       editorContent.trim() === '';
-            
+            const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' ||
+                editorContent === '<p><br></p>' ||
+                editorContent.trim() === '';
+
             const pagesContent = [editorContent]; // Wrap in array for compatibility
-            
+
             const currentDocId = localStorage.getItem('currentDocumentId');
-            
+
             // Calculate content hash for change detection
             const contentHash = this.calculateContentHash(editorContent, title);
-            
+
             // Check if content has changed since last save
             const lastContentHash = localStorage.getItem('lastContentHash_' + (currentDocId || 'new'));
             const hasContentChanged = contentHash !== lastContentHash;
-            
+
             // Also check if this is essentially empty content (for new documents)
-            const isEmptyContent = editorContent.trim() === '' || 
-                                 editorContent === '<p><br></p>' || 
-                                 editorContent === '<br>' ||
-                                 editorContent === '<p></p>' ||
-                                 editorContent.replace(/<[^>]*>/g, '').trim() === '';
-            
+            const isEmptyContent = editorContent.trim() === '' ||
+                editorContent === '<p><br></p>' ||
+                editorContent === '<br>' ||
+                editorContent === '<p></p>' ||
+                editorContent.replace(/<[^>]*>/g, '').trim() === '';
+
             // Get plain text content for additional validation
             const plainTextContent = editorContent.replace(/<[^>]*>/g, '').trim();
             const hasRealContent = plainTextContent.length > 0;
-            
+
             if (showNotification) {
                 console.log('🔍 Content analysis:', {
                     hasContentChanged,
@@ -917,7 +917,7 @@ class DocsEditor {
                     plainTextLength: plainTextContent.length
                 });
             }
-            
+
             // Skip saving if no changes detected OR if trying to save empty content for existing document
             if ((!hasContentChanged && currentDocId) || (isEmptyContent && lastContentHash) || (!hasRealContent && lastContentHash)) {
                 if (showNotification) {
@@ -934,7 +934,7 @@ class DocsEditor {
                 }
                 return { success: true, reason: hasContentChanged ? 'Empty content' : 'No changes detected' };
             }
-            
+
             const document = {
                 id: currentDocId || 'doc-' + Date.now(),
                 title: title,
@@ -958,20 +958,20 @@ class DocsEditor {
                 if (showNotification) {
                     console.log('🌐 Attempting server save...');
                 }
-                
+
                 const result = await this.api.saveDocumentWithVersion(
-                    document, 
+                    document,
                     commitMessage || 'Document updated'
                 );
-                
+
                 if (result && result.success) {
                     if (showNotification) {
                         console.log('✅ Document saved to server with version control');
                     }
-                    
+
                     // Store content hash to prevent duplicate saves
                     localStorage.setItem('lastContentHash_' + document.id, contentHash);
-                    
+
                     // Update current document ID if new
                     if (!currentDocId) {
                         localStorage.setItem('currentDocumentId', document.id);
@@ -979,35 +979,35 @@ class DocsEditor {
                             console.log('🆔 Set document ID:', document.id);
                         }
                     }
-                    
+
                     // Update UI
                     const now = new Date().toLocaleString();
                     const lastSavedElement = document.getElementById('last-saved');
                     if (lastSavedElement) {
                         lastSavedElement.textContent = `Last saved: ${now}`;
                     }
-                    
+
                     if (showNotification) {
                         this.showNotification('Document saved with version control!', 'success');
                     }
-                    
+
                     return result;
                 } else {
                     throw new Error('Server save failed');
                 }
             } catch (error) {
                 console.error('Error saving document:', error);
-                
+
                 // Store content hash even for local save
                 localStorage.setItem('lastContentHash_' + document.id, contentHash);
-                
+
                 // Fallback to local save
                 this.saveDocumentLocally(document);
-                
+
                 if (showNotification) {
                     this.showNotification('Document saved locally (server error)', 'warning');
                 }
-                
+
                 return { success: true, document };
             }
         } finally {
@@ -1019,21 +1019,21 @@ class DocsEditor {
         if (showNotification) {
             console.log('💾 Save button clicked');
         }
-        
+
         const title = this.documentTitle.value.trim() || 'Untitled Document';
-        
+
         // Get content from the editor (single page mode)
         const editorContent = this.editor ? this.editor.innerHTML : '';
-        
+
         // Don't save if content is just the placeholder text
-        const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' || 
-                                   editorContent === '<p><br></p>' ||
-                                   editorContent.trim() === '';
-        
+        const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' ||
+            editorContent === '<p><br></p>' ||
+            editorContent.trim() === '';
+
         const pagesContent = [editorContent]; // Wrap in array for compatibility
-        
+
         const currentDocId = localStorage.getItem('currentDocumentId');
-        
+
         const document = {
             id: currentDocId || 'doc-' + Date.now(),
             title: title,
@@ -1063,12 +1063,12 @@ class DocsEditor {
                 console.log('🌐 Attempting server save...');
             }
             const result = await this.api.saveDocument(document);
-            
+
             if (result && result.success) {
                 if (showNotification) {
                     console.log('✅ Document saved to server');
                 }
-                
+
                 // Update current document ID if new
                 if (!currentDocId) {
                     localStorage.setItem('currentDocumentId', document.id);
@@ -1076,26 +1076,26 @@ class DocsEditor {
                         console.log('🆔 Set document ID:', document.id);
                     }
                 }
-                
+
                 // Update UI
                 const now = new Date().toLocaleString();
                 const lastSavedElement = document.getElementById('last-saved');
                 if (lastSavedElement) {
                     lastSavedElement.textContent = `Last saved: ${now}`;
                 }
-                
+
                 if (showNotification) {
                     this.showNotification('Document saved to server!', 'success');
                     console.log('✅ Document saved successfully:', document.title);
                 }
-                
+
                 // Also save locally as backup
                 this.saveDocumentLocally(document);
                 return;
             } else {
                 throw new Error('Server save failed');
             }
-            
+
         } catch (error) {
             console.error('❌ Save error:', error);
             // Fallback to local save only
@@ -1110,15 +1110,15 @@ class DocsEditor {
         // Save to localStorage
         const documents = JSON.parse(localStorage.getItem('documents') || '[]');
         const existingIndex = documents.findIndex(doc => doc.id === document.id);
-        
+
         if (existingIndex !== -1) {
             documents[existingIndex] = document;
         } else {
             documents.unshift(document);
         }
-        
+
         localStorage.setItem('documents', JSON.stringify(documents));
-        
+
         // Legacy format for backward compatibility
         const legacyData = {
             title: document.title,
@@ -1145,9 +1145,9 @@ class DocsEditor {
             .replace(/<br>/g, '') // Remove standalone br tags
             .replace(/\s+/g, ' ') // Normalize whitespace
             .trim();
-        
+
         const combined = `${title}|||${normalizedContent}`;
-        
+
         // Simple hash function
         let hash = 0;
         for (let i = 0; i < combined.length; i++) {
@@ -1177,26 +1177,26 @@ class DocsEditor {
             content: [this.editor.innerHTML],
             lastModified: Date.now()
         };
-        
+
         localStorage.setItem('currentDocument', JSON.stringify(currentDoc));
-        
+
         // Open version control in same window
         window.location.href = 'version-control.html';
     }
 
     async goToDashboard() {
         console.log('Dashboard button clicked'); // Debug log
-        
+
         try {
             // Set flag to indicate programmatic navigation
             this.isNavigating = true;
-            
+
             // Clear any pending auto-saves
             this.cleanupAutoSave();
-            
+
             // Save current document before navigating
             await this.saveDocument(false);
-            
+
             console.log('Navigating to dashboard'); // Debug log
             // Navigate to dashboard
             window.location.href = 'index.html';
@@ -1214,7 +1214,7 @@ class DocsEditor {
             clearTimeout(this.autoSaveTimeout);
             this.autoSaveTimeout = null;
         }
-        
+
         // Clear the auto-save interval
         if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval);
@@ -1226,17 +1226,17 @@ class DocsEditor {
         console.log('🔍 Loading document...');
         const currentDocId = localStorage.getItem('currentDocumentId');
         console.log('📄 Current document ID:', currentDocId);
-        
+
         if (currentDocId) {
             try {
                 // Try to load from server first
                 console.log('🌐 Attempting to load from server...');
                 const currentDoc = await this.api.getDocument(currentDocId);
-                
+
                 if (currentDoc) {
                     console.log('📖 Loading document from server:', currentDoc.title);
                     this.documentTitle.value = currentDoc.title;
-                    
+
                     // Handle both old format (single content) and new format (pages array)
                     if (Array.isArray(currentDoc.content)) {
                         // New multi-page format - use first page content for the editor
@@ -1249,20 +1249,20 @@ class DocsEditor {
                         // Old single-page format - put content directly in editor
                         this.editor.innerHTML = currentDoc.content || '';
                     }
-                    
+
                     // Clear default placeholder content if it's still there
-                    if (this.editor.innerHTML.trim() === '' || 
+                    if (this.editor.innerHTML.trim() === '' ||
                         this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
                         this.editor.innerHTML === '<p><br></p>') {
                         this.editor.innerHTML = '';
                     }
-                    
+
                     this.updateWordCount();
-                    
+
                     // Store initial content hash for change detection
                     const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
                     localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
-                    
+
                     // Restore watermark if it exists
                     if (currentDoc.watermark) {
                         this.watermarkSettings = currentDoc.watermark;
@@ -1276,25 +1276,25 @@ class DocsEditor {
                     } else {
                         this.updateWatermarkButtonState();
                     }
-                    
+
                     console.log('✅ Document loaded successfully from server');
                     return;
                 }
             } catch (error) {
                 console.error('❌ Error loading document from server:', error);
             }
-            
+
             // Fallback to localStorage if server fails
             console.log('📱 Falling back to localStorage...');
             const documents = JSON.parse(localStorage.getItem('documents') || '[]');
             console.log('📚 Found documents in localStorage:', documents.length);
             const currentDoc = documents.find(doc => doc.id === currentDocId);
             console.log('🎯 Found current document:', !!currentDoc);
-            
+
             if (currentDoc) {
                 console.log('📖 Loading document from localStorage:', currentDoc.title);
                 this.documentTitle.value = currentDoc.title;
-                
+
                 // Handle both old format (single content) and new format (pages array)
                 if (Array.isArray(currentDoc.content)) {
                     // New multi-page format - use first page content for the editor
@@ -1307,20 +1307,20 @@ class DocsEditor {
                     // Old single-page format - put content directly in editor
                     this.editor.innerHTML = currentDoc.content || '';
                 }
-                
+
                 // Clear default placeholder content if it's still there
-                if (this.editor.innerHTML.trim() === '' || 
+                if (this.editor.innerHTML.trim() === '' ||
                     this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
                     this.editor.innerHTML === '<p><br></p>') {
                     this.editor.innerHTML = '';
                 }
-                
+
                 this.updateWordCount();
-                
+
                 // Store initial content hash for change detection
                 const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
                 localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
-                
+
                 // Restore watermark if it exists
                 if (currentDoc.watermark) {
                     this.watermarkSettings = currentDoc.watermark;
@@ -1334,11 +1334,11 @@ class DocsEditor {
                 } else {
                     this.updateWatermarkButtonState();
                 }
-                
+
                 return;
             }
         }
-        
+
         // Fallback: try to load from legacy storage
         const saved = localStorage.getItem('webdocs_document');
         if (saved) {
@@ -1346,14 +1346,14 @@ class DocsEditor {
             this.documentTitle.value = data.title;
             this.editor.innerHTML = data.content;
             this.updateWordCount();
-            
+
             // Store initial content hash for legacy documents
             const currentDocId = localStorage.getItem('currentDocumentId');
             if (currentDocId) {
                 const initialContentHash = this.calculateContentHash(data.content, data.title);
                 localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
             }
-            
+
             // Restore watermark if it exists
             if (data.watermark) {
                 this.watermarkSettings = data.watermark;
@@ -1371,7 +1371,7 @@ class DocsEditor {
             // No document found, clear any default content and initialize hash
             this.editor.innerHTML = '';
             this.documentTitle.value = 'Untitled Document';
-            
+
             // Initialize content hash for new document to prevent empty saves
             const currentDocId = localStorage.getItem('currentDocumentId');
             if (currentDocId) {
@@ -1389,7 +1389,7 @@ class DocsEditor {
     exportAsHTML() {
         const title = this.documentTitle.value || 'document';
         const content = this.editor.innerHTML;
-        
+
         // Generate watermark CSS if watermark exists
         let watermarkCSS = '';
         if (this.watermarkSettings) {
@@ -1399,7 +1399,7 @@ class DocsEditor {
                 medium: '48px',
                 large: '60px'
             };
-            
+
             watermarkCSS = `
         .watermark {
             position: absolute;
@@ -1429,10 +1429,10 @@ class DocsEditor {
             z-index: 1;
         }`;
         }
-        
-        const watermarkHTML = this.watermarkSettings ? 
+
+        const watermarkHTML = this.watermarkSettings ?
             `<div class="watermark"><div class="watermark-text">${this.watermarkSettings.text}</div></div>` : '';
-        
+
         const html = `
 <!DOCTYPE html>
 <html>
@@ -1470,19 +1470,19 @@ class DocsEditor {
         try {
             const title = this.documentTitle.value || 'document';
             const editorContent = this.editor.innerHTML.trim();
-            
+
             // Check if editor has content
             if (!editorContent || editorContent === '<p><br></p>' || editorContent === '<br>') {
                 this.showNotification('No content to export', 'warning');
                 return;
             }
-            
+
             // Use the shared export utility
             await ExportUtils.exportContentAsPDF(editorContent, title, this.watermarkSettings);
-            
+
             this.closeExportMenu();
             this.showNotification('PDF exported successfully!', 'success');
-            
+
         } catch (error) {
             console.error('PDF export error:', error);
             this.showNotification('Error exporting PDF. Please try again.', 'error');
@@ -1492,35 +1492,35 @@ class DocsEditor {
     async exportAsDOCX() {
         try {
             const title = this.documentTitle.value || 'document';
-            
+
             // Check if editor has content
             const editorContent = this.editor.innerHTML.trim();
             if (!editorContent || editorContent === '<p><br></p>' || editorContent === '<br>') {
                 this.showNotification('No content to export', 'warning');
                 return;
             }
-            
+
             // Check if docx library is available
             if (typeof docx === 'undefined' || !docx) {
                 console.error('DOCX library not found');
                 this.showNotification('DOCX library not available. Please refresh the page and try again.', 'error');
                 return;
             }
-            
+
             // Convert HTML content to plain text for DOCX
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = editorContent;
-            
+
             // Extract text content and basic formatting
             const paragraphs = [];
             const elements = tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, li');
-            
+
             elements.forEach(element => {
                 let text = element.textContent.trim();
                 if (text) {
                     const tagName = element.tagName.toLowerCase();
                     let formatting = {};
-                    
+
                     // Handle headings
                     if (tagName.startsWith('h')) {
                         const level = parseInt(tagName.slice(1));
@@ -1528,16 +1528,16 @@ class DocsEditor {
                         formatting.size = Math.max(24 - (level * 2), 14);
                         formatting.bold = true;
                     }
-                    
+
                     // Handle lists
                     if (tagName === 'li') {
                         text = '• ' + text;
                     }
-                    
+
                     paragraphs.push({ text, formatting });
                 }
             });
-            
+
             // If no structured content, use plain text
             if (paragraphs.length === 0) {
                 const plainText = tempDiv.textContent.trim();
@@ -1549,21 +1549,21 @@ class DocsEditor {
                     });
                 }
             }
-            
+
             // Create DOCX document using docx library
             const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
-            
+
             const docParagraphs = paragraphs.map(p => {
                 const textRun = new TextRun({
                     text: p.text,
                     bold: p.formatting.bold || false,
                     size: (p.formatting.size || 12) * 2 // DOCX uses half-points
                 });
-                
+
                 const paragraphOptions = {
                     children: [textRun]
                 };
-                
+
                 // Add heading level if it exists
                 if (p.formatting.heading) {
                     switch (p.formatting.heading) {
@@ -1587,10 +1587,10 @@ class DocsEditor {
                             break;
                     }
                 }
-                
+
                 return new Paragraph(paragraphOptions);
             });
-            
+
             // Add watermark text if exists
             if (this.watermarkSettings) {
                 docParagraphs.unshift(new Paragraph({
@@ -1601,19 +1601,19 @@ class DocsEditor {
                     })]
                 }));
             }
-            
+
             const doc = new Document({
                 sections: [{
                     properties: {},
                     children: docParagraphs
                 }]
             });
-            
+
             const blob = await Packer.toBlob(doc);
             this.downloadBlob(blob, `${title}.docx`);
             this.closeExportMenu();
             this.showNotification('DOCX document exported successfully!', 'success');
-            
+
         } catch (error) {
             console.error('DOCX export error:', error);
             console.error('Error details:', error.message);
@@ -1702,7 +1702,7 @@ class DocsEditor {
         // Create alert element
         const alert = document.createElement('div');
         alert.className = `editor-alert editor-alert-${type}`;
-        
+
         const colors = {
             success: '#28a745',
             error: '#dc3545',
@@ -1763,7 +1763,7 @@ class DocsEditor {
         console.log('Editor element:', this.editor);
         console.log('Editor contentEditable:', this.editor.contentEditable);
         console.log('Current selection:', window.getSelection());
-        
+
         // Try inserting a simple test image
         const testImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwZiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VGVzdDwvdGV4dD48L3N2Zz4=" alt="Test Image" style="max-width: 100px;">';
         this.insertHTML(testImg);
@@ -1774,29 +1774,29 @@ class DocsEditor {
         const contentHeight = this.editor.scrollHeight;
         const pageHeight = 11 * 96; // 11 inches at 96 DPI  
         const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
-        
+
         // Update page count in status bar
         const pageCountElement = document.getElementById('page-count');
         if (pageCountElement) {
             pageCountElement.textContent = `Pages: ${requiredPages}`;
         }
-        
+
         // Create visual page indicators
         this.updatePageIndicators(requiredPages);
-        
+
         // Ensure editor is tall enough for content
         const minHeight = requiredPages * pageHeight;
         if (this.editor.style.minHeight !== minHeight + 'px') {
             this.editor.style.minHeight = minHeight + 'px';
         }
     }
-    
+
     updatePageIndicators(pageCount) {
         if (!this.pageIndicators) return;
-        
+
         // Clear existing indicators
         this.pageIndicators.innerHTML = '';
-        
+
         // Add page indicators at page boundaries (like Word)
         for (let i = 1; i < pageCount; i++) {
             const indicator = document.createElement('div');
@@ -1821,15 +1821,15 @@ window.addEventListener('beforeunload', (e) => {
     if (window.docsEditor && window.docsEditor.isNavigating) {
         return;
     }
-    
+
     // Check if there's actual content and it hasn't been saved
     const editor = document.getElementById('editor');
     const lastSaved = document.getElementById('last-saved');
-    
+
     if (editor && lastSaved) {
         const hasContent = editor.innerHTML.trim() && editor.innerHTML !== '<p><br></p>' && editor.innerHTML !== '<br>';
         const neverSaved = lastSaved.textContent === 'Never saved' || lastSaved.textContent.includes('Never saved');
-        
+
         // Only show warning if there's actual content and it's never been saved
         if (hasContent && neverSaved) {
             e.preventDefault();

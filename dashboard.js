@@ -1700,6 +1700,30 @@ class AdvancedDocumentDashboard {
         }, 4000);
     }
 
+    showDeleteModal(documentId) {
+        const modal = document.getElementById('delete-modal');
+        const doc = this.documents.find(d => d.id === documentId);
+        
+        if (doc) {
+            // Set the document name in the modal
+            document.getElementById('delete-document-name').textContent = doc.title;
+            // Store the document ID for deletion
+            this.documentToDelete = documentId;
+            // Show the modal
+            modal.style.display = 'block';
+        }
+    }
+
+    showNewDocumentModal() {
+        const modal = document.getElementById('new-document-modal');
+        modal.style.display = 'block';
+    }
+
+    showImportModal() {
+        const modal = document.getElementById('import-modal');
+        modal.style.display = 'block';
+    }
+
     showStorageLimitModal() {
         // Create modal overlay
         const modalOverlay = document.createElement('div');
