@@ -305,7 +305,7 @@ class AdvancedDocumentDashboard {
 
     openDocument(documentId) {
         localStorage.setItem('currentDocumentId', documentId);
-        window.location.href = 'docseditor.html';
+        window.location.href = 'docseditor\docseditor.html';
     }
 
     async deleteDocument(documentId) {

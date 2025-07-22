@@ -104,7 +104,7 @@ web_docs_editor/
 ├── login.html          # Login/register page
 ├── api-client.js       # Updated with auth headers
 ├── dashboard.js        # Updated with auth check
-├── docseditor.js       # Updated with auth check
+├── docseditor\docseditor.js       # Updated with auth check
 └── ...
 ```
 
