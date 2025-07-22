@@ -4,7 +4,9 @@ const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
 const axios = require('axios');
+const crypto = require('crypto');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
+const { loadEncryptionKey, initializeEncryptionKey } = require('./db-encryption');
 const { 
     initDatabase, 
     createUser, 
@@ -141,7 +143,12 @@ const PORT = process.env.PORT || 3000;
 // Check if running in Electron
 const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 
-// Initialize database
+// Initialize database with encryption
+const DB_ENCRYPTION_KEY = process.env.DB_ENCRYPTION_KEY || loadEncryptionKey() || initializeEncryptionKey();
+// Store the key in environment variable for this session
+process.env.DB_ENCRYPTION_KEY = DB_ENCRYPTION_KEY;
+
+console.log('Database encryption enabled');
 initDatabase();
 
 // Middleware

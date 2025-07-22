@@ -1,9 +1,10 @@
-const Database = require('better-sqlite3');
+const Database = require('better-sqlite3-sqlcipher');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
+const { initializeEncryptionKey } = require('./db-encryption');
 const diff = require('diff');
 
 // Initialize database with proper path handling
@@ -34,7 +35,12 @@ function getDatabasePath() {
 }
 
 const dbPath = getDatabasePath();
+// Get encryption key from environment or initialize a new one
+const ENCRYPTION_KEY = process.env.DB_ENCRYPTION_KEY || initializeEncryptionKey();
 const db = new Database(dbPath);
+// Set encryption key
+db.pragma(`key = '${ENCRYPTION_KEY}'`);
+console.log('Database opened with encryption enabled');
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
