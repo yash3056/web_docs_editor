@@ -1,5 +1,5 @@
 
-name: CI/CD Pipeline
+name: Windows compilation
 
 on:
   push:
@@ -18,10 +18,10 @@ jobs:
         node-version: '22'
 
     - name: Install dependencies
-      run: node -v ; npm ci
-      
-    - name: Rebuild better-sqlite3
-      run: npm rebuild better-sqlite3
+      run: node -v ; npm install ; npm ci
+
+    - name: Rebuild
+      run: npm rebuild
 
     - name: Run tests
       run: npm test
