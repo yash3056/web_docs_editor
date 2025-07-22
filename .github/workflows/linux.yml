@@ -1,0 +1,27 @@
+
+name: Ubuntu compilation
+
+on:
+  push:
+    branches: [ python-integration ]
+  pull_request:
+    branches: [ python-integration ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install dependencies
+      run: node -v && npm ci
+      
+    - name: Rebuild better-sqlite3
+      run: npm rebuild better-sqlite3
+
+    - name: Run tests
+      run: npm test
