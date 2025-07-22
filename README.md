@@ -25,11 +25,9 @@ The Web Docs Editor now features a comprehensive dashboard inspired by Microsoft
 - **Custom Content**: Pre-filled content for faster document creation
 
 **Storage Management**
-- **Document Limit**: Store up to 20 documents in local storage
-- **Storage Indicator**: Visual progress bar showing current usage (0/20)
-- **Smart Warnings**: Color-coded alerts when approaching the limit
-- **Limit Enforcement**: Prevents creating new documents when limit is reached
-- **Easy Management**: Quick access to delete documents when storage is full
+- **Unlimited Documents**: No limit on the number of documents you can store
+- **Storage Indicator**: Shows current document count
+- **Easy Management**: Quick access to organize and manage documents
 
 ## Features
 

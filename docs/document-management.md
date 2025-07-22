@@ -55,7 +55,7 @@ The Web Docs Editor provides comprehensive document management features for crea
 ### Local Storage
 - **Browser Storage**: Documents stored in browser's local storage
 - **Session Persistence**: Documents persist between browser sessions
-- **Storage Limits**: Subject to browser storage limitations
+- **Unlimited Documents**: No artificial limit on number of documents (subject to browser storage capacity)
 - **Privacy**: Documents remain on your device
 
 ### Server Storage (if available)

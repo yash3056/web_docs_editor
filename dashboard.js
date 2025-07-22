@@ -9,7 +9,7 @@ class AdvancedDocumentDashboard {
         this.documentToDelete = null;
         this.isSelectionMode = false;
         this.templates = this.initializeTemplates();
-        this.maxDocuments = 20; // Document storage limit
+        this.maxDocuments = null; // No document storage limit
         this.serverAvailable = false;
         this.user = null;
         this.authToken = null;
@@ -270,13 +270,8 @@ class AdvancedDocumentDashboard {
     }
 
     createDocument(template = 'blank', customTitle = null) {
-        // Check document limit before creating
-        if (this.documents.length >= this.maxDocuments) {
-            this.showToast(`Document limit reached! You can store up to ${this.maxDocuments} documents. Please delete some documents first.`, 'error');
-            this.showStorageLimitModal();
-            return;
-        }
-
+        // No document limit - removed the limit check
+        
         const templateData = this.templates[template] || this.templates.blank;
         const title = customTitle || templateData.name;
         
@@ -1383,70 +1378,6 @@ class AdvancedDocumentDashboard {
         });
     }
 
-    showStorageLimitModal() {
-        // Create modal overlay
-        const modalOverlay = document.createElement('div');
-        modalOverlay.className = 'modal-overlay';
-        modalOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10001;
-        `;
-
-        // Create modal content
-        modalOverlay.innerHTML = `
-            <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-                <div style="color: #e74c3c; font-size: 48px; margin-bottom: 20px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <h2 style="color: #2c3e50; margin-bottom: 15px;">Storage Limit Reached</h2>
-                <p style="color: #7f8c8d; margin-bottom: 20px; line-height: 1.6;">
-                    You've reached the maximum limit of <strong>${this.maxDocuments} documents</strong>. 
-                    To create new documents, please delete some existing ones first.
-                </p>
-                <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <p style="margin: 0; color: #495057;">
-                        <strong>Current:</strong> ${this.documents.length}/${this.maxDocuments} documents
-                    </p>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button id="manage-docs-btn" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                        Manage Documents
-                    </button>
-                    <button id="close-limit-modal" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Add event listeners
-        modalOverlay.querySelector('#close-limit-modal').addEventListener('click', () => {
-            modalOverlay.remove();
-        });
-
-        modalOverlay.querySelector('#manage-docs-btn').addEventListener('click', () => {
-            modalOverlay.remove();
-            // Enable selection mode for easier document management
-            this.toggleSelectionMode();
-        });
-
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) {
-                modalOverlay.remove();
-            }
-        });
-
-        document.body.appendChild(modalOverlay);
-    }
-
     async refreshDocuments() {
         this.showToast('Refreshing documents...', 'info');
         
@@ -1527,14 +1458,10 @@ class AdvancedDocumentDashboard {
         const count = this.documents.length;
         const countElement = document.getElementById('document-count');
         if (countElement) {
-            countElement.textContent = `${count}/${this.maxDocuments} documents`;
+            countElement.textContent = `${count} documents`;
             
-            // Add visual indicator when approaching limit
-            if (count >= this.maxDocuments * 0.8) { // 80% of limit
-                countElement.style.color = count >= this.maxDocuments ? '#e74c3c' : '#f39c12';
-            } else {
-                countElement.style.color = '';
-            }
+            // Remove color coding since there's no limit
+            countElement.style.color = '';
         }
     }
 
@@ -1581,18 +1508,15 @@ class AdvancedDocumentDashboard {
         const storageText = document.getElementById('storage-text');
         
         const docCount = this.documents.length;
-        const percentage = (docCount / this.maxDocuments) * 100;
         
-        storageUsed.style.width = `${percentage}%`;
-        storageText.textContent = `${docCount}/${this.maxDocuments} documents`;
+        // Hide the storage bar since there's no limit
+        if (storageUsed) {
+            storageUsed.style.width = '0%';
+            storageUsed.style.backgroundColor = '#3498db';
+        }
         
-        // Update storage bar color based on usage
-        if (percentage >= 100) {
-            storageUsed.style.backgroundColor = '#e74c3c'; // Red when full
-        } else if (percentage >= 80) {
-            storageUsed.style.backgroundColor = '#f39c12'; // Orange when near full
-        } else {
-            storageUsed.style.backgroundColor = '#3498db'; // Blue when normal
+        if (storageText) {
+            storageText.textContent = `${docCount} documents`;
         }
     }
 
@@ -1725,67 +1649,9 @@ class AdvancedDocumentDashboard {
     }
 
     showStorageLimitModal() {
-        // Create modal overlay
-        const modalOverlay = document.createElement('div');
-        modalOverlay.className = 'modal-overlay';
-        modalOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10001;
-        `;
-
-        // Create modal content
-        modalOverlay.innerHTML = `
-            <div class="modal-content" style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-                <div style="color: #e74c3c; font-size: 48px; margin-bottom: 20px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <h2 style="color: #2c3e50; margin-bottom: 15px;">Storage Limit Reached</h2>
-                <p style="color: #7f8c8d; margin-bottom: 20px; line-height: 1.6;">
-                    You've reached the maximum limit of <strong>${this.maxDocuments} documents</strong>. 
-                    To create new documents, please delete some existing ones first.
-                </p>
-                <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                    <p style="margin: 0; color: #495057;">
-                        <strong>Current:</strong> ${this.documents.length}/${this.maxDocuments} documents
-                    </p>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button id="manage-docs-btn" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                        Manage Documents
-                    </button>
-                    <button id="close-limit-modal" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Add event listeners
-        modalOverlay.querySelector('#close-limit-modal').addEventListener('click', () => {
-            modalOverlay.remove();
-        });
-
-        modalOverlay.querySelector('#manage-docs-btn').addEventListener('click', () => {
-            modalOverlay.remove();
-            // Enable selection mode for easier document management
-            this.toggleSelectionMode();
-        });
-
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) {
-                modalOverlay.remove();
-            }
-        });
-
-        document.body.appendChild(modalOverlay);
+        // Storage limit has been removed - this function is no longer needed
+        // It's kept for backward compatibility but does nothing
+        console.log('Storage limit has been removed - unlimited documents allowed');
     }
 }
 
