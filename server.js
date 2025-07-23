@@ -5,6 +5,7 @@ const cors = require('cors');
 const multer = require('multer');
 const axios = require('axios');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
+require('dotenv').config();
 const { 
     initializeDatabaseAsync,
     createUser, 
@@ -24,116 +25,7 @@ const {
     getVersionTags
 } = require('./database');
 const { generateToken, authenticateToken } = require('./auth');
-
-// Classification interfaces and classes
-// Classification interfaces and classes
-class LocalClassifier {
-    constructor(apiUrl) {
-        this.apiUrl = apiUrl;
-    }
-
-    async classifyDocument(documentContent) {
-        try {
-            console.log("Analyzing document with local classifier...");
-
-            // Ensure content is a string for the Python API
-            // Print the document content for debugging
-            console.log("Document content:", documentContent);
-
-            const contentString = Array.isArray(documentContent) 
-                ? documentContent.join('\n') 
-                : String(documentContent);
-
-            // Strip HTML tags for better analysis
-            const plainTextContent = contentString.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-            console.log("Cleaned content for analysis:", plainTextContent);
-
-            const response = await axios.post(`${this.apiUrl}/classify`, {
-                content: plainTextContent
-            });
-            
-            const analysis = response.data;
-
-            // Validate and add defaults for missing fields
-            const requiredFields = {
-                classification: "RESTRICTED",
-                confidence: 0.0,
-                reasoning: "Field missing from API response",
-                key_risk_factors: [],
-                sensitive_content: {},
-                potential_damage: "Unable to assess",
-                handling_recommendations: ["Manual review required"],
-            };
-
-            for (const [field, defaultValue] of Object.entries(requiredFields)) {
-                if (!(field in analysis)) {
-                    analysis[field] = defaultValue;
-                }
-            }
-
-            analysis.analysis_timestamp = new Date().toISOString();
-            return analysis;
-
-        } catch (error) {
-            console.error("Error during classification:", error.message);
-            if (error.response) {
-                console.error("Error response from classification server:", error.response.data);
-            }
-            return {
-                classification: "RESTRICTED",
-                confidence: 0.0,
-                reasoning: `Analysis failed due to error: ${error.message}`,
-                key_risk_factors: ["ANALYSIS_FAILED"],
-                sensitive_content: {},
-                potential_damage: "Unable to assess due to analysis failure",
-                handling_recommendations: ["Manual review required immediately"],
-                analysis_timestamp: new Date().toISOString(),
-            };
-        }
-    }
-
-    async addWatermarkToPdf(inputPath, outputPath, classification) {
-        try {
-            const existingPdfBytes = await fs.readFile(inputPath);
-            const pdfDoc = await PDFDocument.load(existingPdfBytes);
-            const pages = pdfDoc.getPages();
-
-            const watermarkConfig = {
-                'TOP SECRET': { color: rgb(1, 0, 0), opacity: 0.5 },
-                'SECRET': { color: rgb(1, 0.5, 0), opacity: 0.5 },
-                'CONFIDENTIAL': { color: rgb(1, 1, 0), opacity: 0.5 },
-                'RESTRICTED': { color: rgb(0, 0, 1), opacity: 0.5 },
-                'UNCLASSIFIED': { color: rgb(0, 0, 0), opacity: 0.3 }
-            };
-
-            const config = watermarkConfig[classification] || watermarkConfig['RESTRICTED'];
-
-            for (const page of pages) {
-                const { width, height } = page.getSize();
-                const fontSize = width * 0.12;
-                const textWidth = fontSize * classification.length * 0.6;
-                const centerX = (width - textWidth) / 2;
-                const centerY = height / 2;
-                
-                page.drawText(classification, {
-                    x: centerX,
-                    y: centerY,
-                    size: fontSize,
-                    color: config.color,
-                    opacity: config.opacity,
-                    rotate: degrees(45),
-                });
-            }
-
-            const pdfBytes = await pdfDoc.save();
-            await fs.writeFile(outputPath, pdfBytes);
-            console.log(`Watermarked PDF saved to: ${outputPath}`);
-        } catch (error) {
-            console.error("Error adding watermark to PDF:", error);
-            throw error;
-        }
-    }
-}
+const TogetherClassifier = require('./together-classifier');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,9 +56,16 @@ app.use(express.static(staticPath));
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Initialize Local classifier
-const CLASSIFICATION_API_URL = process.env.CLASSIFICATION_API_URL || "http://localhost:8000";
-const classifier = new LocalClassifier(CLASSIFICATION_API_URL);
+// Initialize Together AI classifier
+const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY;
+const TOGETHER_MODEL = process.env.TOGETHER_MODEL || 'deepseek-ai/DeepSeek-R1-0528';
+
+if (!TOGETHER_API_KEY) {
+    console.error('TOGETHER_API_KEY environment variable is required');
+    process.exit(1);
+}
+
+const classifier = new TogetherClassifier(TOGETHER_API_KEY, TOGETHER_MODEL);
 
 // Create directories
 const DOCUMENTS_DIR = path.join(__dirname, 'documents');

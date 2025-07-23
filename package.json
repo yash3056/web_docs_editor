@@ -24,12 +24,14 @@
     "better-sqlite3-multiple-ciphers": "^12.2.0",
     "cors": "^2.8.5",
     "diff": "^8.0.2",
+    "dotenv": "^16.6.1",
     "electron-store": "^10.1.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "keytar": "^7.9.0",
     "multer": "^2.0.1",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "together-ai": "^0.20.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
