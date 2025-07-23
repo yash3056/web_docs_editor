@@ -1,10 +1,11 @@
-const Database = require('better-sqlite3');
+const Database = require('better-sqlite3-multiple-ciphers');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const diff = require('diff');
+const keytar = require('keytar');
 
 // Initialize database with proper path handling
 function getDatabasePath() {
@@ -13,7 +14,7 @@ function getDatabasePath() {
     }
 
     let dbPath;
-    
+
     if (process.env.ELECTRON_USER_DATA) {
         // Running in Electron - use the user data directory
         dbPath = path.join(process.env.ELECTRON_USER_DATA, 'app.db');
@@ -28,16 +29,98 @@ function getDatabasePath() {
         }
         dbPath = path.join(appDataPath, 'app.db');
     }
-    
+
     console.log('Database path:', dbPath);
     return dbPath;
 }
 
-const dbPath = getDatabasePath();
-const db = new Database(dbPath);
+// Constants for credential storage
+const SERVICE_NAME = 'WebDocsEditor';
+const ACCOUNT_NAME = 'DatabaseEncryption';
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
+// Generate a secure encryption key
+function generateEncryptionKey() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// Store encryption key in system's credential vault
+async function storeEncryptionKey(key) {
+    try {
+        await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, key);
+        console.log('Encryption key stored in credential vault');
+        return true;
+    } catch (error) {
+        console.error('Failed to store encryption key:', error);
+        return false;
+    }
+}
+
+// Retrieve encryption key from system's credential vault
+async function getEncryptionKey() {
+    try {
+        const key = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+        return key;
+    } catch (error) {
+        console.error('Failed to retrieve encryption key:', error);
+        return null;
+    }
+}
+
+// Initialize database with encryption
+async function initializeDatabase() {
+    const dbPath = getDatabasePath();
+    let db;
+
+    try {
+        // First try to open with existing key
+        let key = await getEncryptionKey();
+
+        if (key) {
+            // Database exists and we have a key, try to open it
+            try {
+                db = new Database(dbPath);
+                // Apply encryption key
+                db.pragma(`key = '${key}'`);
+                // Test if the key works by running a simple query
+                db.prepare('SELECT 1').get();
+                console.log('Database opened with existing encryption key');
+            } catch (error) {
+                // If error, the key might be wrong or database not encrypted yet
+                console.log('Could not open database with stored key, creating new database');
+                db = new Database(dbPath);
+            }
+        } else {
+            // No key found, either new database or not encrypted yet
+            db = new Database(dbPath);
+
+            // Generate and store a new encryption key
+            key = generateEncryptionKey();
+            await storeEncryptionKey(key);
+
+            // Encrypt the database (or re-encrypt with new key)
+            db.pragma(`rekey = '${key}'`);
+            console.log('Database encrypted with new key');
+        }
+    } catch (error) {
+        console.error('Error initializing encrypted database:', error);
+        // Fallback to non-encrypted database if encryption fails
+        db = new Database(dbPath);
+        console.log('Fallback to non-encrypted database');
+    }
+
+    // Enable foreign keys
+    db.pragma('foreign_keys = ON');
+
+    return db;
+}
+
+// Initialize database asynchronously
+let db;
+(async () => {
+    db = await initializeDatabase();
+    // Initialize tables after database is ready
+    initDatabase();
+})();
 
 // Create tables
 function initDatabase() {
@@ -126,7 +209,7 @@ function initDatabase() {
     `);
 
     console.log('Database initialized successfully');
-    
+
     // Prepare queries after tables are created
     prepareQueries();
 }
@@ -142,15 +225,15 @@ function prepareQueries() {
             INSERT INTO users (email, username, password_hash)
             VALUES (?, ?, ?)
         `),
-        
+
         findByEmail: db.prepare(`
             SELECT * FROM users WHERE email = ?
         `),
-        
+
         findByUsername: db.prepare(`
             SELECT * FROM users WHERE username = ?
         `),
-        
+
         findById: db.prepare(`
             SELECT id, email, username, created_at FROM users WHERE id = ?
         `)
@@ -166,15 +249,15 @@ function prepareQueries() {
                 content = excluded.content,
                 last_modified = CURRENT_TIMESTAMP
         `),
-        
+
         findByUserId: db.prepare(`
             SELECT * FROM documents WHERE user_id = ? ORDER BY last_modified DESC
         `),
-        
+
         findByIdAndUserId: db.prepare(`
             SELECT * FROM documents WHERE id = ? AND user_id = ?
         `),
-        
+
         deleteByIdAndUserId: db.prepare(`
             DELETE FROM documents WHERE id = ? AND user_id = ?
         `)
@@ -186,45 +269,45 @@ function prepareQueries() {
             INSERT INTO document_versions (document_id, version_number, title, content, commit_message, created_by, is_current_version, content_hash)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `),
-        
+
         updateCurrentVersion: db.prepare(`
             UPDATE document_versions SET is_current_version = 0 WHERE document_id = ?
         `),
-        
+
         getVersionsByDocumentId: db.prepare(`
             SELECT * FROM document_versions WHERE document_id = ? ORDER BY version_number DESC
         `),
-        
+
         getVersionById: db.prepare(`
             SELECT * FROM document_versions WHERE id = ?
         `),
-        
+
         getCurrentVersion: db.prepare(`
             SELECT * FROM document_versions WHERE document_id = ? AND is_current_version = 1
         `),
-        
+
         getMaxVersionNumber: db.prepare(`
             SELECT MAX(version_number) as max_version FROM document_versions WHERE document_id = ?
         `),
-        
+
         createBranch: db.prepare(`
             INSERT INTO document_branches (document_id, branch_name, base_version_id, created_by)
             VALUES (?, ?, ?, ?)
         `),
-        
+
         getBranchesByDocumentId: db.prepare(`
             SELECT * FROM document_branches WHERE document_id = ? AND is_active = 1
         `),
-        
+
         createTag: db.prepare(`
             INSERT INTO version_tags (version_id, tag_name, description, created_by)
             VALUES (?, ?, ?, ?)
         `),
-        
+
         getTagsByVersionId: db.prepare(`
             SELECT * FROM version_tags WHERE version_id = ?
         `),
-        
+
         getVersionHistory: db.prepare(`
             SELECT 
                 v.*,
@@ -243,7 +326,7 @@ function prepareQueries() {
 // User functions
 async function createUser(email, username, password) {
     const passwordHash = await bcrypt.hash(password, 10);
-    
+
     try {
         const result = userQueries.create.run(email, username, passwordHash);
         return { id: result.lastInsertRowid, email, username };
@@ -260,12 +343,12 @@ async function validateUser(email, password) {
     if (!user) {
         return null;
     }
-    
+
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
         return null;
     }
-    
+
     return { id: user.id, email: user.email, username: user.username };
 }
 
@@ -302,7 +385,7 @@ function getUserDocument(documentId, userId) {
     if (!row) {
         return null;
     }
-    
+
     const doc = JSON.parse(row.content);
     return {
         ...doc,
@@ -326,7 +409,7 @@ function generateContentHash(content) {
 function saveDocumentWithVersion(document, userId, commitMessage = 'Auto-save') {
     const contentStr = JSON.stringify(document);
     const contentHash = generateContentHash(contentStr);
-    
+
     // Start transaction
     const transaction = db.transaction(() => {
         // Save/update the main document
@@ -336,17 +419,17 @@ function saveDocumentWithVersion(document, userId, commitMessage = 'Auto-save') 
             document.title,
             contentStr
         );
-        
+
         // Check if this is a new version (different content)
         const currentVersion = versionQueries.getCurrentVersion.get(document.id);
         if (!currentVersion || currentVersion.content_hash !== contentHash) {
             // Get next version number
             const maxVersionResult = versionQueries.getMaxVersionNumber.get(document.id);
             const nextVersionNumber = (maxVersionResult.max_version || 0) + 1;
-            
+
             // Mark all versions as not current
             versionQueries.updateCurrentVersion.run(document.id);
-            
+
             // Create new version
             versionQueries.createVersion.run(
                 document.id,
@@ -360,7 +443,7 @@ function saveDocumentWithVersion(document, userId, commitMessage = 'Auto-save') 
             );
         }
     });
-    
+
     return transaction();
 }
 
@@ -370,7 +453,7 @@ function getDocumentVersionHistory(documentId, userId) {
     if (!doc) {
         return null;
     }
-    
+
     return versionQueries.getVersionHistory.all(documentId);
 }
 
@@ -380,16 +463,16 @@ function restoreDocumentVersion(documentId, versionId, userId) {
     if (!doc) {
         throw new Error('Document not found or access denied');
     }
-    
+
     // Get the version to restore
     const version = versionQueries.getVersionById.get(versionId);
     if (!version || version.document_id !== documentId) {
         throw new Error('Version not found');
     }
-    
+
     // Parse the document content from the version
     const versionDoc = JSON.parse(version.content);
-    
+
     // Save as new version with restore message
     return saveDocumentWithVersion(
         {
@@ -408,36 +491,36 @@ function compareDocumentVersions(documentId, versionId1, versionId2, userId) {
     if (!doc) {
         throw new Error('Document not found or access denied');
     }
-    
+
     const version1 = versionQueries.getVersionById.get(versionId1);
     const version2 = versionQueries.getVersionById.get(versionId2);
-    
+
     if (!version1 || !version2 || version1.document_id !== documentId || version2.document_id !== documentId) {
         throw new Error('One or both versions not found');
     }
-    
+
     const doc1 = JSON.parse(version1.content);
     const doc2 = JSON.parse(version2.content);
-    
+
     const text1 = extractTextContent(doc1.content);
     const text2 = extractTextContent(doc2.content);
-    
+
     // Generate sentence-level diff for better readability
     const sentences1 = text1.split(/[.!?]+/).filter(s => s.trim());
     const sentences2 = text2.split(/[.!?]+/).filter(s => s.trim());
-    
+
     // Generate character-level diff
     const charDiff = diff.diffChars(text1, text2);
-    
+
     // Generate word-level diff for better readability
     const wordDiff = diff.diffWords(text1, text2);
-    
+
     // Generate line-level diff
     const lineDiff = diff.diffLines(text1, text2);
-    
+
     // Generate sentence-level diff
     const sentenceDiff = diff.diffArrays(sentences1, sentences2);
-    
+
     return {
         version1: {
             id: version1.id,
@@ -470,7 +553,7 @@ function createDocumentBranch(documentId, branchName, baseVersionId, userId) {
     if (!doc) {
         throw new Error('Document not found or access denied');
     }
-    
+
     try {
         const result = versionQueries.createBranch.run(documentId, branchName, baseVersionId, userId);
         return { id: result.lastInsertRowid, branchName };
@@ -488,7 +571,7 @@ function getDocumentBranches(documentId, userId) {
     if (!doc) {
         return null;
     }
-    
+
     return versionQueries.getBranchesByDocumentId.all(documentId);
 }
 
@@ -498,13 +581,13 @@ function createVersionTag(versionId, tagName, description, userId) {
     if (!version) {
         throw new Error('Version not found');
     }
-    
+
     // Check if user has access to the document
     const doc = documentQueries.findByIdAndUserId.get(version.document_id, userId);
     if (!doc) {
         throw new Error('Access denied');
     }
-    
+
     try {
         const result = versionQueries.createTag.run(versionId, tagName, description, userId);
         return { id: result.lastInsertRowid, tagName };
@@ -522,13 +605,13 @@ function getVersionTags(versionId, userId) {
     if (!version) {
         return null;
     }
-    
+
     // Check if user has access to the document
     const doc = documentQueries.findByIdAndUserId.get(version.document_id, userId);
     if (!doc) {
         return null;
     }
-    
+
     return versionQueries.getTagsByVersionId.all(versionId);
 }
 
@@ -538,21 +621,21 @@ function getVersionChanges(documentId, versionId, userId) {
     if (!doc) {
         throw new Error('Document not found or access denied');
     }
-    
+
     const currentVersion = versionQueries.getVersionById.get(versionId);
     if (!currentVersion || currentVersion.document_id !== documentId) {
         throw new Error('Version not found');
     }
-    
+
     // Get the previous version
     const previousVersion = versionQueries.getVersionsByDocumentId.all(documentId)
         .find(v => v.version_number === currentVersion.version_number - 1);
-    
+
     if (!previousVersion) {
         // This is the first version, show the entire content as additions
         const doc = JSON.parse(currentVersion.content);
         const text = extractTextContent(doc.content);
-        
+
         return {
             version: {
                 id: currentVersion.id,
@@ -572,20 +655,20 @@ function getVersionChanges(documentId, versionId, userId) {
             }
         };
     }
-    
+
     // Compare with previous version
     const prevDoc = JSON.parse(previousVersion.content);
     const currDoc = JSON.parse(currentVersion.content);
-    
+
     const prevText = extractTextContent(prevDoc.content);
     const currText = extractTextContent(currDoc.content);
-    
+
     // Special case: if current text starts with previous text, it's likely just an append
     if (currText.startsWith(prevText)) {
         const appendedText = currText.substring(prevText.length);
         if (appendedText.trim()) {
             const processedDiff = [];
-            
+
             // Show context if previous text is not too long
             if (prevText.length < 100) {
                 processedDiff.push({ value: prevText, added: false, removed: false });
@@ -595,10 +678,10 @@ function getVersionChanges(documentId, versionId, userId) {
                 const contextText = '... ' + words.slice(-10).join(' ');
                 processedDiff.push({ value: contextText, added: false, removed: false });
             }
-            
+
             // Show the appended text
             processedDiff.push({ value: appendedText, added: true, removed: false });
-            
+
             return {
                 version: {
                     id: currentVersion.id,
@@ -628,13 +711,13 @@ function getVersionChanges(documentId, versionId, userId) {
             };
         }
     }
-    
+
     // Special case: if previous text starts with current text, it's likely a deletion
     if (prevText.startsWith(currText)) {
         const deletedText = prevText.substring(currText.length);
         if (deletedText.trim()) {
             const processedDiff = [];
-            
+
             // Show context if current text is not too long
             if (currText.length < 100) {
                 processedDiff.push({ value: currText, added: false, removed: false });
@@ -644,10 +727,10 @@ function getVersionChanges(documentId, versionId, userId) {
                 const contextText = '... ' + words.slice(-10).join(' ');
                 processedDiff.push({ value: contextText, added: false, removed: false });
             }
-            
+
             // Show the deleted text
             processedDiff.push({ value: deletedText, added: false, removed: true });
-            
+
             return {
                 version: {
                     id: currentVersion.id,
@@ -677,14 +760,14 @@ function getVersionChanges(documentId, versionId, userId) {
             };
         }
     }
-    
+
     // Fall back to word-level diff for more complex changes
     const wordDiff = diff.diffWords(prevText, currText);
-    
+
     // Convert word diff to line-like format for display
     const processedDiff = [];
     let currentLine = '';
-    
+
     wordDiff.forEach(change => {
         if (change.added) {
             if (currentLine.trim()) {
@@ -713,14 +796,14 @@ function getVersionChanges(documentId, versionId, userId) {
             }
         }
     });
-    
+
     if (currentLine.trim()) {
         processedDiff.push({ value: currentLine, added: false, removed: false });
     }
-    
+
     // Calculate statistics based on word changes
     let added = 0, removed = 0;
-    
+
     wordDiff.forEach(change => {
         if (change.added) {
             added += (change.value.match(/\S+/g) || []).length;
@@ -728,7 +811,7 @@ function getVersionChanges(documentId, versionId, userId) {
             removed += (change.value.match(/\S+/g) || []).length;
         }
     });
-    
+
     return {
         version: {
             id: currentVersion.id,
@@ -758,14 +841,14 @@ function getVersionChanges(documentId, versionId, userId) {
 // Helper function to extract text content from document structure
 function extractTextContent(content) {
     if (!content) return '';
-    
+
     // Function to clean text by removing HTML tags and decoding entities
     function cleanText(text) {
         if (!text) return '';
-        
+
         // Remove HTML tags
         let cleaned = text.replace(/<[^>]*>/g, '');
-        
+
         // Decode common HTML entities
         cleaned = cleaned
             .replace(/&nbsp;/g, ' ')
@@ -774,10 +857,10 @@ function extractTextContent(content) {
             .replace(/&amp;/g, '&')
             .replace(/&quot;/g, '"')
             .replace(/&#39;/g, "'");
-        
+
         return cleaned;
     }
-    
+
     // If content is an array (blocks), extract text from each block
     if (Array.isArray(content)) {
         return content.map(block => {
@@ -793,12 +876,12 @@ function extractTextContent(content) {
             return '';
         }).filter(text => text.trim()).join('\n');
     }
-    
+
     // If content is a string, return it cleaned
     if (typeof content === 'string') {
         return cleanText(content);
     }
-    
+
     // If content is an object with text property
     if (content.text) {
         return cleanText(content.text);
@@ -806,7 +889,7 @@ function extractTextContent(content) {
     if (content.content) {
         return cleanText(content.content);
     }
-    
+
     return '';
 }
 
