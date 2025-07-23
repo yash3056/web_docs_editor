@@ -23,7 +23,7 @@ const {
     createVersionTag,
     getVersionTags
 } = require('./database');
-const { generateToken, authenticateToken } = require('./auth');
+const { generateToken, authenticateToken } = require('./auth/auth');
 
 // Classification interfaces and classes
 // Classification interfaces and classes

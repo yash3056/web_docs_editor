@@ -24,7 +24,7 @@ class DocsEditor {
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
 
         if (!this.authToken || !this.user) {
-            window.location.href = '../login.html';
+            window.location.href = '../auth/login.html';
             return;
         }
 

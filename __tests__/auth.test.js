@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { generateToken } = require('../auth');
+const { generateToken } = require('../auth/auth');
 
 // Mock keytar for testing to avoid credential storage during tests
 jest.mock('keytar', () => ({
