@@ -1199,12 +1199,12 @@ class DocsEditor {
 
             console.log('Navigating to dashboard'); // Debug log
             // Navigate to dashboard
-            window.location.href = 'index.html';
+            window.location.href = '../dashboard/index.html';
         } catch (error) {
             console.error('Error in goToDashboard:', error);
             // Still navigate even if save fails
             console.log('Navigating to dashboard after error'); // Debug log
-            window.location.href = 'index.html';
+            window.location.href = '../dashboard/index.html';
         }
     }
 

@@ -693,7 +693,7 @@ app.get('/splash.html', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'dashboard/index.html'));
 });
 
 // Get version changes (differences from previous version)

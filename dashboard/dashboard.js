@@ -13,7 +13,7 @@ class AdvancedDocumentDashboard {
         this.serverAvailable = false;
         this.user = null;
         this.authToken = null;
-        
+
         this.init();
     }
 
@@ -21,22 +21,22 @@ class AdvancedDocumentDashboard {
         // Check authentication
         this.authToken = localStorage.getItem('authToken');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
-        
+
         if (!this.authToken || !this.user) {
-            window.location.href = '/login.html';
+            window.location.href = '../login.html';
             return;
         }
-        
+
         // Set up API authentication
         this.api.setAuthToken(this.authToken);
-        
+
         // Check server availability
         this.serverAvailable = await this.api.checkServerHealth();
         console.log('Server available:', this.serverAvailable);
-        
+
         // Load documents from server
         await this.loadDocuments();
-        
+
         this.bindEvents();
         this.renderDocuments();
         this.updateEmptyState();
@@ -63,7 +63,7 @@ class AdvancedDocumentDashboard {
     logout() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
-        window.location.href = '/login.html';
+        window.location.href = '../login.html';
     }
 
     initializeTemplates() {
@@ -142,7 +142,7 @@ class AdvancedDocumentDashboard {
         document.getElementById('new-template-doc').addEventListener('click', () => this.showNewDocumentModal());
         document.getElementById('import-doc').addEventListener('click', () => this.showImportModal());
         document.getElementById('classify-document').addEventListener('click', () => this.showClassificationModal());
-        
+
         // Empty state create button
         document.getElementById('create-first-doc').addEventListener('click', () => this.createDocument('blank'));
 
@@ -181,7 +181,7 @@ class AdvancedDocumentDashboard {
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('settings-btn').addEventListener('click', () => this.showSettings());
         document.getElementById('help-btn').addEventListener('click', () => this.showHelp());
-        
+
         // Add refresh button functionality if it exists
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
@@ -192,20 +192,20 @@ class AdvancedDocumentDashboard {
     handleSearch(query) {
         this.searchQuery = query.toLowerCase();
         const searchClear = document.getElementById('search-clear');
-        
+
         if (query) {
             searchClear.style.display = 'block';
         } else {
             searchClear.style.display = 'none';
         }
-        
+
         this.renderDocuments();
     }
 
     clearSearch() {
         const searchInput = document.getElementById('search-input');
         const searchClear = document.getElementById('search-clear');
-        
+
         searchInput.value = '';
         searchClear.style.display = 'none';
         this.searchQuery = '';
@@ -214,10 +214,10 @@ class AdvancedDocumentDashboard {
 
     setView(view) {
         this.currentView = view;
-        
+
         document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById(`${view}-view`).classList.add('active');
-        
+
         const grids = document.querySelectorAll('.documents-grid');
         grids.forEach(grid => {
             if (view === 'list') {
@@ -226,7 +226,7 @@ class AdvancedDocumentDashboard {
                 grid.classList.remove('list-view');
             }
         });
-        
+
         this.renderDocuments();
     }
 
@@ -245,7 +245,7 @@ class AdvancedDocumentDashboard {
     toggleSelectAll() {
         const selectAllBtn = document.getElementById('select-all');
         const deleteSelectedBtn = document.getElementById('delete-selected');
-        
+
         if (this.isSelectionMode) {
             // Exit selection mode
             this.isSelectionMode = false;
@@ -271,10 +271,10 @@ class AdvancedDocumentDashboard {
 
     createDocument(template = 'blank', customTitle = null) {
         // No document limit - removed the limit check
-        
+
         const templateData = this.templates[template] || this.templates.blank;
         const title = customTitle || templateData.name;
-        
+
         const newDocument = {
             id: 'doc-' + Date.now(),
             title: title,
@@ -296,7 +296,7 @@ class AdvancedDocumentDashboard {
         this.updateStorageInfo();
 
         this.showToast(`Document "${title}" created successfully!`, 'success');
-        
+
         // Redirect to editor after a short delay
         setTimeout(() => {
             this.openDocument(newDocument.id);
@@ -305,14 +305,14 @@ class AdvancedDocumentDashboard {
 
     openDocument(documentId) {
         localStorage.setItem('currentDocumentId', documentId);
-        window.location.href = 'docseditor\docseditor.html';
+        window.location.href = '../docseditor/docseditor.html';
     }
 
     async deleteDocument(documentId) {
         const index = this.documents.findIndex(doc => doc.id === documentId);
         if (index !== -1) {
             const deletedDoc = this.documents[index];
-            
+
             // Delete from server if available
             if (this.serverAvailable) {
                 try {
@@ -327,7 +327,7 @@ class AdvancedDocumentDashboard {
                     return;
                 }
             }
-            
+
             // Remove from local array
             this.documents.splice(index, 1);
             this.saveDocuments();
@@ -451,7 +451,7 @@ class AdvancedDocumentDashboard {
     async exportDocumentAsPDF(doc) {
         try {
             const title = doc.title || 'document';
-            
+
             // Get document content
             let editorContent = '';
             if (Array.isArray(doc.content)) {
@@ -461,24 +461,24 @@ class AdvancedDocumentDashboard {
                 // Old single-page format
                 editorContent = doc.content || '';
             }
-            
+
             // Check if document has content
             if (!editorContent.trim() || editorContent === '<p><br></p>' || editorContent === '<br>') {
                 this.showToast('Document has no content to export', 'warning');
                 return;
             }
-            
+
             // Check if ExportUtils is available
             if (typeof ExportUtils === 'undefined') {
                 this.showToast('Export utility not available. Please refresh the page.', 'error');
                 return;
             }
-            
+
             // Use the shared export utility
             await ExportUtils.exportContentAsPDF(editorContent, title, doc.watermark);
-            
+
             this.showToast('PDF exported successfully!', 'success');
-            
+
         } catch (error) {
             console.error('PDF export error:', error);
             this.showToast('Error exporting PDF. Please try again.', 'error');
@@ -491,7 +491,7 @@ class AdvancedDocumentDashboard {
             // Create a new window for printing
             const printWindow = window.open('', '_blank');
             const content = doc.content && doc.content.length > 0 ? doc.content.join('') : '<p>No content available</p>';
-            
+
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html>
@@ -574,7 +574,7 @@ class AdvancedDocumentDashboard {
 
         // Apply search filter
         if (this.searchQuery) {
-            filtered = filtered.filter(doc => 
+            filtered = filtered.filter(doc =>
                 doc.title.toLowerCase().includes(this.searchQuery) ||
                 (doc.description && doc.description.toLowerCase().includes(this.searchQuery))
             );
@@ -601,7 +601,7 @@ class AdvancedDocumentDashboard {
     renderDocuments() {
         const grid = document.getElementById('documents-grid');
         const filtered = this.filterDocuments();
-        
+
         if (filtered.length === 0) {
             if (this.searchQuery) {
                 grid.innerHTML = `
@@ -619,7 +619,7 @@ class AdvancedDocumentDashboard {
 
         // Show only recent documents (last 6) in the main view
         const documentsToShow = filtered.slice(0, 6);
-        
+
         grid.innerHTML = documentsToShow.map(doc => this.createDocumentCard(doc)).join('');
         this.bindDocumentCardEvents();
     }
@@ -627,7 +627,7 @@ class AdvancedDocumentDashboard {
     renderAllDocuments() {
         const grid = document.getElementById('all-documents-grid');
         const filtered = this.filterDocuments();
-        
+
         grid.innerHTML = filtered.map(doc => this.createDocumentCard(doc)).join('');
         this.bindDocumentCardEvents();
     }
@@ -635,7 +635,7 @@ class AdvancedDocumentDashboard {
     createDocumentCard(doc) {
         const isListView = this.currentView === 'list';
         const cardClass = `document-card ${isListView ? 'list-view' : ''}`;
-        
+
         return `
             <div class="${cardClass}" data-id="${doc.id}">
                 ${this.isSelectionMode ? `<input type="checkbox" class="card-checkbox" ${this.selectedDocuments.has(doc.id) ? 'checked' : ''}>` : ''}
@@ -674,20 +674,20 @@ class AdvancedDocumentDashboard {
     openVersionControl(documentId) {
         // Set the current document ID for version control
         localStorage.setItem('currentDocumentId', documentId);
-        
+
         // Open version control in same window
-        window.location.href = 'version-control.html';
+        window.location.href = '../version-control.html';
     }
 
     bindDocumentCardEvents() {
         document.querySelectorAll('.document-card').forEach(card => {
             const checkbox = card.querySelector('.card-checkbox');
-            
+
             if (checkbox) {
                 checkbox.addEventListener('change', (e) => {
                     e.stopPropagation();
                     const docId = card.dataset.id;
-                    
+
                     if (checkbox.checked) {
                         this.selectedDocuments.add(docId);
                         card.classList.add('selected');
@@ -695,7 +695,7 @@ class AdvancedDocumentDashboard {
                         this.selectedDocuments.delete(docId);
                         card.classList.remove('selected');
                     }
-                    
+
                     // Update UI based on selection
                     const deleteBtn = document.getElementById('delete-selected');
                     if (this.selectedDocuments.size > 0) {
@@ -724,23 +724,23 @@ class AdvancedDocumentDashboard {
 
     showContextMenu(event, documentId) {
         const contextMenu = document.getElementById('doc-context-menu');
-        
+
         // First, show the menu to get its dimensions
         contextMenu.style.display = 'block';
         contextMenu.style.visibility = 'hidden'; // Hide while positioning
-        
+
         // Get menu dimensions
         const menuRect = contextMenu.getBoundingClientRect();
         const windowHeight = window.innerHeight;
         const windowWidth = window.innerWidth;
         const padding = 10; // Minimum distance from edges
-        
+
         // Calculate available space
         const spaceBelow = windowHeight - event.clientY;
         const spaceAbove = event.clientY;
         const spaceRight = windowWidth - event.clientX;
         const spaceLeft = event.clientX;
-        
+
         // Determine vertical position
         let top = event.pageY;
         if (spaceBelow < menuRect.height + padding && spaceAbove > menuRect.height + padding) {
@@ -754,7 +754,7 @@ class AdvancedDocumentDashboard {
                 top = Math.max(padding, event.pageY - menuRect.height);
             }
         }
-        
+
         // Determine horizontal position
         let left = event.pageX;
         if (spaceRight < menuRect.width + padding && spaceLeft > menuRect.width + padding) {
@@ -764,19 +764,19 @@ class AdvancedDocumentDashboard {
             // Not enough space left or right, position to fit in available space
             left = Math.max(padding, Math.min(event.pageX, windowWidth - menuRect.width - padding));
         }
-        
+
         // Ensure menu doesn't go off-screen
         top = Math.max(padding, Math.min(top, windowHeight - menuRect.height - padding));
         left = Math.max(padding, Math.min(left, windowWidth - menuRect.width - padding));
-        
+
         // Apply position
         contextMenu.style.left = left + 'px';
         contextMenu.style.top = top + 'px';
         contextMenu.style.visibility = 'visible'; // Show the menu
-        
+
         // Store current document ID for context actions
         contextMenu.dataset.documentId = documentId;
-        
+
         // Hide context menu when clicking elsewhere
         setTimeout(() => {
             document.addEventListener('click', () => {
@@ -838,16 +838,16 @@ class AdvancedDocumentDashboard {
     setupModalEvents() {
         // New Document Modal
         this.setupNewDocumentModal();
-        
+
         // Delete Modal
         this.setupDeleteModal();
-        
+
         // Import Modal
         this.setupImportModal();
-        
+
         // Classification Modal
         this.setupClassificationModal();
-        
+
         // General modal close events
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -899,7 +899,7 @@ class AdvancedDocumentDashboard {
                 descInput.value = '';
 
                 this.showToast(`Document "${name}" created successfully!`, 'success');
-                
+
                 setTimeout(() => {
                     this.openDocument(newDoc.id);
                 }, 500);
@@ -940,7 +940,7 @@ class AdvancedDocumentDashboard {
         const cancelBtn = document.getElementById('cancel-import');
 
         dropZone.addEventListener('click', () => fileInput.click());
-        
+
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('dragover');
@@ -978,18 +978,18 @@ class AdvancedDocumentDashboard {
         const externalSection = document.getElementById('external-file-selection');
         const pdfUploadZone = document.getElementById('pdf-upload-zone');
         const pdfFileInput = document.getElementById('pdf-file-input');
-        
+
         // Modal close events
         closeBtn.addEventListener('click', () => {
             modal.style.display = 'none';
             this.resetClassificationModal();
         });
-        
+
         cancelBtn.addEventListener('click', () => {
             modal.style.display = 'none';
             this.resetClassificationModal();
         });
-        
+
         // Source selection change
         sourceRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
@@ -1002,29 +1002,29 @@ class AdvancedDocumentDashboard {
                 }
             });
         });
-        
+
         // PDF file upload
         pdfUploadZone.addEventListener('click', () => {
             pdfFileInput.click();
         });
-        
+
         pdfFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 this.handlePdfFileSelection(file);
             }
         });
-        
+
         // Drag and drop
         pdfUploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             pdfUploadZone.classList.add('dragover');
         });
-        
+
         pdfUploadZone.addEventListener('dragleave', () => {
             pdfUploadZone.classList.remove('dragover');
         });
-        
+
         pdfUploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
             pdfUploadZone.classList.remove('dragover');
@@ -1033,26 +1033,26 @@ class AdvancedDocumentDashboard {
                 this.handlePdfFileSelection(file);
             }
         });
-        
+
         // Start classification
         startBtn.addEventListener('click', () => {
             this.startClassification();
         });
-        
+
         // Results modal
         const resultsModal = document.getElementById('classification-results-modal');
         const closeResultsBtn = document.getElementById('close-results-modal');
         const closeResultsBtn2 = document.getElementById('close-results');
         const downloadBtn = document.getElementById('download-classified-pdf');
-        
+
         closeResultsBtn.addEventListener('click', () => {
             resultsModal.style.display = 'none';
         });
-        
+
         closeResultsBtn2.addEventListener('click', () => {
             resultsModal.style.display = 'none';
         });
-        
+
         downloadBtn.addEventListener('click', () => {
             this.downloadClassifiedPdf();
         });
@@ -1061,7 +1061,7 @@ class AdvancedDocumentDashboard {
     populateDocumentSelect() {
         const select = document.getElementById('document-select');
         select.innerHTML = '<option value="">Select a document...</option>';
-        
+
         this.documents.forEach(doc => {
             const option = document.createElement('option');
             option.value = doc.id;
@@ -1096,7 +1096,7 @@ class AdvancedDocumentDashboard {
         const uploadZone = document.getElementById('pdf-upload-zone');
         const documentSelect = document.getElementById('document-select');
         const pdfFileInput = document.getElementById('pdf-file-input');
-        
+
         internalRadio.checked = true;
         externalRadio.checked = false;
         internalSection.style.display = 'block';
@@ -1104,7 +1104,7 @@ class AdvancedDocumentDashboard {
         documentSelect.value = '';
         pdfFileInput.value = '';
         this.selectedPdfFile = null;
-        
+
         uploadZone.classList.remove('has-file');
         uploadZone.innerHTML = `
             <i class="fas fa-cloud-upload-alt"></i>
@@ -1119,7 +1119,7 @@ class AdvancedDocumentDashboard {
         const modal = document.getElementById('classification-modal');
         const resultsModal = document.getElementById('classification-results-modal');
         const resultsContent = document.getElementById('classification-results-content');
-        
+
         // Show loading
         resultsContent.innerHTML = `
             <div class="loading-spinner">
@@ -1127,35 +1127,35 @@ class AdvancedDocumentDashboard {
                 <p>Analyzing document...</p>
             </div>
         `;
-        
+
         modal.style.display = 'none';
         resultsModal.style.display = 'block';
-        
+
         try {
             let result;
-            
+
             if (sourceType === 'internal') {
                 const documentId = document.getElementById('document-select').value;
                 if (!documentId) {
                     throw new Error('Please select a document');
                 }
-                
+
                 const selectedDocument = this.documents.find(doc => doc.id === documentId);
                 if (!selectedDocument) {
                     throw new Error('Document not found');
                 }
-                
+
                 result = await this.classifyInternalDocument(selectedDocument);
             } else {
                 if (!this.selectedPdfFile) {
                     throw new Error('Please select a PDF file');
                 }
-                
+
                 result = await this.classifyExternalPdf(this.selectedPdfFile, includeWatermark);
             }
-            
+
             this.displayClassificationResults(result);
-            
+
         } catch (error) {
             console.error('Classification error:', error);
             resultsContent.innerHTML = `
@@ -1179,20 +1179,20 @@ class AdvancedDocumentDashboard {
                 content: documentObj.content
             })
         });
-        
+
         if (!response.ok) {
             throw new Error('Classification failed');
         }
-        
+
         return await response.json();
     }
 
     async classifyExternalPdf(file, includeWatermark) {
         const formData = new FormData();
         formData.append('document', file);
-        
+
         const endpoint = includeWatermark ? '/api/classify-and-watermark' : '/api/classify-document';
-        
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1200,18 +1200,18 @@ class AdvancedDocumentDashboard {
             },
             body: formData
         });
-        
+
         if (!response.ok) {
             throw new Error('Classification failed');
         }
-        
+
         return await response.json();
     }
 
     displayClassificationResults(result) {
         const resultsContent = document.getElementById('classification-results-content');
         const downloadBtn = document.getElementById('download-classified-pdf');
-        
+
         if (result.download_url) {
             downloadBtn.style.display = 'block';
             this.currentDownloadUrl = result.download_url;
@@ -1221,10 +1221,10 @@ class AdvancedDocumentDashboard {
         } else {
             downloadBtn.style.display = 'none';
         }
-        
+
         const classificationClass = result.classification.replace(/\s+/g, '_');
         const confidencePercent = Math.round(result.confidence * 100);
-        
+
         resultsContent.innerHTML = `
             <div class="classification-results">
                 <div class="classification-header ${classificationClass}">
@@ -1282,7 +1282,7 @@ class AdvancedDocumentDashboard {
 
     formatSensitiveContent(sensitiveContent) {
         const sections = [];
-        
+
         if (sensitiveContent.locations && sensitiveContent.locations.length > 0) {
             sections.push({
                 title: 'Locations',
@@ -1290,7 +1290,7 @@ class AdvancedDocumentDashboard {
                 items: sensitiveContent.locations
             });
         }
-        
+
         if (sensitiveContent.personnel && sensitiveContent.personnel.length > 0) {
             sections.push({
                 title: 'Personnel',
@@ -1298,7 +1298,7 @@ class AdvancedDocumentDashboard {
                 items: sensitiveContent.personnel
             });
         }
-        
+
         if (sensitiveContent.operations && sensitiveContent.operations.length > 0) {
             sections.push({
                 title: 'Operations',
@@ -1306,7 +1306,7 @@ class AdvancedDocumentDashboard {
                 items: sensitiveContent.operations
             });
         }
-        
+
         if (sensitiveContent.technical && sensitiveContent.technical.length > 0) {
             sections.push({
                 title: 'Technical',
@@ -1314,7 +1314,7 @@ class AdvancedDocumentDashboard {
                 items: sensitiveContent.technical
             });
         }
-        
+
         if (sensitiveContent.intelligence && sensitiveContent.intelligence.length > 0) {
             sections.push({
                 title: 'Intelligence',
@@ -1322,11 +1322,11 @@ class AdvancedDocumentDashboard {
                 items: sensitiveContent.intelligence
             });
         }
-        
+
         if (sections.length === 0) {
             return '';
         }
-        
+
         return `
             <div class="detail-section">
                 <h4>Sensitive Content Detected</h4>
@@ -1347,7 +1347,7 @@ class AdvancedDocumentDashboard {
             console.error('No download URL available');
             return;
         }
-        
+
         // Create a download link with authentication
         fetch(this.currentDownloadUrl, {
             method: 'GET',
@@ -1355,32 +1355,32 @@ class AdvancedDocumentDashboard {
                 'Authorization': `Bearer ${this.authToken}`
             }
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Download failed');
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            // Create a download link
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `classified_document_${Date.now()}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        })
-        .catch(error => {
-            console.error('Download error:', error);
-            alert('Download failed. Please try again.');
-        });
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create a download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `classified_document_${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Download error:', error);
+                alert('Download failed. Please try again.');
+            });
     }
 
     async refreshDocuments() {
         this.showToast('Refreshing documents...', 'info');
-        
+
         try {
             await this.loadDocuments();
             this.renderDocuments();
@@ -1388,7 +1388,7 @@ class AdvancedDocumentDashboard {
             this.updateDocumentCount();
             this.populateRecentActivity();
             this.updateStorageInfo();
-            
+
             this.showToast('Documents refreshed successfully!', 'success');
         } catch (error) {
             console.error('Error refreshing documents:', error);
@@ -1411,7 +1411,7 @@ class AdvancedDocumentDashboard {
     async saveDocuments() {
         // Save documents to localStorage
         localStorage.setItem('documents', JSON.stringify(this.documents));
-        
+
         // Also try to save to server if available
         if (this.serverAvailable) {
             try {
@@ -1441,13 +1441,13 @@ class AdvancedDocumentDashboard {
         try {
             // Get fresh documents from server
             const serverDocs = await this.api.getAllDocuments();
-            
+
             // Update our local documents array with the server data
             this.documents = serverDocs;
-            
+
             // Save to localStorage to keep them in sync
             localStorage.setItem('documents', JSON.stringify(this.documents));
-            
+
             console.log(`Synced ${this.documents.length} documents from server`);
         } catch (error) {
             console.error('Error syncing documents:', error);
@@ -1459,7 +1459,7 @@ class AdvancedDocumentDashboard {
         const countElement = document.getElementById('document-count');
         if (countElement) {
             countElement.textContent = `${count} documents`;
-            
+
             // Remove color coding since there's no limit
             countElement.style.color = '';
         }
@@ -1469,7 +1469,7 @@ class AdvancedDocumentDashboard {
         const emptyState = document.getElementById('empty-state');
         const recentSection = document.querySelector('.recent-section');
         const templatesSection = document.querySelector('.templates-section');
-        
+
         if (this.documents.length === 0) {
             emptyState.style.display = 'block';
             recentSection.style.display = 'none';
@@ -1506,15 +1506,15 @@ class AdvancedDocumentDashboard {
     updateStorageInfo() {
         const storageUsed = document.getElementById('storage-used');
         const storageText = document.getElementById('storage-text');
-        
+
         const docCount = this.documents.length;
-        
+
         // Hide the storage bar since there's no limit
         if (storageUsed) {
             storageUsed.style.width = '0%';
             storageUsed.style.backgroundColor = '#3498db';
         }
-        
+
         if (storageText) {
             storageText.textContent = `${docCount} documents`;
         }
@@ -1627,7 +1627,7 @@ class AdvancedDocumentDashboard {
     showDeleteModal(documentId) {
         const modal = document.getElementById('delete-modal');
         const doc = this.documents.find(d => d.id === documentId);
-        
+
         if (doc) {
             // Set the document name in the modal
             document.getElementById('delete-document-name').textContent = doc.title;
@@ -1656,6 +1656,6 @@ class AdvancedDocumentDashboard {
 }
 
 // Initialize the dashboard when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     window.dashboard = new AdvancedDocumentDashboard();
 });
