@@ -100,8 +100,9 @@ web_docs_editor/
 ├── app.db              # SQLite database (auto-created)
 ├── server.js           # Main server with auth routes
 ├── database.js         # Database operations
-├── auth.js             # JWT authentication
-├── login.html          # Login/register page
+├── auth/
+│   ├── auth.js         # JWT authentication
+│   └── login.html      # Login/register page
 ├── api-client.js       # Updated with auth headers
 ├── dashboard.js        # Updated with auth check
 ├── docseditor\docseditor.js       # Updated with auth check

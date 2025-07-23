@@ -24,7 +24,7 @@ const {
     createVersionTag,
     getVersionTags
 } = require('./database');
-const { generateToken, authenticateToken } = require('./auth');
+const { generateToken, authenticateToken } = require('./auth/auth');
 const TogetherClassifier = require('./together-classifier');
 
 const app = express();

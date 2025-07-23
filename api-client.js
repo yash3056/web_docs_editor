@@ -25,7 +25,7 @@ class DocumentAPI {
         if (response.status === 401 || response.status === 403) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('user');
-            window.location.href = '/login.html';
+            window.location.href = '/auth/login.html';
             return true;
         }
         return false;
