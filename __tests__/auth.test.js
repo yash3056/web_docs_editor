@@ -1,15 +1,31 @@
 const request = require('supertest');
-const app = require('../server');
-const { db, initDatabase, createUser } = require('../database');
 const { generateToken } = require('../auth');
 
-beforeAll(() => {
-  process.env.NODE_ENV = 'test';
-  initDatabase();
+// Mock keytar for testing to avoid credential storage during tests
+jest.mock('keytar', () => ({
+  setPassword: jest.fn().mockResolvedValue(true),
+  getPassword: jest.fn().mockResolvedValue(null),
+}));
+
+// Set test environment before importing modules
+process.env.NODE_ENV = 'test';
+
+const database = require('../database');
+const app = require('../server');
+
+let db, createUser;
+
+beforeAll(async () => {
+  // Initialize database for tests
+  await database.initializeDatabaseAsync();
+  db = database.db;
+  createUser = database.createUser;
 });
 
 afterAll(() => {
-  db.close();
+  if (db) {
+    db.close();
+  }
 });
 
 describe('Auth API', () => {

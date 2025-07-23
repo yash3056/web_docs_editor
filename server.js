@@ -6,7 +6,7 @@ const multer = require('multer');
 const axios = require('axios');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
 const { 
-    initDatabase, 
+    initializeDatabaseAsync,
     createUser, 
     validateUser, 
     saveDocument,
@@ -142,7 +142,14 @@ const PORT = process.env.PORT || 3000;
 const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 
 // Initialize database
-initDatabase();
+(async () => {
+    try {
+        await initializeDatabaseAsync();
+        console.log('Database initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize database:', error);
+    }
+})();
 
 // Middleware
 app.use(cors());

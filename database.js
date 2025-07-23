@@ -116,11 +116,26 @@ async function initializeDatabase() {
 
 // Initialize database asynchronously
 let db;
-(async () => {
-    db = await initializeDatabase();
-    // Initialize tables after database is ready
-    initDatabase();
-})();
+
+async function initializeDatabaseAsync() {
+    if (process.env.NODE_ENV === 'test') {
+        // For tests, use synchronous initialization with in-memory database
+        db = new Database(':memory:');
+        db.pragma('foreign_keys = ON');
+        initDatabase();
+        return db;
+    } else {
+        // For production/development, use encrypted database
+        db = await initializeDatabase();
+        initDatabase();
+        return db;
+    }
+}
+
+// Initialize database only if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+    initializeDatabaseAsync().catch(console.error);
+}
 
 // Create tables
 function initDatabase() {
@@ -220,6 +235,11 @@ let documentQueries = {};
 let versionQueries = {};
 
 function prepareQueries() {
+    if (!db) {
+        console.error('Database not initialized when preparing queries');
+        return;
+    }
+    
     userQueries = {
         create: db.prepare(`
             INSERT INTO users (email, username, password_hash)
@@ -911,5 +931,6 @@ module.exports = {
     getDocumentBranches,
     createVersionTag,
     getVersionTags,
-    db
+    initializeDatabaseAsync,
+    get db() { return db; }
 };
