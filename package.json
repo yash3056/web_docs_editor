@@ -3,7 +3,7 @@
   "productName": "Web Docs Editor",
   "version": "1.0.1",
   "description": "A modern document editor with version control",
-  "main": "main.js",
+  "main": "electron/main.js",
   "homepage": ".",
   "scripts": {
     "start": "node server.js",

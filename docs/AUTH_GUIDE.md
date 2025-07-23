@@ -99,12 +99,18 @@ CREATE TABLE documents (
 web_docs_editor/
 ├── app.db              # SQLite database (auto-created)
 ├── server.js           # Main server with auth routes
-├── database.js         # Database operations
+├── database/
+│   ├── database.js     # Database operations
+│   └── app.db          # SQLite database file
 ├── auth/
 │   ├── auth.js         # JWT authentication
 │   └── login.html      # Login/register page
-├── api-client.js       # Updated with auth headers
-├── dashboard.js        # Updated with auth check
+├── shared/
+│   ├── api-client.js   # API client with auth headers
+│   └── export-utils.js # Export utilities
+├── dashboard/
+│   ├── index.html      # Dashboard page
+│   └── dashboard.js    # Dashboard logic with auth check
 ├── docseditor\docseditor.js       # Updated with auth check
 └── ...
 ```

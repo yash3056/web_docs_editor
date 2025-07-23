@@ -75,7 +75,7 @@ function startServer() {
             // Determine server path
             let serverPath;
             if (isDev) {
-                serverPath = path.join(__dirname, 'server.js');
+                serverPath = path.join(__dirname, '../server.js');
             } else {
                 serverPath = path.join(app.getAppPath(), 'server.js');
             }

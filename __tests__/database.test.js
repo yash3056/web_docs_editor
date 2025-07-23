@@ -9,7 +9,7 @@ jest.mock('keytar', () => ({
 // Set test environment before importing
 process.env.NODE_ENV = 'test';
 
-const database = require('../database');
+const database = require('../database/database');
 
 describe('Database Encryption', () => {
   beforeAll(async () => {

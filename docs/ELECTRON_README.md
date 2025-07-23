@@ -92,13 +92,15 @@ Built applications will be placed in the `dist-windows` directory:
 ## File Structure
 
 ```
-├── main.js          # Main Electron process
-├── preload.js       # Preload script for security
+├── electron/
+│   ├── main.js      # Main Electron process
+│   ├── preload.js   # Preload script for security
+│   └── splash.html  # Splash screen
 ├── server.js        # Express server (updated for Electron)
 ├── database.js      # Database layer (updated for AppData)
 ├── package.json     # Updated with Electron scripts
 ├── index.html       # Main app interface
-├── splash.html      # Splash screen
+
 └── images/
     └── logo.png     # App icon
 ```

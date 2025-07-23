@@ -1181,7 +1181,7 @@ class DocsEditor {
         localStorage.setItem('currentDocument', JSON.stringify(currentDoc));
 
         // Open version control in same window
-        window.location.href = '../version-control.html';
+        window.location.href = '../version-control/version-control.html';
     }
 
     async goToDashboard() {

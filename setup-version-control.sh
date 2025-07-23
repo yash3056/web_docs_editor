@@ -28,7 +28,7 @@ mkdir -p exports
 # Initialize database
 echo "🗄️ Initializing database..."
 node -e "
-const { initDatabase } = require('./database');
+const { initDatabase } = require('./database/database');
 try {
     initDatabase();
     console.log('✅ Database initialized successfully');

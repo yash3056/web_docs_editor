@@ -40,12 +40,14 @@ For convenience, use these batch files:
 
 ```
 web_docs_editor/
-├── main.js              # Electron main process
-├── preload.js           # Preload script for secure communication
+├── electron/
+│   ├── main.js          # Electron main process
+│   ├── preload.js       # Preload script for secure communication
+│   └── splash.html      # Splash screen
 ├── server.js            # Express server (updated for Electron)
 ├── database.js          # Database with AppData path handling
 ├── package.json         # Updated with Electron scripts
-├── splash.html          # Splash screen
+
 ├── images/
 │   └── logo.png         # Application icon
 └── dist-windows/        # Build output directory
