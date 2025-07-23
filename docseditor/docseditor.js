@@ -24,7 +24,7 @@ class DocsEditor {
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
 
         if (!this.authToken || !this.user) {
-            window.location.href = '/login.html';
+            window.location.href = '../login.html';
             return;
         }
 
@@ -1181,7 +1181,7 @@ class DocsEditor {
         localStorage.setItem('currentDocument', JSON.stringify(currentDoc));
 
         // Open version control in same window
-        window.location.href = 'version-control.html';
+        window.location.href = '../version-control.html';
     }
 
     async goToDashboard() {

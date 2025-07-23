@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Docs Editor</title>
-    <link rel="stylesheet" href="docseditor\docseditor.css">
+    <link rel="stylesheet" href="docseditor.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
     <link rel="icon" href="images/logo.png" type="image/png">
@@ -14,13 +14,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
-    <script src="export-utils.js"></script>
+    <script src="../export-utils.js"></script>
     <script>
         // Check authentication before loading the page
         const authToken = localStorage.getItem('authToken');
         const user = localStorage.getItem('user');
         if (!authToken || !user) {
-            window.location.href = '/login.html';
+            window.location.href = '../login.html';
         }
     </script>
 </head>
@@ -321,7 +321,7 @@
         </div>
     </div>
 
-    <script src="api-client.js"></script>
-    <script src="docseditor\docseditor.js"></script>
+    <script src="../api-client.js"></script>
+    <script src="docseditor.js"></script>
 </body>
 </html>
