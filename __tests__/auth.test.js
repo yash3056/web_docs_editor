@@ -10,7 +10,7 @@ jest.mock('keytar', () => ({
 // Set test environment before importing modules
 process.env.NODE_ENV = 'test';
 
-const database = require('../database');
+const database = require('../database/database');
 const app = require('../server');
 
 let db, createUser;

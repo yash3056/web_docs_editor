@@ -5,7 +5,7 @@ classified-exports/
 *.pdf
 
 
-app.db
+**/app.db
 dist-windows/
 *.gguf
 build/

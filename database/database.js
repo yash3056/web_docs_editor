@@ -19,7 +19,7 @@ function getDatabasePath() {
         // Running in Electron - use the user data directory
         dbPath = path.join(process.env.ELECTRON_USER_DATA, 'app.db');
     } else if (process.env.NODE_ENV === 'development') {
-        // Development mode - use current directory
+        // Development mode - use database directory
         dbPath = path.join(__dirname, 'app.db');
     } else {
         // Production mode - use AppData directory

@@ -23,7 +23,7 @@ const {
     getDocumentBranches,
     createVersionTag,
     getVersionTags
-} = require('./database');
+} = require('./database/database');
 const { generateToken, authenticateToken } = require('./auth/auth');
 const TogetherClassifier = require('./together-classifier');
 
@@ -689,7 +689,7 @@ app.get('/api/health', (req, res) => {
 
 // Add explicit routes for splash and root
 app.get('/splash.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'splash.html'));
+    res.sendFile(path.join(__dirname, 'electron/splash.html'));
 });
 
 app.get('/', (req, res) => {

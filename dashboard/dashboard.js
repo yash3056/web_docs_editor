@@ -676,7 +676,7 @@ class AdvancedDocumentDashboard {
         localStorage.setItem('currentDocumentId', documentId);
 
         // Open version control in same window
-        window.location.href = '../version-control.html';
+        window.location.href = '../version-control/version-control.html';
     }
 
     bindDocumentCardEvents() {
