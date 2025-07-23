@@ -236,7 +236,7 @@
         const token = localStorage.getItem('authToken');
         if (token) {
             // Redirect to dashboard
-            window.location.href = '/index.html';
+            window.location.href = '/dashboard/index.html';
         }
         
         // Login form submission
@@ -267,7 +267,7 @@
                     localStorage.setItem('user', JSON.stringify(data.user));
                     showSuccess('Login successful! Redirecting...');
                     setTimeout(() => {
-                        window.location.href = '/index.html';
+                        window.location.href = '/dashboard/index.html';
                     }, 1000);
                 } else {
                     showError(data.error || 'Login failed');
@@ -309,7 +309,7 @@
                     localStorage.setItem('user', JSON.stringify(data.user));
                     showSuccess('Account created! Redirecting...');
                     setTimeout(() => {
-                        window.location.href = '/index.html';
+                        window.location.href = '/dashboard/index.html';
                     }, 1000);
                 } else {
                     showError(data.error || 'Registration failed');
