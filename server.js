@@ -5,14 +5,14 @@ const cors = require('cors');
 const multer = require('multer');
 const axios = require('axios');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
-const { 
+const {
     initializeDatabaseAsync,
-    createUser, 
-    validateUser, 
+    createUser,
+    validateUser,
     saveDocument,
     saveDocumentWithVersion,
-    getUserDocuments, 
-    getUserDocument, 
+    getUserDocuments,
+    getUserDocument,
     deleteUserDocument,
     getDocumentVersionHistory,
     restoreDocumentVersion,
@@ -40,8 +40,8 @@ class LocalClassifier {
             // Print the document content for debugging
             console.log("Document content:", documentContent);
 
-            const contentString = Array.isArray(documentContent) 
-                ? documentContent.join('\n') 
+            const contentString = Array.isArray(documentContent)
+                ? documentContent.join('\n')
                 : String(documentContent);
 
             // Strip HTML tags for better analysis
@@ -51,7 +51,7 @@ class LocalClassifier {
             const response = await axios.post(`${this.apiUrl}/classify`, {
                 content: plainTextContent
             });
-            
+
             const analysis = response.data;
 
             // Validate and add defaults for missing fields
@@ -114,7 +114,7 @@ class LocalClassifier {
                 const textWidth = fontSize * classification.length * 0.6;
                 const centerX = (width - textWidth) / 2;
                 const centerY = height / 2;
-                
+
                 page.drawText(classification, {
                     x: centerX,
                     y: centerY,
@@ -157,7 +157,7 @@ app.use(express.json({ limit: '50mb' }));
 
 // Serve static files from the correct directory
 // In Electron, we need to serve from the app directory
-const staticPath = process.env.ELECTRON_USER_DATA ? __dirname : '.';
+const staticPath = process.env.ELECTRON_USER_DATA ? path.join(__dirname, '..') : '.';
 console.log('Serving static files from:', staticPath);
 app.use(express.static(staticPath));
 
@@ -194,22 +194,22 @@ ensureDirectories();
 app.post('/api/register', async (req, res) => {
     try {
         const { email, username, password } = req.body;
-        
+
         if (!email || !username || !password) {
             return res.status(400).json({ error: 'Email, username, and password are required' });
         }
-        
+
         if (password.length < 6) {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
-        
+
         const user = await createUser(email, username, password);
         const token = generateToken(user);
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             user: { id: user.id, email: user.email, username: user.username },
-            token 
+            token
         });
     } catch (error) {
         console.error('Registration error:', error);
@@ -220,22 +220,22 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        
+
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
-        
+
         const user = await validateUser(email, password);
         if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
-        
+
         const token = generateToken(user);
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             user: { id: user.id, email: user.email, username: user.username },
-            token 
+            token
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -261,11 +261,11 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const document = getUserDocument(id, req.user.id);
-        
+
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         res.json(document);
     } catch (error) {
         console.error('Error fetching document:', error);
@@ -277,21 +277,21 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
 app.post('/api/documents', authenticateToken, async (req, res) => {
     try {
         const document = req.body;
-        
+
         // Validate required fields
         if (!document.id || !document.title) {
             return res.status(400).json({ error: 'Document ID and title are required' });
         }
-        
+
         // Set timestamps
         if (!document.createdAt) {
             document.createdAt = Date.now();
         }
         document.lastModified = Date.now();
-        
+
         // Save document to database
         saveDocument(document, req.user.id);
-        
+
         console.log(`Document saved: ${document.title} (${document.id}) for user ${req.user.username}`);
         res.json({ success: true, document });
     } catch (error) {
@@ -305,11 +305,11 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const deleted = deleteUserDocument(id, req.user.id);
-        
+
         if (!deleted) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         console.log(`Document deleted: ${id} for user ${req.user.username}`);
         res.json({ success: true });
     } catch (error) {
@@ -325,24 +325,24 @@ app.post('/api/documents/:id/versions', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { document, commitMessage } = req.body;
-        
+
         // Validate required fields
         if (!document || !document.title) {
             return res.status(400).json({ error: 'Document data is required' });
         }
-        
+
         // Ensure document ID matches the URL parameter
         document.id = id;
-        
+
         // Set timestamps
         if (!document.createdAt) {
             document.createdAt = Date.now();
         }
         document.lastModified = Date.now();
-        
+
         // Save document with version control
         saveDocumentWithVersion(document, req.user.id, commitMessage || 'Document updated');
-        
+
         console.log(`Document version saved: ${document.title} (${document.id}) for user ${req.user.username}`);
         res.json({ success: true, document });
     } catch (error) {
@@ -356,11 +356,11 @@ app.get('/api/documents/:id/versions', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const versions = getDocumentVersionHistory(id, req.user.id);
-        
+
         if (!versions) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         res.json(versions);
     } catch (error) {
         console.error('Error fetching version history:', error);
@@ -372,9 +372,9 @@ app.get('/api/documents/:id/versions', authenticateToken, async (req, res) => {
 app.post('/api/documents/:id/versions/:versionId/restore', authenticateToken, async (req, res) => {
     try {
         const { id, versionId } = req.params;
-        
+
         const result = restoreDocumentVersion(id, parseInt(versionId), req.user.id);
-        
+
         console.log(`Document restored: ${id} to version ${versionId} for user ${req.user.username}`);
         res.json({ success: true, result });
     } catch (error) {
@@ -387,14 +387,14 @@ app.post('/api/documents/:id/versions/:versionId/restore', authenticateToken, as
 app.get('/api/documents/:id/versions/:versionId1/compare/:versionId2', authenticateToken, async (req, res) => {
     try {
         const { id, versionId1, versionId2 } = req.params;
-        
+
         const comparison = compareDocumentVersions(
-            id, 
-            parseInt(versionId1), 
-            parseInt(versionId2), 
+            id,
+            parseInt(versionId1),
+            parseInt(versionId2),
             req.user.id
         );
-        
+
         res.json(comparison);
     } catch (error) {
         console.error('Error comparing document versions:', error);
@@ -407,13 +407,13 @@ app.post('/api/documents/:id/branches', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { branchName, baseVersionId } = req.body;
-        
+
         if (!branchName) {
             return res.status(400).json({ error: 'Branch name is required' });
         }
-        
+
         const branch = createDocumentBranch(id, branchName, baseVersionId, req.user.id);
-        
+
         console.log(`Document branch created: ${branchName} for document ${id} by user ${req.user.username}`);
         res.json({ success: true, branch });
     } catch (error) {
@@ -427,11 +427,11 @@ app.get('/api/documents/:id/branches', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const branches = getDocumentBranches(id, req.user.id);
-        
+
         if (!branches) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         res.json(branches);
     } catch (error) {
         console.error('Error fetching document branches:', error);
@@ -444,13 +444,13 @@ app.post('/api/documents/:id/versions/:versionId/tags', authenticateToken, async
     try {
         const { versionId } = req.params;
         const { tagName, description } = req.body;
-        
+
         if (!tagName) {
             return res.status(400).json({ error: 'Tag name is required' });
         }
-        
+
         const tag = createVersionTag(parseInt(versionId), tagName, description, req.user.id);
-        
+
         console.log(`Version tag created: ${tagName} for version ${versionId} by user ${req.user.username}`);
         res.json({ success: true, tag });
     } catch (error) {
@@ -464,11 +464,11 @@ app.get('/api/documents/:id/versions/:versionId/tags', authenticateToken, async 
     try {
         const { versionId } = req.params;
         const tags = getVersionTags(parseInt(versionId), req.user.id);
-        
+
         if (!tags) {
             return res.status(404).json({ error: 'Version not found' });
         }
-        
+
         res.json(tags);
     } catch (error) {
         console.error('Error fetching version tags:', error);
@@ -481,22 +481,22 @@ app.post('/api/documents/:id/export', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { format, content } = req.body;
-        
+
         if (!format || !content) {
             return res.status(400).json({ error: 'Format and content are required' });
         }
-        
+
         // Get document details from database
         const document = getUserDocument(id, req.user.id);
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         // Save exported file
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `${document.title}_${timestamp}.${format}`;
         const exportPath = path.join(EXPORTS_DIR, filename);
-        
+
         if (format === 'docx') {
             // For DOCX, we receive blob data
             const buffer = Buffer.from(content, 'base64');
@@ -505,10 +505,10 @@ app.post('/api/documents/:id/export', authenticateToken, async (req, res) => {
             // For other formats, save as text
             await fs.writeFile(exportPath, content);
         }
-        
+
         console.log(`Document exported: ${filename}`);
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             filename,
             downloadUrl: `/api/exports/${filename}`
         });
@@ -522,7 +522,7 @@ app.post('/api/documents/:id/export', authenticateToken, async (req, res) => {
 app.get('/api/exports/:filename', (req, res) => {
     const { filename } = req.params;
     const filePath = path.join(EXPORTS_DIR, filename);
-    
+
     res.download(filePath, (error) => {
         if (error) {
             console.error('Error serving export:', error);
@@ -536,7 +536,7 @@ app.get('/api/exports', authenticateToken, async (req, res) => {
     try {
         const files = await fs.readdir(EXPORTS_DIR);
         const exports = [];
-        
+
         for (const file of files) {
             const filePath = path.join(EXPORTS_DIR, file);
             const stats = await fs.stat(filePath);
@@ -547,10 +547,10 @@ app.get('/api/exports', authenticateToken, async (req, res) => {
                 downloadUrl: `/api/exports/${file}`
             });
         }
-        
+
         // Sort by creation date (newest first)
         exports.sort((a, b) => b.created - a.created);
-        
+
         res.json(exports);
     } catch (error) {
         console.error('Error fetching exports:', error);
@@ -560,8 +560,8 @@ app.get('/api/exports', authenticateToken, async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
+    res.json({
+        status: 'OK',
         timestamp: new Date().toISOString(),
         documentsDir: DOCUMENTS_DIR,
         exportsDir: EXPORTS_DIR
@@ -572,29 +572,29 @@ app.get('/api/health', (req, res) => {
 app.post('/api/documents/classify', authenticateToken, async (req, res) => {
     try {
         const { documentId } = req.body;
-        
+
         if (!documentId) {
             return res.status(400).json({ error: 'Document ID is required' });
         }
-        
+
         // Get document content
         const document = getUserDocument(documentId, req.user.id);
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
-        
+
         // Classify document
         const classification = await classifier.classifyDocument(document.content);
-        
+
         // Save classification result to document metadata
         document.classification = classification;
         saveDocument(document, req.user.id);
-        
+
         // Add watermark to document PDF
         const pdfPath = path.join(DOCUMENTS_DIR, `${documentId}.pdf`);
         const watermarkedPdfPath = path.join(EXPORTS_DIR, `watermarked_${documentId}.pdf`);
         await classifier.addWatermarkToPdf(pdfPath, watermarkedPdfPath, classification.classification);
-        
+
         res.json({ success: true, classification });
     } catch (error) {
         console.error('Error classifying document:', error);
@@ -606,15 +606,15 @@ app.post('/api/documents/classify', authenticateToken, async (req, res) => {
 app.post('/api/classify-document', authenticateToken, upload.single('document'), async (req, res) => {
     try {
         let documentContent = '';
-        
+
         if (req.file) {
             // External PDF file uploaded
             const filePath = req.file.path;
             const originalName = req.file.originalname;
-            
+
             // For now, we'll use the filename as content since PDF text extraction is complex
             documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
-            
+
             // Clean up uploaded file
             try {
                 await fs.unlink(filePath);
@@ -624,11 +624,11 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
         } else {
             // Internal document from editor
             const { documentId, content } = req.body;
-            
+
             if (!documentId && !content) {
                 return res.status(400).json({ error: 'Document ID or content required' });
             }
-            
+
             if (documentId) {
                 // Get document from database
                 const document = await getUserDocument(documentId, req.user.id);
@@ -660,7 +660,7 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
 
     } catch (error) {
         console.error('Classification error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Classification failed',
             details: error.message
         });
@@ -680,7 +680,7 @@ app.post('/api/classify-and-watermark', authenticateToken, upload.single('docume
 
         // For PDF files, we'll use basic analysis
         const documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
-        
+
         console.log(`Classifying and watermarking document: ${originalName}`);
 
         // Classify the document
@@ -689,7 +689,7 @@ app.post('/api/classify-and-watermark', authenticateToken, upload.single('docume
         // Create watermarked PDF
         const timestamp = Date.now();
         const outputPath = path.join(CLASSIFIED_EXPORTS_DIR, `${baseName}_${result.classification.replace(/\s+/g, '_')}_${timestamp}.pdf`);
-        
+
         await classifier.addWatermarkToPdf(filePath, outputPath, result.classification);
 
         // Clean up uploaded file
@@ -715,7 +715,7 @@ app.post('/api/classify-and-watermark', authenticateToken, upload.single('docume
 
     } catch (error) {
         console.error('Classification and watermarking error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Classification and watermarking failed',
             details: error.message
         });
@@ -727,10 +727,10 @@ app.get('/api/download-classified/:filename', authenticateToken, async (req, res
     try {
         const filename = req.params.filename;
         const filePath = path.join(CLASSIFIED_EXPORTS_DIR, filename);
-        
+
         // Check if file exists
         await fs.access(filePath);
-        
+
         res.download(filePath, (error) => {
             if (error) {
                 console.error('Error serving classified file:', error);
@@ -748,16 +748,16 @@ app.get('/api/classified-documents', authenticateToken, async (req, res) => {
     try {
         const files = await fs.readdir(CLASSIFIED_EXPORTS_DIR);
         const classifiedDocs = [];
-        
+
         for (const file of files) {
             const filePath = path.join(CLASSIFIED_EXPORTS_DIR, file);
             const stats = await fs.stat(filePath);
-            
+
             // Extract classification from filename
-            const classification = file.split('_').find(part => 
+            const classification = file.split('_').find(part =>
                 ['TOP_SECRET', 'SECRET', 'CONFIDENTIAL', 'RESTRICTED', 'UNCLASSIFIED'].includes(part)
             ) || 'UNKNOWN';
-            
+
             classifiedDocs.push({
                 filename: file,
                 size: stats.size,
@@ -766,10 +766,10 @@ app.get('/api/classified-documents', authenticateToken, async (req, res) => {
                 downloadUrl: `/api/download-classified/${file}`
             });
         }
-        
+
         // Sort by creation date (newest first)
         classifiedDocs.sort((a, b) => b.created - a.created);
-        
+
         res.json(classifiedDocs);
     } catch (error) {
         console.error('Error fetching classified documents:', error);
@@ -779,8 +779,8 @@ app.get('/api/classified-documents', authenticateToken, async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
+    res.json({
+        status: 'OK',
         timestamp: new Date().toISOString(),
         documentsDir: DOCUMENTS_DIR,
         exportsDir: EXPORTS_DIR,
@@ -801,9 +801,9 @@ app.get('/', (req, res) => {
 app.get('/api/documents/:id/versions/:versionId/changes', authenticateToken, async (req, res) => {
     try {
         const { id, versionId } = req.params;
-        
+
         const changes = getVersionChanges(id, parseInt(versionId), req.user.id);
-        
+
         res.json(changes);
     } catch (error) {
         console.error('Error getting version changes:', error);
