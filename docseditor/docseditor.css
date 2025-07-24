@@ -527,6 +527,16 @@ body {
     gap: 2rem;
 }
 
+.status-left span {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+#current-page {
+    color: #007bff;
+    font-weight: 500;
+}
+
 /* Modals */
 .modal {
     display: none;
