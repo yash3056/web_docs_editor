@@ -11,6 +11,7 @@ class DocsEditor {
         this.selectedImageData = null;
         this.pageHeight = 11 * 96; // 11 inches * 96 DPI
         this.currentPage = 1;
+        this.totalPages = 1;
         this.serverAvailable = false;
         this.isNavigating = false; // Flag to track programmatic navigation
         this.autoSaveTimeout = null; // For debounced auto-save
@@ -130,27 +131,15 @@ class DocsEditor {
         }
     }
 
-    updatePageCount() {
-        // Calculate page count based on content height
-        const editorHeight = this.editor.scrollHeight;
-        const pageHeight = this.pageHeight;
-        const numberOfPages = Math.ceil(editorHeight / pageHeight);
 
-        // Update page count display
-        const pageCountElement = document.getElementById('page-count');
-        if (pageCountElement) {
-            pageCountElement.textContent = `Pages: ${numberOfPages}`;
-        }
-
-        return numberOfPages;
-    }
 
     updateCurrentPage() {
         try {
             // Get cursor position to determine which page the cursor is on
             const selection = window.getSelection();
             if (selection.rangeCount === 0) {
-                this.setCurrentPageDisplay(1);
+                this.currentPage = 1;
+                this.updatePageInfo();
                 return 1;
             }
 
@@ -188,21 +177,25 @@ class DocsEditor {
             const pageHeight = this.pageHeight;
             const currentPage = Math.max(1, Math.floor(offsetTop / pageHeight) + 1);
 
-            // Update the status bar display
-            this.setCurrentPageDisplay(currentPage);
+            // Store current page and update display
+            this.currentPage = currentPage;
+            this.updatePageInfo();
 
             return currentPage;
         } catch (error) {
             console.warn('Error updating current page:', error);
-            this.setCurrentPageDisplay(1);
+            this.currentPage = 1;
+            this.updatePageInfo();
             return 1;
         }
     }
 
-    setCurrentPageDisplay(pageNumber) {
-        const currentPageElement = document.getElementById('current-page');
-        if (currentPageElement) {
-            currentPageElement.textContent = `Current page: ${pageNumber}`;
+    updatePageInfo() {
+        const pageInfoElement = document.getElementById('page-info');
+        if (pageInfoElement) {
+            const currentPage = this.currentPage || 1;
+            const totalPages = this.totalPages || 1;
+            pageInfoElement.textContent = `Page ${currentPage} of ${totalPages}`;
         }
     }
 
@@ -1865,11 +1858,11 @@ class DocsEditor {
         const pageHeight = 11 * 96; // 11 inches at 96 DPI  
         const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
 
-        // Update page count in status bar
-        const pageCountElement = document.getElementById('page-count');
-        if (pageCountElement) {
-            pageCountElement.textContent = `Pages: ${requiredPages}`;
-        }
+        // Store total pages for use in updateCurrentPage
+        this.totalPages = requiredPages;
+
+        // Update the combined page info (will be updated with current page by updateCurrentPage)
+        this.updatePageInfo();
 
         // Create visual page indicators
         this.updatePageIndicators(requiredPages);
