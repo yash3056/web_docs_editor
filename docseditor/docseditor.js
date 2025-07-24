@@ -44,6 +44,7 @@ class DocsEditor {
         this.updatePageLayout();
         this.checkServerStatus();
         this.setupAutoSave();
+        this.setupCustomContextMenu();
 
         // Add cleanup on page unload
         window.addEventListener('beforeunload', () => {
@@ -1805,6 +1806,204 @@ class DocsEditor {
             indicator.setAttribute('data-page', i + 1);
             this.pageIndicators.appendChild(indicator);
         }
+    }
+
+    setupCustomContextMenu() {
+        const contextMenu = document.getElementById('custom-context-menu');
+        
+        // Disable default context menu on the editor
+        this.editor.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showCustomContextMenu(e);
+        });
+
+        // Hide context menu when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!contextMenu.contains(e.target)) {
+                this.hideCustomContextMenu();
+            }
+        });
+
+        // Hide context menu on scroll
+        this.editor.addEventListener('scroll', () => {
+            this.hideCustomContextMenu();
+        });
+
+        // Hide context menu on window resize
+        window.addEventListener('resize', () => {
+            this.hideCustomContextMenu();
+        });
+
+        // Setup context menu item handlers
+        this.setupContextMenuHandlers();
+    }
+
+    showCustomContextMenu(event) {
+        const contextMenu = document.getElementById('custom-context-menu');
+        const selection = window.getSelection();
+        const hasSelection = selection.toString().length > 0;
+        
+        // Update menu items based on current state
+        this.updateContextMenuState(hasSelection);
+        
+        // Position the menu
+        const x = event.clientX;
+        const y = event.clientY;
+        
+        // Show menu temporarily to get dimensions
+        contextMenu.style.display = 'block';
+        contextMenu.style.visibility = 'hidden';
+        
+        const menuRect = contextMenu.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        let menuX = x;
+        let menuY = y;
+        
+        // Adjust horizontal position if menu would go off screen
+        if (x + menuRect.width > viewportWidth) {
+            menuX = Math.max(10, viewportWidth - menuRect.width - 10);
+        }
+        
+        // Adjust vertical position if menu would go off screen
+        if (y + menuRect.height > viewportHeight) {
+            menuY = Math.max(10, viewportHeight - menuRect.height - 10);
+        }
+        
+        // Apply final position and show menu
+        contextMenu.style.left = `${menuX}px`;
+        contextMenu.style.top = `${menuY}px`;
+        contextMenu.style.visibility = 'visible';
+    }
+
+    hideCustomContextMenu() {
+        const contextMenu = document.getElementById('custom-context-menu');
+        contextMenu.style.display = 'none';
+    }
+
+    updateContextMenuState(hasSelection) {
+        // Enable/disable menu items based on current state
+        const cutItem = document.getElementById('context-cut');
+        const copyItem = document.getElementById('context-copy');
+        const boldItem = document.getElementById('context-bold');
+        const italicItem = document.getElementById('context-italic');
+        const underlineItem = document.getElementById('context-underline');
+        
+        // Cut and Copy only available when text is selected
+        if (hasSelection) {
+            cutItem.classList.remove('disabled');
+            copyItem.classList.remove('disabled');
+        } else {
+            cutItem.classList.add('disabled');
+            copyItem.classList.add('disabled');
+        }
+        
+        // Update formatting buttons based on current selection
+        if (hasSelection) {
+            boldItem.classList.toggle('active', document.queryCommandState('bold'));
+            italicItem.classList.toggle('active', document.queryCommandState('italic'));
+            underlineItem.classList.toggle('active', document.queryCommandState('underline'));
+        } else {
+            boldItem.classList.remove('active');
+            italicItem.classList.remove('active');
+            underlineItem.classList.remove('active');
+        }
+    }
+
+    setupContextMenuHandlers() {
+        // Cut
+        document.getElementById('context-cut').addEventListener('click', () => {
+            if (!document.getElementById('context-cut').classList.contains('disabled')) {
+                document.execCommand('cut');
+                this.saveState();
+                this.updateWordCount();
+            }
+            this.hideCustomContextMenu();
+        });
+
+        // Copy
+        document.getElementById('context-copy').addEventListener('click', () => {
+            if (!document.getElementById('context-copy').classList.contains('disabled')) {
+                document.execCommand('copy');
+            }
+            this.hideCustomContextMenu();
+        });
+
+        // Paste
+        document.getElementById('context-paste').addEventListener('click', () => {
+            this.editor.focus();
+            document.execCommand('paste');
+            this.saveState();
+            this.updateWordCount();
+            this.hideCustomContextMenu();
+        });
+
+        // Select All
+        document.getElementById('context-select-all').addEventListener('click', () => {
+            this.editor.focus();
+            document.execCommand('selectAll');
+            this.hideCustomContextMenu();
+        });
+
+        // Bold
+        document.getElementById('context-bold').addEventListener('click', () => {
+            this.formatText('bold');
+            this.hideCustomContextMenu();
+        });
+
+        // Italic
+        document.getElementById('context-italic').addEventListener('click', () => {
+            this.formatText('italic');
+            this.hideCustomContextMenu();
+        });
+
+        // Underline
+        document.getElementById('context-underline').addEventListener('click', () => {
+            this.formatText('underline');
+            this.hideCustomContextMenu();
+        });
+
+        // Insert Link
+        document.getElementById('context-insert-link').addEventListener('click', () => {
+            this.showLinkModal();
+            this.hideCustomContextMenu();
+        });
+
+        // Insert Image
+        document.getElementById('context-insert-image').addEventListener('click', () => {
+            this.showImageModal();
+            this.hideCustomContextMenu();
+        });
+
+        // Word Count
+        document.getElementById('context-word-count').addEventListener('click', () => {
+            this.showWordCountDialog();
+            this.hideCustomContextMenu();
+        });
+
+        // Save Document
+        document.getElementById('context-save').addEventListener('click', () => {
+            this.saveDocument();
+            this.hideCustomContextMenu();
+        });
+    }
+
+    showWordCountDialog() {
+        const text = this.editor.innerText || '';
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const characters = text.length;
+        const charactersNoSpaces = text.replace(/\s/g, '').length;
+        const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+        
+        const message = `Document Statistics:
+        
+Words: ${words}
+Characters (with spaces): ${characters}
+Characters (no spaces): ${charactersNoSpaces}
+Paragraphs: ${paragraphs}`;
+        
+        alert(message);
     }
 }
 
