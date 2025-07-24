@@ -42,6 +42,7 @@ class DocsEditor {
         this.saveState();
         this.updateWatermarkButtonState();
         this.updatePageLayout();
+        this.updateCurrentPage();
         this.checkServerStatus();
         this.setupAutoSave();
         this.setupCustomContextMenu();
@@ -74,6 +75,7 @@ class DocsEditor {
                 this.lastEditTime = Date.now(); // Track edit time
                 this.updateWordCount();
                 this.updatePageLayout();
+                this.updateCurrentPage(); // Update cursor page position
                 this.saveState();
 
                 // Auto-save after a short delay to avoid too frequent saves
@@ -86,14 +88,44 @@ class DocsEditor {
                 }, 5000); // Save 5 seconds after user stops typing (increased from 2)
             });
 
-            // Add click event to ensure focus
+            // Add click event to ensure focus and update cursor page
             this.editor.addEventListener('click', () => {
                 this.editor.focus();
+                // Use setTimeout to ensure cursor position is updated after click
+                setTimeout(() => {
+                    this.updateCurrentPage();
+                }, 10);
             });
 
             // Handle scroll to update current page
             this.editor.addEventListener('scroll', () => {
                 this.updateCurrentPage();
+            });
+
+            // Track cursor movement with keyboard navigation
+            this.editor.addEventListener('keyup', (e) => {
+                // Update cursor page on arrow keys, page up/down, home/end
+                const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
+                                      'PageUp', 'PageDown', 'Home', 'End'];
+                if (navigationKeys.includes(e.key)) {
+                    setTimeout(() => {
+                        this.updateCurrentPage();
+                    }, 10);
+                }
+            });
+
+            // Track selection changes (when user selects text with mouse or keyboard)
+            document.addEventListener('selectionchange', () => {
+                // Only update if the selection is within our editor
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    if (this.editor.contains(range.commonAncestorContainer)) {
+                        setTimeout(() => {
+                            this.updateCurrentPage();
+                        }, 10);
+                    }
+                }
             });
         }
     }
@@ -114,13 +146,64 @@ class DocsEditor {
     }
 
     updateCurrentPage() {
-        // This can be used for showing current page in status bar
-        const scrollTop = this.editor.scrollTop || window.scrollY;
-        const pageHeight = this.pageHeight;
-        const currentPage = Math.floor(scrollTop / pageHeight) + 1;
+        try {
+            // Get cursor position to determine which page the cursor is on
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) {
+                this.setCurrentPageDisplay(1);
+                return 1;
+            }
 
-        // Could update a status indicator here if needed
-        return currentPage;
+            const range = selection.getRangeAt(0);
+            const cursorNode = range.startContainer;
+            
+            // Find the actual element containing the cursor
+            let cursorElement = cursorNode.nodeType === Node.TEXT_NODE ? 
+                cursorNode.parentElement : cursorNode;
+            
+            // Make sure we're working within the editor
+            if (!this.editor.contains(cursorElement)) {
+                cursorElement = this.editor;
+            }
+
+            // Get the offset of the cursor element relative to the editor
+            let offsetTop = 0;
+            let element = cursorElement;
+            
+            while (element && element !== this.editor) {
+                offsetTop += element.offsetTop || 0;
+                element = element.offsetParent;
+            }
+
+            // Add any additional offset from the range within the element
+            if (range.getBoundingClientRect) {
+                const rect = range.getBoundingClientRect();
+                const editorRect = this.editor.getBoundingClientRect();
+                if (rect.top >= editorRect.top) {
+                    offsetTop = rect.top - editorRect.top + this.editor.scrollTop;
+                }
+            }
+
+            // Calculate which page based on the cursor position
+            const pageHeight = this.pageHeight;
+            const currentPage = Math.max(1, Math.floor(offsetTop / pageHeight) + 1);
+
+            // Update the status bar display
+            this.setCurrentPageDisplay(currentPage);
+
+            return currentPage;
+        } catch (error) {
+            console.warn('Error updating current page:', error);
+            this.setCurrentPageDisplay(1);
+            return 1;
+        }
+    }
+
+    setCurrentPageDisplay(pageNumber) {
+        const currentPageElement = document.getElementById('current-page');
+        if (currentPageElement) {
+            currentPageElement.textContent = `Current page: ${pageNumber}`;
+        }
     }
 
 
@@ -329,6 +412,7 @@ class DocsEditor {
             this.documentTitle.value = state.title;
             this.updateWordCount();
             this.updatePageLayout();
+            this.updateCurrentPage();
         }
     }
 
@@ -340,6 +424,7 @@ class DocsEditor {
             this.documentTitle.value = state.title;
             this.updateWordCount();
             this.updatePageLayout();
+            this.updateCurrentPage();
         }
     }
 
@@ -759,6 +844,7 @@ class DocsEditor {
 
         this.saveState();
         this.updatePageLayout();
+        this.updateCurrentPage();
     }
 
     applyWatermark(text, opacity, size, color, angle) {
@@ -1257,6 +1343,7 @@ class DocsEditor {
 
                     this.updateWordCount();
                     this.updatePageLayout();
+                    this.updateCurrentPage();
 
                     // Store initial content hash for change detection
                     const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
@@ -1316,6 +1403,7 @@ class DocsEditor {
 
                 this.updateWordCount();
                 this.updatePageLayout();
+                this.updateCurrentPage();
 
                 // Store initial content hash for change detection
                 const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
@@ -1347,6 +1435,7 @@ class DocsEditor {
             this.editor.innerHTML = data.content;
             this.updateWordCount();
             this.updatePageLayout();
+            this.updateCurrentPage();
 
             // Store initial content hash for legacy documents
             const currentDocId = localStorage.getItem('currentDocumentId');
