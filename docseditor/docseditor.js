@@ -123,10 +123,7 @@ class DocsEditor {
         return currentPage;
     }
 
-    updatePageCount(pageCount) {
-        // This function is now redundant since updatePageCount() above handles it
-        // Remove this to avoid confusion
-    }
+
 
     initializeEventListeners() {
         // Dashboard navigation
@@ -1259,6 +1256,7 @@ class DocsEditor {
                     }
 
                     this.updateWordCount();
+                    this.updatePageLayout();
 
                     // Store initial content hash for change detection
                     const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
@@ -1317,6 +1315,7 @@ class DocsEditor {
                 }
 
                 this.updateWordCount();
+                this.updatePageLayout();
 
                 // Store initial content hash for change detection
                 const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
@@ -1347,6 +1346,7 @@ class DocsEditor {
             this.documentTitle.value = data.title;
             this.editor.innerHTML = data.content;
             this.updateWordCount();
+            this.updatePageLayout();
 
             // Store initial content hash for legacy documents
             const currentDocId = localStorage.getItem('currentDocumentId');
