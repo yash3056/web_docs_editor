@@ -3,7 +3,7 @@
     padding: 0;
     box-sizing: border-box;
 }
-
+ 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
@@ -532,11 +532,12 @@ body {
     font-size: 0.9rem;
 }
 
-#current-page {
-    color: #007bff;
+#page-info {
     font-weight: 500;
+    color: #666;
+    min-width: 60px;
+    display: inline-block;
 }
-
 /* Modals */
 .modal {
     display: none;
