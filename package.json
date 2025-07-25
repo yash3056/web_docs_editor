@@ -13,6 +13,7 @@
     "electron-pack": "electron-builder",
     "build": "electron-builder --win --x64",
     "build-all": "electron-builder --win --mac --linux",
+    "clean": "rmdir /s /q dist-windows 2>nul || true",
     "dist": "npm run build",
     "postinstall": "electron-builder install-app-deps",
     "test": "jest"
@@ -61,6 +62,7 @@
       "!*.gguf",
       "!*.py",
       "!*.md",
+      "!build/**/*",
       "!.git/**/*",
       "!.gitignore",
       "!.python-version",
@@ -70,7 +72,10 @@
       "!setup-version-control.sh",
       "!test-packaged-app.bat",
       "!build-app.bat",
-      "!run-electron.bat"
+      "!electron/run-electron.bat",
+      "!.github/**/*",
+      "!docs/**/*"
+
     ],
     "win": {
       "target": "nsis"
