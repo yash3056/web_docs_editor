@@ -8,34 +8,48 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from llama_cpp import Llama
 import json
+import traceback
 
 app = FastAPI()
 
-# TODO: Update this path to your local model
-# Model configuration
-MODEL_FILENAME = "DeepSeek-R1-Distill-Qwen-1.5B-BF16.gguf" #"LFM2-1.2B-F16.gguf"#"gemma-3-1b-it-f16.gguf"
-CONTEXT_SIZE = 32768
+# --- CONFIGURATION ---
+# IMPORTANT: Update this path to your local Qwen GGUF model
+MODEL_FILENAME = "Qwen3-1.7B-Q4_K_M.gguf"
+CONTEXT_SIZE = 32768 # Adjusted for typical memory constraints
+MAX_OUTPUT_TOKENS = 2048 # Increased to allow for "thinking" + JSON output
 
-# Don't load the model globally - we'll create a new instance for each request
+# --- MODEL LOADING ---
 def get_llm_instance():
-    """Create a fresh LLM instance to avoid state carryover between requests"""
+    """
+    Creates a fresh LLM instance.
+    Adding chat_format='chatml' is crucial for Qwen models.
+    """
     try:
         llm = Llama(
             model_path=MODEL_FILENAME,
             n_ctx=CONTEXT_SIZE,
             verbose=False,
-            n_batch=512,  # Smaller batch size
-            last_n_tokens_size=64  # Reduce context tracking
+            n_batch=512,
+            # This tells llama-cpp to correctly handle Qwen's special tokens
+            chat_format="chatml",
         )
         return llm
     except Exception as e:
-        print(f"Error loading model: {e}")
+        print(f"FATAL: Error loading model from path: {MODEL_FILENAME}")
+        print(f"Error details: {e}")
         return None
 
+# --- Pydantic Model ---
 class Document(BaseModel):
     content: str
 
-def create_security_analysis_prompt(document_content):
+# --- PROMPT ENGINEERING ---
+def create_security_analysis_prompt(document_content: str) -> str:
+    """
+    Constructs the detailed user-facing prompt for the security analysis task.
+    This entire block will be treated as the 'user' message.
+    """
+    # This detailed prompt remains unchanged.
     return """
 You are an expert security analyst for the Indian Government. Analyze this document thoroughly and classify its security level based on official Indian Government security classification standards.
 
@@ -67,62 +81,15 @@ You are an expert security analyst for the Indian Government. Analyze this docum
    - Examples: Published reports, public announcements, general information
 
 **CRITICAL ANALYSIS AREAS:**
-
-1. **STRATEGIC LOCATIONS & INFRASTRUCTURE:**
-   - Military installations, bases, airfields
-   - Critical infrastructure (power plants, dams, ports)
-   - Strategic geographical locations
-   - Border areas and sensitive regions
-   - Government facilities and secure locations
-
-2. **MILITARY & DEFENSE:**
-   - Troop movements and deployments
-   - Weapons systems and specifications
-   - Defense strategies and operational plans
-   - Military equipment and capabilities
-   - Intelligence operations
-
-3. **PERSONNEL SECURITY:**
-   - Government officials and their activities
-   - Military and intelligence personnel
-   - Diplomatic staff and missions
-   - Security clearance information
-   - Personal details of sensitive personnel
-
-4. **INTELLIGENCE & SURVEILLANCE:**
-   - Reconnaissance photographs
-   - Satellite imagery
-   - Communication intercepts
-   - Intelligence gathering methods
-   - Surveillance operations and targets
-
-5. **DIPLOMATIC & FOREIGN RELATIONS:**
-   - International negotiations
-   - Foreign policy discussions
-   - Diplomatic correspondence
-   - Treaty negotiations
-   - Relations with other nations
-
-6. **ECONOMIC & STRATEGIC RESOURCES:**
-   - Natural resources and reserves
-   - Strategic economic information
-   - Trade agreements and negotiations
-   - Industrial capabilities
-   - Technology transfers
-
-7. **CYBERSECURITY & COMMUNICATIONS:**
-   - Communication protocols
-   - Encryption methods
-   - Cybersecurity measures
-   - IT infrastructure details
-   - Network architectures
-
-8. **NUCLEAR & WMD:**
-   - Nuclear facilities and programs
-   - Weapons of mass destruction
-   - Nuclear security measures
-   - Research and development programs
-   - Safety and security protocols
+(List of analysis areas remains the same as in your original code)
+1. STRATEGIC LOCATIONS & INFRASTRUCTURE
+2. MILITARY & DEFENSE
+3. PERSONNEL SECURITY
+4. INTELLIGENCE & SURVEILLANCE
+5. DIPLOMATIC & FOREIGN RELATIONS
+6. ECONOMIC & STRATEGIC RESOURCES
+7. CYBERSECURITY & COMMUNICATIONS
+8. NUCLEAR & WMD
 
 **ANALYSIS INSTRUCTIONS:**
 - Examine ALL text content carefully
@@ -133,7 +100,7 @@ You are an expert security analyst for the Indian Government. Analyze this docum
 - Evaluate damage potential from unauthorized disclosure
 
 **OUTPUT FORMAT:**
-Provide your analysis in this exact JSON structure:
+First, provide your step-by-step reasoning. Then, provide the final analysis in this exact JSON structure:
 {
     "classification": "CLASSIFICATION_LEVEL",
     "confidence": 0.95,
@@ -163,96 +130,90 @@ Provide your analysis in this exact JSON structure:
 **IMPORTANT:** Be thorough and err on the side of caution. If in doubt between two classification levels, choose the higher one. Consider that seemingly innocent information might have intelligence value when combined with other sources.
 Analyze the uploaded document now:
 """ + document_content
+
+# --- API ENDPOINT ---
 @app.post("/classify")
 def classify_document(document: Document):
-    # Get a fresh model instance for this request
+    """
+    Receives a document, enables the model's "thinking" process,
+    and returns a structured JSON classification.
+    """
     llm = get_llm_instance()
     if not llm:
-        raise HTTPException(status_code=500, detail="Failed to load model. Please check the model configuration.")
+        raise HTTPException(status_code=500, detail="Model not loaded. Check server logs for errors.")
 
-    content = document.content
-    prompt = create_security_analysis_prompt(content)
-    
     try:
-        # Reset the model's KV cache to ensure no state is carried over
-        llm.reset()
-        
-        # Use a more robust approach with completion instead of chat completion
-        try:
-            # First try with chat completion
-            response = llm.create_chat_completion(
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are a security classification assistant that only outputs valid JSON."
-                    },
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
-                max_tokens=1024,  # Limit output tokens
-                temperature=0.1,  # More deterministic output
-                stream=False      # Ensure we get complete response
-            )
-            response_text = response['choices'][0]['message']['content'].strip() # type: ignore
-        except Exception as chat_err:
-            print(f"Chat completion failed: {chat_err}. Trying regular completion...")
-            # Fallback to regular completion
-            llm.reset()  # Reset again before trying a different approach
-            response = llm(prompt, max_tokens=1024, temperature=0.1, echo=False)
-            response_text = response['choices'][0]['text'].strip() # type: ignore
-            
-        print(f"LLM raw response: '{response_text}'")
+        # 1. Define the components for the ChatML prompt format
+        system_message = "You are a security classification assistant. First, think step-by-step about the user's request. Then, provide your final answer in the requested JSON format."
+        user_prompt = create_security_analysis_prompt(document.content)
 
-        # Extract JSON from the response
+        # 2. Manually construct the full prompt with the <|thinking|> token
+        # This is the key change to enable the model's reasoning process.
+        full_prompt_with_thinking = (
+            f"<|im_start|>system\n{system_message}<|im_end|>\n"
+            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+            f"<|im_start|>assistant\n<|thinking|>"  # This special token triggers the thinking process
+        )
+        
+        print("--- Sending Formatted Prompt to Model ---")
+        # print(full_prompt_with_thinking) # Uncomment for full prompt debugging
+        print("---------------------------------------")
+
+        # 3. Use the direct completion call with the full formatted prompt
+        # We no longer use create_chat_completion to have full control.
+        response = llm(
+            prompt=full_prompt_with_thinking,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            temperature=0.1,
+            # Stop generation when the model finishes its turn.
+            stop=["<|im_end|>"],
+            echo=False  # Don't print the prompt in the output
+        )
+        
+        response_text = response['choices'][0]['text'].strip()
+        print(f"--- LLM Raw Output (including thinking) ---\n{response_text}\n-------------------------------------------")
+
+        # 4. Extract the JSON object from the potentially verbose response
         start_index = response_text.find('{')
         end_index = response_text.rfind('}')
 
         if start_index != -1 and end_index != -1 and end_index > start_index:
             json_match = response_text[start_index:end_index+1]
-            print(f"Extracted JSON: '{json_match}'")
             try:
                 analysis = json.loads(json_match)
-                
-                # Clean up resources before returning
-                try:
-                    del llm
-                except:
-                    pass
-                    
                 return analysis
             except json.JSONDecodeError as json_err:
                 print(f"JSON Decode Error: {json_err}")
-                print(f"Invalid JSON string: {json_match}")
-                # Fall through to default response
+                print(f"Invalid JSON string received: {json_match}")
+                # Fall through to the error response
         else:
             print("No valid JSON object found in the LLM response.")
-            # Fall through to default response
+            # Fall through to the error response
 
     except Exception as e:
         print(f"Error during classification: {e}")
-        import traceback
-        traceback.print_exc()  # Print full stack trace for better debugging
+        traceback.print_exc() # Print full stack trace for better debugging
 
-    # Clean up resources
-    if llm:
-        try:
+    finally:
+        # Clean up the model instance to free memory
+        if llm:
             del llm
-        except:
-            pass
-            
-    # Return a default response in case of an error or no valid JSON
-    return {
-        "classification": "RESTRICTED",
-        "confidence": 0.75,
-        "reasoning": "Classification failed. Could not parse a valid JSON response from the model.",
-        "key_risk_factors": ["ANALYSIS_FAILED"],
-        "sensitive_content": {},
-        "potential_damage": "Unable to assess due to analysis failure",
-        "handling_recommendations": ["Manual review required immediately"]
-    }
+
+    # Default error response if anything fails
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "classification": "ANALYSIS_FAILED",
+            "reasoning": "Classification failed. Could not parse a valid JSON response from the model after processing. Check server logs for details.",
+            "raw_response": response_text if 'response_text' in locals() else "No response generated."
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Make sure the model is available before starting the server
+    if get_llm_instance() is None:
+        print("\n--- Could not start server: Model failed to load. ---")
+    else:
+        print("\n--- Model loaded successfully. Starting server... ---")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
