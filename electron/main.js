@@ -13,8 +13,8 @@ let mainWindow;
 // Set app name for better integration
 app.setName(APP_NAME);
 
-// Get user data directory
-const userDataPath = app.getPath('userData');
+// Get user data directory - ensure consistency with server
+const userDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
 console.log('User data directory:', userDataPath);
 
 // Ensure user data directory exists

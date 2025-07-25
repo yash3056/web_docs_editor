@@ -15,28 +15,27 @@ function getDatabasePath() {
 
     let dbPath;
 
-    if (process.env.ELECTRON_USER_DATA) {
-        // Running in Electron - use the user data directory
+    // Always use the same database location for consistency
+    // This ensures both npm start and electron .exe use the same database
+    const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
+    if (!fs.existsSync(appDataPath)) {
+        fs.mkdirSync(appDataPath, { recursive: true });
+    }
+    dbPath = path.join(appDataPath, 'app.db');
+
+    // Override only if explicitly running in Electron with user data set
+    if (process.env.ELECTRON_USER_DATA && process.env.ELECTRON_USER_DATA !== appDataPath) {
+        console.log('Using Electron user data directory for database');
         dbPath = path.join(process.env.ELECTRON_USER_DATA, 'app.db');
-    } else if (process.env.NODE_ENV === 'development') {
-        // Development mode - use database directory
-        dbPath = path.join(__dirname, 'app.db');
-    } else {
-        // Production mode - use AppData directory
-        const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
-        if (!fs.existsSync(appDataPath)) {
-            fs.mkdirSync(appDataPath, { recursive: true });
-        }
-        dbPath = path.join(appDataPath, 'app.db');
     }
 
     console.log('Database path:', dbPath);
     return dbPath;
 }
 
-// Constants for credential storage
-const SERVICE_NAME = 'WebDocsEditor';
-const ACCOUNT_NAME = 'DatabaseEncryption';
+// Constants for credential storage - use consistent naming across Node.js and Electron
+const SERVICE_NAME = 'WebDocsEditor_Database';
+const ACCOUNT_NAME = 'EncryptionKey_v1';
 
 // Generate a secure encryption key
 function generateEncryptionKey() {
@@ -48,22 +47,80 @@ async function storeEncryptionKey(key) {
     try {
         await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, key);
         console.log('Encryption key stored in credential vault');
+        
+        // Also store a backup in a file for fallback (with basic encryption)
+        await storeKeyBackup(key);
         return true;
     } catch (error) {
-        console.error('Failed to store encryption key:', error);
-        return false;
+        console.error('Failed to store encryption key in credential vault:', error);
+        console.log('Attempting to store key backup only...');
+        return await storeKeyBackup(key);
     }
 }
 
 // Retrieve encryption key from system's credential vault
 async function getEncryptionKey() {
     try {
+        // First try credential vault
         const key = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
-        return key;
+        if (key) {
+            console.log('Retrieved encryption key from credential vault');
+            return key;
+        }
     } catch (error) {
-        console.error('Failed to retrieve encryption key:', error);
+        console.error('Failed to retrieve encryption key from credential vault:', error);
+    }
+    
+    // Fallback to backup file
+    console.log('Attempting to retrieve key from backup...');
+    return await getKeyBackup();
+}
+
+// Backup key storage in encrypted file
+async function storeKeyBackup(key) {
+    try {
+        const backupPath = getKeyBackupPath();
+        const cipher = crypto.createCipher('aes-256-cbc', 'WebDocsEditor_Backup_Key_Salt');
+        let encrypted = cipher.update(key, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        
+        fs.writeFileSync(backupPath, encrypted);
+        console.log('Key backup stored successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to store key backup:', error);
+        return false;
+    }
+}
+
+// Retrieve key from backup file
+async function getKeyBackup() {
+    try {
+        const backupPath = getKeyBackupPath();
+        if (!fs.existsSync(backupPath)) {
+            return null;
+        }
+        
+        const encrypted = fs.readFileSync(backupPath, 'utf8');
+        const decipher = crypto.createDecipher('aes-256-cbc', 'WebDocsEditor_Backup_Key_Salt');
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        
+        console.log('Retrieved encryption key from backup');
+        return decrypted;
+    } catch (error) {
+        console.error('Failed to retrieve key from backup:', error);
         return null;
     }
+}
+
+// Get backup key file path
+function getKeyBackupPath() {
+    const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
+    if (!fs.existsSync(appDataPath)) {
+        fs.mkdirSync(appDataPath, { recursive: true });
+    }
+    return path.join(appDataPath, '.dbkey');
 }
 
 // Initialize database with encryption
@@ -72,8 +129,25 @@ async function initializeDatabase() {
     let db;
 
     try {
-        // First try to open with existing key
+        // Try to get existing encryption key
         let key = await getEncryptionKey();
+        
+        // Check for old credential format and migrate if found
+        if (!key) {
+            try {
+                const oldKey = await keytar.getPassword('WebDocsEditor', 'DatabaseEncryption');
+                if (oldKey) {
+                    console.log('Found old encryption key, migrating to new format...');
+                    key = oldKey;
+                    await storeEncryptionKey(key);
+                    // Clean up old credential
+                    await keytar.deletePassword('WebDocsEditor', 'DatabaseEncryption');
+                    console.log('Key migration completed');
+                }
+            } catch (error) {
+                console.log('No old key found or migration failed:', error.message);
+            }
+        }
 
         if (key) {
             // Database exists and we have a key, try to open it
@@ -88,6 +162,19 @@ async function initializeDatabase() {
                 // If error, the key might be wrong or database not encrypted yet
                 console.log('Could not open database with stored key, creating new database');
                 db = new Database(dbPath);
+                
+                // Try to encrypt existing database with the key
+                try {
+                    db.pragma(`rekey = '${key}'`);
+                    console.log('Existing database encrypted with stored key');
+                } catch (rekeyError) {
+                    console.log('Could not encrypt existing database, will generate new key');
+                    // Generate new key if rekey fails
+                    key = generateEncryptionKey();
+                    await storeEncryptionKey(key);
+                    db.pragma(`rekey = '${key}'`);
+                    console.log('Database encrypted with new key');
+                }
             }
         } else {
             // No key found, either new database or not encrypted yet

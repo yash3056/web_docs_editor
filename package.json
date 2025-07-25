@@ -11,15 +11,16 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-pack": "electron-builder",
-    "build": "electron-builder --win --x64",
-    "build-all": "electron-builder --win --mac --linux",
+    "build": "npm run rebuild && electron-builder --win --x64",
+    "build-all": "npm run rebuild && electron-builder --win --mac --linux",
     "clean": "rmdir /s /q dist-windows 2>nul || true",
     "dist": "npm run build",
     "postinstall": "electron-builder install-app-deps",
+    "electron-rebuild": "npx electron-rebuild",
+    "rebuild": "npx electron-rebuild",
     "test": "jest"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.7.1",
     "axios": "^1.7.2",
     "bcryptjs": "^3.0.2",
     "better-sqlite3-multiple-ciphers": "^12.2.0",
@@ -33,6 +34,7 @@
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "concurrently": "^9.2.0",
     "electron": "^37.2.2",
     "electron-builder": "^26.0.12",
@@ -59,6 +61,7 @@
     "files": [
       "**/*",
       "!dist-windows/**/*",
+      "!dist",
       "!*.gguf",
       "!*.py",
       "!*.md",
@@ -75,8 +78,13 @@
       "!electron/run-electron.bat",
       "!.github/**/*",
       "!docs/**/*"
-
     ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3-multiple-ciphers/**/*",
+      "node_modules/keytar/**/*"
+    ],
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
     "win": {
       "target": "nsis"
     },
