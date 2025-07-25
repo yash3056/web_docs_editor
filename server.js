@@ -47,14 +47,49 @@ const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
+// Create directories first
+// In packaged Electron apps, we need to use writable directories
+const getWritableDataPath = () => {
+    if (process.env.ELECTRON_USER_DATA) {
+        return process.env.ELECTRON_USER_DATA;
+    }
+    return __dirname;
+};
+
+const baseDataPath = getWritableDataPath();
+const DOCUMENTS_DIR = path.join(baseDataPath, 'documents');
+const EXPORTS_DIR = path.join(baseDataPath, 'exports');
+const CLASSIFIED_EXPORTS_DIR = path.join(baseDataPath, 'classified-exports');
+const UPLOADS_DIR = path.join(baseDataPath, 'uploads');
+
 // Serve static files from the correct directory
-// In Electron, we need to serve from the app directory
-const staticPath = process.env.ELECTRON_USER_DATA ? path.join(__dirname, '..') : '.';
-console.log('Serving static files from:', staticPath);
+// In Electron, we need to serve from the app directory, but handle resources correctly
+let staticPath;
+if (process.env.ELECTRON_USER_DATA) {
+    // In Electron mode, serve from the app path (inside ASAR for static files)
+    staticPath = __dirname;
+    console.log('Serving static files from:', staticPath);
+    console.log('__dirname:', __dirname);
+    console.log('process.cwd():', process.cwd());
+} else {
+    // In standalone mode, serve from current directory
+    staticPath = '.';
+    console.log('Serving static files from:', staticPath);
+}
 app.use(express.static(staticPath));
 
-// Configure multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Additional static file serving for packaged apps
+if (process.env.ELECTRON_USER_DATA) {
+    // Serve specific directories explicitly
+    app.use('/dashboard', express.static(path.join(__dirname, 'dashboard')));
+    app.use('/docseditor', express.static(path.join(__dirname, 'docseditor')));
+    app.use('/shared', express.static(path.join(__dirname, 'shared')));
+    app.use('/auth', express.static(path.join(__dirname, 'auth')));
+    app.use('/images', express.static(path.join(__dirname, 'images')));
+}
+
+// Configure multer for file uploads (now UPLOADS_DIR is defined)
+const upload = multer({ dest: UPLOADS_DIR });
 
 // Initialize Together AI classifier
 const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY;
@@ -67,16 +102,12 @@ if (!TOGETHER_API_KEY) {
 
 const classifier = new TogetherClassifier(TOGETHER_API_KEY, TOGETHER_MODEL);
 
-// Create directories
-const DOCUMENTS_DIR = path.join(__dirname, 'documents');
-const EXPORTS_DIR = path.join(__dirname, 'exports');
-const CLASSIFIED_EXPORTS_DIR = path.join(__dirname, 'classified-exports');
-
 async function ensureDirectories() {
     try {
+        console.log('Creating directories in:', baseDataPath);
         await fs.mkdir(DOCUMENTS_DIR, { recursive: true });
         await fs.mkdir(EXPORTS_DIR, { recursive: true });
-        await fs.mkdir('uploads', { recursive: true });
+        await fs.mkdir(UPLOADS_DIR, { recursive: true });
         await fs.mkdir(CLASSIFIED_EXPORTS_DIR, { recursive: true });
         console.log('All directories ensured');
     } catch (error) {
@@ -85,6 +116,10 @@ async function ensureDirectories() {
 }
 
 // Initialize directories on startup
+console.log('Documents stored in:', DOCUMENTS_DIR);
+console.log('Exports stored in:', EXPORTS_DIR);
+console.log('Uploads stored in:', UPLOADS_DIR);
+console.log('Running in', process.env.ELECTRON_USER_DATA ? 'Electron mode' : 'standalone mode');
 ensureDirectories();
 
 // API Routes
@@ -696,8 +731,50 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'electron/splash.html'));
 });
 
+app.get('/auth/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'auth/login.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'auth/login.html'));
+});
+
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard/index.html'));
+});
+
+app.get('/editor', (req, res) => {
+    res.sendFile(path.join(__dirname, 'docseditor/docseditor.html'));
+});
+
+app.get('/docseditor/docseditor.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'docseditor/docseditor.html'));
+});
+
+// Explicit routes for CSS and JS files
+app.get('/dashboard/dashboard.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard/dashboard.css'));
+});
+
+app.get('/dashboard/dashboard.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard/dashboard.js'));
+});
+
+app.get('/docseditor/docseditor.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'docseditor/docseditor.css'));
+});
+
+app.get('/docseditor/docseditor.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'docseditor/docseditor.js'));
+});
+
+// Routes for shared files
+app.get('/shared/export-utils.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'shared/export-utils.js'));
+});
+
+app.get('/shared/api-client.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'shared/api-client.js'));
 });
 
 // Get version changes (differences from previous version)
@@ -726,7 +803,17 @@ if (require.main === module) {
             console.log(`Database path: ${process.env.ELECTRON_USER_DATA}`);
         }
     });
+} else {
+    // When required by Electron, start listening
+    setTimeout(() => {
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+            console.log(`Server listening on port ${PORT}`);
+            console.log('Documents stored in:', DOCUMENTS_DIR);
+            console.log('Exports stored in:', EXPORTS_DIR);
+            console.log('Running in', process.env.ELECTRON_USER_DATA ? 'Electron mode' : 'standalone mode');
+        });
+    }, 1000);
 }
-
 
 module.exports = app;
