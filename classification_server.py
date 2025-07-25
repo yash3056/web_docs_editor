@@ -15,8 +15,8 @@ app = FastAPI()
 # --- CONFIGURATION ---
 # IMPORTANT: Update this path to your local Qwen GGUF model
 MODEL_FILENAME = "Qwen3-1.7B-Q4_K_M.gguf"
-CONTEXT_SIZE = 32768 # Adjusted for typical memory constraints
-MAX_OUTPUT_TOKENS = 2048 # Increased to allow for "thinking" + JSON output
+CONTEXT_SIZE = 32768 
+MAX_OUTPUT_TOKENS = 2048 
 
 # --- MODEL LOADING ---
 def get_llm_instance():
@@ -30,6 +30,7 @@ def get_llm_instance():
             n_ctx=CONTEXT_SIZE,
             verbose=False,
             n_batch=512,
+            n_gpu_layers=-1,
             # This tells llama-cpp to correctly handle Qwen's special tokens
             chat_format="chatml",
         )

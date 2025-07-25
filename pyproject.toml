@@ -4,6 +4,11 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
-    "llama-cpp-python",
+    "llama-cpp-python>=0.3.14",
+    "pyopencl>=2025.2.5",
     "uvicorn",
 ]
+
+
+# Correct ✅
+"llama-cpp-python" = [ "cmake.args=-DGGML_VULKAN=on" ]
