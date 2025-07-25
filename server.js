@@ -794,6 +794,10 @@ app.get('/splash.html', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'electron/splash.html'));
+});
+
+app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard/index.html'));
 });
 
