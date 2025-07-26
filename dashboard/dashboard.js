@@ -1816,6 +1816,164 @@ class AdvancedDocumentDashboard {
         // It's kept for backward compatibility but does nothing
         console.log('Storage limit has been removed - unlimited documents allowed');
     }
+
+    showSettings() {
+        // Show settings modal/page
+        this.showToast('Settings functionality coming soon!', 'info');
+        
+        // For now, show a simple alert with basic settings
+        const settingsContent = `
+            <div style="text-align: left;">
+                <h3>Settings</h3>
+                <p><strong>User:</strong> ${this.user ? this.user.username : 'Unknown'}</p>
+                <p><strong>Documents:</strong> ${this.documents.length}</p>
+                <p><strong>Storage:</strong> Unlimited</p>
+                <p><strong>Server Status:</strong> ${this.serverAvailable ? 'Connected' : 'Offline'}</p>
+                <br>
+                <p><em>Advanced settings will be available in a future update.</em></p>
+            </div>
+        `;
+        
+        // Create a temporary modal for settings
+        const existingModal = document.getElementById('temp-settings-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modalHTML = `
+            <div class="modal-overlay" id="temp-settings-modal" style="display: block;">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Settings</h3>
+                        <button class="modal-close" onclick="document.getElementById('temp-settings-modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        ${settingsContent}
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="document.getElementById('temp-settings-modal').remove()">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    showHelp() {
+        // Show help modal with useful information
+        const helpContent = `
+            <div style="text-align: left;">
+                <h3>Help & Support</h3>
+                
+                <h4>Quick Start:</h4>
+                <ul>
+                    <li><strong>Create Document:</strong> Click "Blank Document" or choose a template</li>
+                    <li><strong>Search:</strong> Use the search bar to find documents</li>
+                    <li><strong>View All:</strong> Click "See all" to view all documents</li>
+                    <li><strong>Export:</strong> Right-click a document and select "Export to PDF"</li>
+                </ul>
+                
+                <h4>Bulk Operations:</h4>
+                <ul>
+                    <li>In "All Documents" section, click "Enable Selection"</li>
+                    <li>Select individual documents or use "Select All"</li>
+                    <li>Use "Export Selected" to create a combined PDF</li>
+                    <li>Use "Delete Selected" to remove multiple documents</li>
+                </ul>
+                
+                <h4>Keyboard Shortcuts:</h4>
+                <ul>
+                    <li><strong>Ctrl+N:</strong> New document</li>
+                    <li><strong>Ctrl+F:</strong> Search documents</li>
+                    <li><strong>Delete:</strong> Delete selected document</li>
+                </ul>
+                
+                <h4>Features:</h4>
+                <ul>
+                    <li>Real-time document editing</li>
+                    <li>Document classification and analysis</li>
+                    <li>Version control and history</li>
+                    <li>PDF export with watermarks</li>
+                    <li>Unlimited document storage</li>
+                </ul>
+                
+                <p><em>For technical support, please check the documentation or contact your administrator.</em></p>
+            </div>
+        `;
+        
+        // Create a temporary modal for help
+        const existingModal = document.getElementById('temp-help-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modalHTML = `
+            <div class="modal-overlay" id="temp-help-modal" style="display: block;">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Help & Support</h3>
+                        <button class="modal-close" onclick="document.getElementById('temp-help-modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                        ${helpContent}
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="document.getElementById('temp-help-modal').remove()">Close</button>
+                        <button class="btn btn-primary" onclick="window.open('../README.md', '_blank')">View Documentation</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    handleKeyboardShortcuts(e) {
+        // Handle keyboard shortcuts
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+                case 'n':
+                    e.preventDefault();
+                    this.createDocument('blank');
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    document.getElementById('search-input').focus();
+                    break;
+                case 'a':
+                    // Only in selection mode and all documents view
+                    if (this.isSelectionMode && document.getElementById('all-documents-section').style.display !== 'none') {
+                        e.preventDefault();
+                        this.selectAllDocuments();
+                    }
+                    break;
+            }
+        } else {
+            switch (e.key) {
+                case 'Delete':
+                    // Delete selected documents if in selection mode
+                    if (this.isSelectionMode && this.selectedDocuments.size > 0) {
+                        e.preventDefault();
+                        this.deleteSelectedDocuments();
+                    }
+                    break;
+                case 'Escape':
+                    // Exit selection mode if active
+                    if (this.isSelectionMode) {
+                        e.preventDefault();
+                        this.toggleSelectionMode();
+                    }
+                    // Close any open modals
+                    document.querySelectorAll('.modal-overlay').forEach(modal => {
+                        if (modal.style.display === 'block') {
+                            modal.style.display = 'none';
+                        }
+                    });
+                    break;
+            }
+        }
+    }
 }
 
 // Initialize the dashboard when the DOM is loaded
