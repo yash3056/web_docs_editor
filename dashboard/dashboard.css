@@ -479,12 +479,34 @@ body {
     background: white;
     cursor: pointer;
     font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.bulk-btn:hover {
+    background-color: var(--light-gray);
+}
+
+.bulk-btn.success {
+    background-color: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
+}
+
+.bulk-btn.success:hover {
+    background-color: #218838;
 }
 
 .bulk-btn.danger {
     background-color: var(--danger-color);
     color: white;
     border-color: var(--danger-color);
+}
+
+.bulk-btn.danger:hover {
+    background-color: #c82333;
 }
 
 .documents-container {

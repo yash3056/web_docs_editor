@@ -176,8 +176,15 @@
                 <div class="section-header">
                     <h2>All Documents</h2>
                     <div class="bulk-actions">
-                        <button class="bulk-btn" id="select-all">Select All</button>
-                        <button class="bulk-btn danger" id="delete-selected" style="display: none;">Delete Selected</button>
+                        <button class="bulk-btn" id="toggle-selection">Enable Selection</button>
+                        <button class="bulk-btn" id="select-all" style="display: none;">Select All</button>
+                        <button class="bulk-btn" id="deselect-all" style="display: none;">Deselect All</button>
+                        <button class="bulk-btn success" id="export-selected" style="display: none;">
+                            <i class="fas fa-file-pdf"></i> Export Selected
+                        </button>
+                        <button class="bulk-btn danger" id="delete-selected" style="display: none;">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
                     </div>
                 </div>
                 <div class="documents-container">
