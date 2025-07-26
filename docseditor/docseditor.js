@@ -2084,19 +2084,9 @@ class DocsEditor {
         const popup = document.getElementById('ai-writing-popup');
         const input = document.getElementById('ai-input');
         
-        // Position popup near cursor or center of screen
-        const selection = window.getSelection();
-        let x = window.innerWidth / 2 - 200; // Center horizontally
-        let y = window.innerHeight / 2 - 150; // Center vertically
-        
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                x = Math.min(rect.left, window.innerWidth - 420);
-                y = Math.min(rect.bottom + 10, window.innerHeight - 300);
-            }
-        }
+        // Always center the popup on screen
+        const x = window.innerWidth / 2 - 320; // Center horizontally (doubled width)
+        const y = window.innerHeight / 2 - 150; // Center vertically
         
         popup.style.left = `${x}px`;
         popup.style.top = `${y}px`;
@@ -2112,6 +2102,9 @@ class DocsEditor {
         
         // Store cursor position for later insertion
         this.storeCursorPosition();
+        
+        // Make popup draggable
+        this.makeDraggable(popup);
     }
 
     hideAIWritingPopup() {
@@ -2132,6 +2125,9 @@ class DocsEditor {
         // Add show animation
         setTimeout(() => popup.classList.add('show'), 10);
         
+        // Make results popup draggable too
+        this.makeDraggable(popup);
+        
         // Hide writing popup
         this.hideAIWritingPopup();
     }
@@ -2140,6 +2136,46 @@ class DocsEditor {
         const popup = document.getElementById('ai-results-popup');
         popup.classList.remove('show');
         setTimeout(() => popup.style.display = 'none', 200);
+    }
+
+    makeDraggable(popup) {
+        const header = popup.querySelector('.ai-popup-header');
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+
+        header.style.cursor = 'move';
+        header.style.userSelect = 'none';
+
+        header.addEventListener('mousedown', (e) => {
+            // Don't start dragging if clicking on close button
+            if (e.target.closest('.ai-close-btn')) return;
+            
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = parseInt(popup.style.left) || 0;
+            startTop = parseInt(popup.style.top) || 0;
+            
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const newLeft = startLeft + (e.clientX - startX);
+            const newTop = startTop + (e.clientY - startY);
+            
+            // Keep popup within viewport bounds
+            const maxLeft = window.innerWidth - popup.offsetWidth;
+            const maxTop = window.innerHeight - popup.offsetHeight;
+            
+            popup.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+            popup.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
     }
 
     storeCursorPosition() {
@@ -2195,8 +2231,22 @@ class DocsEditor {
 
             const data = await response.json();
             
+            // Extract content after </think> token
+            let generatedText = data.generatedText || 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
+            
+            // Look for </think> token and extract only content after it
+            const thinkEndIndex = generatedText.indexOf('</think>');
+            if (thinkEndIndex !== -1) {
+                generatedText = generatedText.substring(thinkEndIndex + 8).trim(); // 8 is length of '</think>'
+            }
+            
+            // If no content after </think> or empty, use fallback
+            if (!generatedText || generatedText.length === 0) {
+                generatedText = 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
+            }
+            
             // Display generated content
-            resultsContent.innerHTML = data.generatedText || 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
+            resultsContent.innerHTML = generatedText;
             
         } catch (error) {
             console.error('AI generation error:', error);
@@ -2256,17 +2306,36 @@ class DocsEditor {
         if (content && content.trim()) {
             this.restoreCursorPosition();
             
-            // Insert the content at cursor position
+            // Insert the content at cursor position without deleting existing content
             const selection = window.getSelection();
             if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
-                range.deleteContents();
+                
+                // Don't delete contents - just insert at cursor position
+                // If there's a selection, collapse it to the end first
+                if (!range.collapsed) {
+                    range.collapse(false); // Collapse to end of selection
+                }
                 
                 // Create text node with generated content
                 const textNode = document.createTextNode(content);
                 range.insertNode(textNode);
                 
                 // Move cursor to end of inserted text
+                range.setStartAfter(textNode);
+                range.setEndAfter(textNode);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                // Fallback: insert at end of editor if no selection
+                this.editor.focus();
+                const range = document.createRange();
+                range.selectNodeContents(this.editor);
+                range.collapse(false);
+                
+                const textNode = document.createTextNode(content);
+                range.insertNode(textNode);
+                
                 range.setStartAfter(textNode);
                 range.setEndAfter(textNode);
                 selection.removeAllRanges();
