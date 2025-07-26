@@ -1293,8 +1293,10 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     border: 1px solid #e8eaed;
     z-index: 10000;
-    max-width: 400px;
-    min-width: 320px;
+    max-width: 800px;
+    min-width: 640px;
+    max-height: 80vh;
+    overflow-y: auto;
     font-family: 'Google Sans', Roboto, sans-serif;
 }
 
@@ -1303,6 +1305,8 @@ body {
     align-items: center;
     padding: 16px 20px 12px;
     border-bottom: 1px solid #e8eaed;
+    cursor: move;
+    user-select: none;
 }
 
 .ai-icon {
@@ -1349,15 +1353,38 @@ body {
 
 .ai-input {
     width: 100%;
-    min-height: 80px;
+    height: 100px;
+    max-height: 100px;
     border: 1px solid #dadce0;
     border-radius: 8px;
     padding: 12px;
     font-size: 14px;
     font-family: inherit;
-    resize: vertical;
+    resize: none;
     outline: none;
     margin-bottom: 16px;
+    overflow-y: auto;
+    line-height: 1.4;
+    /* Show approximately 3-4 lines of text */
+}
+
+/* Custom scrollbar for AI input */
+.ai-input::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ai-input::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.ai-input::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.ai-input::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .ai-input:focus {
@@ -1402,6 +1429,27 @@ body {
     color: #3c4043;
     margin-bottom: 16px;
     white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Custom scrollbar for AI generated content */
+.ai-generated-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ai-generated-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.ai-generated-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.ai-generated-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .ai-disclaimer {
