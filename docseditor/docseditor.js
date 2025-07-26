@@ -2201,6 +2201,9 @@ class DocsEditor {
 
     async generateAIContent(prompt) {
         try {
+            // Store original prompt for refinements
+            this.currentPrompt = prompt;
+            
             // Show loading state
             const resultsContent = document.getElementById('ai-generated-content');
             resultsContent.innerHTML = `
@@ -2245,8 +2248,11 @@ class DocsEditor {
                 generatedText = 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
             }
             
-            // Display generated content
-            resultsContent.innerHTML = generatedText;
+            // Convert markdown to HTML for display
+            const htmlContent = this.convertMarkdownToHTML(generatedText);
+            
+            // Display generated content as HTML
+            resultsContent.innerHTML = htmlContent;
             
         } catch (error) {
             console.error('AI generation error:', error);
@@ -2300,8 +2306,49 @@ class DocsEditor {
         return context.slice(0, 500); // Limit context length
     }
 
+    convertMarkdownToHTML(markdown) {
+        // Convert markdown to HTML
+        let html = markdown
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Bold
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/__(.*?)__/gim, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            .replace(/_(.*?)_/gim, '<em>$1</em>')
+            // Bullet lists
+            .replace(/^\* (.*$)/gim, '<li>$1</li>')
+            .replace(/^- (.*$)/gim, '<li>$1</li>')
+            // Numbered lists
+            .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
+            // Line breaks
+            .replace(/\n\n/gim, '</p><p>')
+            .replace(/\n/gim, '<br>');
+
+        // Wrap consecutive <li> elements in <ul> or <ol>
+        html = html.replace(/(<li>.*?<\/li>)/gims, function(match, p1) {
+            if (match.includes('<li>') && !match.includes('<ul>') && !match.includes('<ol>')) {
+                // Check if it's numbered list items (originally numbered)
+                const isNumbered = markdown.includes('1. ') || markdown.includes('2. ') || markdown.includes('3. ');
+                const tag = isNumbered ? 'ol' : 'ul';
+                return `<${tag}>${match}</${tag}>`;
+            }
+            return match;
+        });
+
+        // Wrap in paragraphs if not already wrapped
+        if (!html.includes('<p>') && !html.includes('<h') && !html.includes('<ul>') && !html.includes('<ol>')) {
+            html = `<p>${html}</p>`;
+        }
+
+        return html;
+    }
+
     insertAIContent() {
-        const content = document.getElementById('ai-generated-content').textContent;
+        const content = document.getElementById('ai-generated-content').innerHTML; // Use innerHTML to get formatted content
         
         if (content && content.trim()) {
             this.restoreCursorPosition();
@@ -2312,18 +2359,25 @@ class DocsEditor {
                 const range = selection.getRangeAt(0);
                 
                 // Don't delete contents - just insert at cursor position
-                // If there's a selection, collapse it to the end first
+                // If there's a selection, move cursor to end of selection without deleting
                 if (!range.collapsed) {
                     range.collapse(false); // Collapse to end of selection
                 }
                 
-                // Create text node with generated content
-                const textNode = document.createTextNode(content);
-                range.insertNode(textNode);
+                // Create a temporary div to hold the HTML content
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
                 
-                // Move cursor to end of inserted text
-                range.setStartAfter(textNode);
-                range.setEndAfter(textNode);
+                // Insert each child node from the temp div
+                const fragment = document.createDocumentFragment();
+                while (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+                
+                range.insertNode(fragment);
+                
+                // Move cursor to end of inserted content
+                range.collapse(false);
                 selection.removeAllRanges();
                 selection.addRange(range);
             } else {
@@ -2333,11 +2387,19 @@ class DocsEditor {
                 range.selectNodeContents(this.editor);
                 range.collapse(false);
                 
-                const textNode = document.createTextNode(content);
-                range.insertNode(textNode);
+                // Create a temporary div to hold the HTML content
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
                 
-                range.setStartAfter(textNode);
-                range.setEndAfter(textNode);
+                // Insert each child node from the temp div
+                const fragment = document.createDocumentFragment();
+                while (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+                
+                range.insertNode(fragment);
+                
+                range.collapse(false);
                 selection.removeAllRanges();
                 selection.addRange(range);
             }
@@ -2352,37 +2414,41 @@ class DocsEditor {
         }
     }
 
-    refineAIContent(action) {
-        const currentContent = document.getElementById('ai-generated-content').textContent;
-        let refinedContent = currentContent;
+    async refineAIContent(action) {
+        // Get original prompt from stored value or input field
+        const originalPrompt = this.currentPrompt || document.getElementById('ai-input').value || 'Please help me write content';
+        
+        // Create refinement prompts for each action
+        let refinementPrompt = '';
         
         switch (action) {
             case 'shorten':
-                refinedContent = this.shortenText(currentContent);
+                refinementPrompt = `${originalPrompt}. Please make the response shorter and more concise.`;
                 break;
             case 'elaborate':
-                refinedContent = this.elaborateText(currentContent);
+                refinementPrompt = `${originalPrompt}. Please provide a more detailed and elaborate response.`;
                 break;
             case 'formal':
-                refinedContent = this.makeFormal(currentContent);
+                refinementPrompt = `${originalPrompt}. Please write in a more formal and professional tone.`;
                 break;
             case 'casual':
-                refinedContent = this.makeCasual(currentContent);
+                refinementPrompt = `${originalPrompt}. Please write in a more casual and conversational tone.`;
                 break;
             case 'bulletize':
-                refinedContent = this.convertToBullets(currentContent);
+                refinementPrompt = `${originalPrompt}. Please format the response as bullet points in markdown format.`;
                 break;
             case 'summarize':
-                refinedContent = this.summarizeText(currentContent);
+                refinementPrompt = `${originalPrompt}. Please provide a brief summary.`;
                 break;
             case 'retry':
-                // Regenerate with original prompt
-                const prompt = document.getElementById('ai-input').value;
-                this.generateAIContent(prompt);
-                return;
+                refinementPrompt = originalPrompt; // Just retry with original prompt
+                break;
+            default:
+                refinementPrompt = originalPrompt;
         }
         
-        document.getElementById('ai-generated-content').innerHTML = refinedContent;
+        // Call generateAIContent with the refined prompt
+        await this.generateAIContent(refinementPrompt);
     }
 
     shortenText(text) {
@@ -2468,9 +2534,9 @@ class DocsEditor {
 
         // Refine options
         document.querySelectorAll('.refine-option').forEach(option => {
-            option.addEventListener('click', () => {
+            option.addEventListener('click', async () => {
                 const action = option.dataset.action;
-                this.refineAIContent(action);
+                await this.refineAIContent(action);
                 document.getElementById('ai-refine-options').style.display = 'none';
             });
         });
