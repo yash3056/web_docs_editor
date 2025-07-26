@@ -3,9 +3,9 @@ name: Ubuntu compilation
 
 on:
   push:
-    branches: [ python-integration ]
+    branches: [ render ]
   pull_request:
-    branches: [ python-integration ]
+    branches: [ render ]
 
 jobs:
   build:
