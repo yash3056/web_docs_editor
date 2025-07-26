@@ -341,6 +341,11 @@
             <span>Select All</span>
         </div>
         <div class="context-menu-separator"></div>
+        <div class="context-menu-item" id="context-ai-writing">
+            <i class="fas fa-magic"></i>
+            <span>AI Writing</span>
+        </div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" id="context-bold">
             <i class="fas fa-bold"></i>
             <span>Bold</span>
@@ -370,6 +375,93 @@
         <div class="context-menu-item" id="context-save">
             <i class="fas fa-save"></i>
             <span>Save Document</span>
+        </div>
+        <div class="context-menu-separator"></div>
+    </div>
+
+    <!-- AI Writing Assistant Popup -->
+    <div class="ai-writing-popup" id="ai-writing-popup" style="display: none;">
+        <div class="ai-popup-header">
+            <div class="ai-icon">
+                <i class="fas fa-magic"></i>
+            </div>
+            <span class="ai-title">Help me write</span>
+            <button class="ai-close-btn" id="ai-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="ai-popup-body">
+            <textarea class="ai-input" id="ai-input" placeholder="What would you like help writing about?"></textarea>
+            <button class="ai-create-btn" id="ai-create-btn">Create</button>
+        </div>
+    </div>
+
+    <!-- AI Writing Results Popup -->
+    <div class="ai-results-popup" id="ai-results-popup" style="display: none;">
+        <div class="ai-popup-header">
+            <div class="ai-icon">
+                <i class="fas fa-magic"></i>
+            </div>
+            <span class="ai-title">AI Generated Content</span>
+            <button class="ai-close-btn" id="ai-results-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="ai-popup-body">
+            <div class="ai-generated-content" id="ai-generated-content">
+                <!-- Generated content will be inserted here -->
+            </div>
+            <div class="ai-disclaimer">
+                <i class="fas fa-info-circle"></i>
+                This is a creative writing aid, and is not intended to be factual. <a href="#" class="learn-more-link">Learn more</a>
+            </div>
+            <div class="ai-actions">
+                <div class="ai-feedback">
+                    <button class="ai-feedback-btn" id="ai-thumbs-up" title="Good response">
+                        <i class="fas fa-thumbs-up"></i>
+                    </button>
+                    <button class="ai-feedback-btn" id="ai-thumbs-down" title="Poor response">
+                        <i class="fas fa-thumbs-down"></i>
+                    </button>
+                </div>
+                <div class="ai-refinement">
+                    <button class="ai-refine-btn" id="ai-refine-btn">
+                        Refine with a prompt
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ai-refine-options" id="ai-refine-options" style="display: none;">
+                        <div class="refine-option" data-action="shorten">
+                            <i class="fas fa-compress-alt"></i>
+                            <span>Shorten</span>
+                        </div>
+                        <div class="refine-option" data-action="elaborate">
+                            <i class="fas fa-expand-alt"></i>
+                            <span>Elaborate</span>
+                        </div>
+                        <div class="refine-option" data-action="formal">
+                            <i class="fas fa-user-tie"></i>
+                            <span>More formal</span>
+                        </div>
+                        <div class="refine-option" data-action="casual">
+                            <i class="fas fa-comments"></i>
+                            <span>More casual</span>
+                        </div>
+                        <div class="refine-option" data-action="bulletize">
+                            <i class="fas fa-list-ul"></i>
+                            <span>Bulletize</span>
+                        </div>
+                        <div class="refine-option" data-action="summarize">
+                            <i class="fas fa-compress"></i>
+                            <span>Summarize</span>
+                        </div>
+                        <div class="refine-option" data-action="retry">
+                            <i class="fas fa-redo"></i>
+                            <span>Retry</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="ai-insert-btn" id="ai-insert-btn">Insert</button>
+            </div>
         </div>
     </div>
 

@@ -823,6 +823,46 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// AI Text Generation route
+app.post('/api/generate-text', authenticateToken, async (req, res) => {
+    try {
+        const { prompt, context } = req.body;
+
+        if (!prompt) {
+            return res.status(400).json({ error: 'Prompt is required' });
+        }
+
+        console.log('Generating text for prompt:', prompt);
+
+        // Call the classification server for text generation
+        const response = await axios.post(`${classifier.apiUrl}/generate-text`, {
+            prompt: prompt,
+            context: context || ''
+        });
+
+        console.log('Text generation response:', response.data);
+
+        res.json({
+            success: true,
+            generatedText: response.data.generatedText,
+            prompt: prompt
+        });
+
+    } catch (error) {
+        console.error('Error generating text:', error);
+        
+        // Provide fallback response
+        const fallbackText = `I'd be happy to help you write about "${req.body.prompt}". Here's a starting point that you can expand upon and customize to fit your specific needs.`;
+        
+        res.json({
+            success: false,
+            generatedText: fallbackText,
+            prompt: req.body.prompt,
+            error: 'AI service temporarily unavailable'
+        });
+    }
+});
+
 // Add explicit routes for splash and root
 app.get('/splash.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'electron/splash.html'));

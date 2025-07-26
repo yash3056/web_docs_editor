@@ -14,7 +14,7 @@ app = FastAPI()
 
 # --- CONFIGURATION ---
 # IMPORTANT: Update this path to your local Qwen GGUF model
-MODEL_FILENAME = "Qwen3-1.7B-Q4_K_M.gguf"
+MODEL_FILENAME = "Qwen3-0.6B-Q4_K_M.gguf"
 CONTEXT_SIZE = 32768 
 MAX_OUTPUT_TOKENS = 2048 
 
@@ -43,6 +43,10 @@ def get_llm_instance():
 # --- Pydantic Model ---
 class Document(BaseModel):
     content: str
+
+class TextGenerationRequest(BaseModel):
+    prompt: str
+    context: str = ""
 
 # --- PROMPT ENGINEERING ---
 def create_security_analysis_prompt(document_content: str) -> str:
@@ -209,6 +213,72 @@ def classify_document(document: Document):
             "raw_response": response_text if 'response_text' in locals() else "No response generated."
         }
     )
+
+# --- TEXT GENERATION ENDPOINT ---
+@app.post("/generate-text")
+def generate_text(request: TextGenerationRequest):
+    """
+    Generates text content based on user prompt and context.
+    This endpoint provides AI writing assistance functionality.
+    """
+    llm = get_llm_instance()
+    if not llm:
+        raise HTTPException(status_code=500, detail="Model not loaded. Check server logs for errors.")
+
+    try:
+        # Create a writing assistant prompt
+        system_message = "You are a helpful writing assistant. Generate clear, coherent, and useful text based on the user's request. Keep responses concise but informative."
+        
+        # Combine user prompt with context if available
+        user_prompt = f"Write about: {request.prompt}"
+        if request.context:
+            user_prompt += f"\n\nContext: {request.context}"
+        
+        user_prompt += "\n\nPlease provide a well-written response that addresses the request:"
+
+        # Use ChatML format for the prompt
+        full_prompt = (
+            f"<|im_start|>system\n{system_message}<|im_end|>\n"
+            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+            f"<|im_start|>assistant\n"
+        )
+        
+        print(f"--- Generating text for prompt: {request.prompt} ---")
+        
+        # Generate response
+        response = llm(
+            prompt=full_prompt,
+            max_tokens=500,  # Shorter responses for writing assistance
+            temperature=0.7,  # More creative for writing
+            stop=["<|im_end|>"],
+            echo=False
+        )
+        
+        response_text = response['choices'][0]['text'].strip()
+        print(f"--- Generated text ---\n{response_text}\n-------------------")
+
+        return {
+            "generatedText": response_text,
+            "prompt": request.prompt,
+            "success": True
+        }
+
+    except Exception as e:
+        print(f"Error during text generation: {e}")
+        traceback.print_exc()
+        
+        # Return fallback response
+        return {
+            "generatedText": f"I'd be happy to help you write about {request.prompt}. Here's a starting point that you can expand upon and customize to fit your specific needs.",
+            "prompt": request.prompt,
+            "success": False,
+            "error": str(e)
+        }
+    
+    finally:
+        # Clean up the model instance
+        if llm:
+            del llm
 
 if __name__ == "__main__":
     import uvicorn
