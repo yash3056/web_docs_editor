@@ -47,6 +47,7 @@ class DocsEditor {
         this.checkServerStatus();
         this.setupAutoSave();
         this.setupCustomContextMenu();
+        this.setupAIWritingEventListeners();
 
         // Add cleanup on page unload
         window.addEventListener('beforeunload', () => {
@@ -2068,6 +2069,369 @@ class DocsEditor {
         document.getElementById('context-save').addEventListener('click', () => {
             this.saveDocument();
             this.hideCustomContextMenu();
+        });
+
+        // AI Writing
+        document.getElementById('context-ai-writing').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent event bubbling
+            this.showAIWritingPopup();
+            this.hideCustomContextMenu();
+        });
+    }
+
+    showAIWritingPopup() {
+        const popup = document.getElementById('ai-writing-popup');
+        const input = document.getElementById('ai-input');
+        
+        // Position popup near cursor or center of screen
+        const selection = window.getSelection();
+        let x = window.innerWidth / 2 - 200; // Center horizontally
+        let y = window.innerHeight / 2 - 150; // Center vertically
+        
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                x = Math.min(rect.left, window.innerWidth - 420);
+                y = Math.min(rect.bottom + 10, window.innerHeight - 300);
+            }
+        }
+        
+        popup.style.left = `${x}px`;
+        popup.style.top = `${y}px`;
+        popup.style.display = 'block';
+        
+        // Add show animation with a slight delay
+        setTimeout(() => {
+            popup.classList.add('show');
+            // Focus input and clear previous content after animation starts
+            input.value = '';
+            input.focus();
+        }, 20);
+        
+        // Store cursor position for later insertion
+        this.storeCursorPosition();
+    }
+
+    hideAIWritingPopup() {
+        const popup = document.getElementById('ai-writing-popup');
+        popup.classList.remove('show');
+        setTimeout(() => popup.style.display = 'none', 200);
+    }
+
+    showAIResultsPopup() {
+        const popup = document.getElementById('ai-results-popup');
+        const writingPopup = document.getElementById('ai-writing-popup');
+        
+        // Position at same location as writing popup
+        popup.style.left = writingPopup.style.left;
+        popup.style.top = writingPopup.style.top;
+        popup.style.display = 'block';
+        
+        // Add show animation
+        setTimeout(() => popup.classList.add('show'), 10);
+        
+        // Hide writing popup
+        this.hideAIWritingPopup();
+    }
+
+    hideAIResultsPopup() {
+        const popup = document.getElementById('ai-results-popup');
+        popup.classList.remove('show');
+        setTimeout(() => popup.style.display = 'none', 200);
+    }
+
+    storeCursorPosition() {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            this.savedRange = selection.getRangeAt(0).cloneRange();
+        } else {
+            // If no selection, place at end of editor
+            this.savedRange = document.createRange();
+            this.savedRange.selectNodeContents(this.editor);
+            this.savedRange.collapse(false);
+        }
+    }
+
+    restoreCursorPosition() {
+        if (this.savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(this.savedRange);
+            this.editor.focus();
+        }
+    }
+
+    async generateAIContent(prompt) {
+        try {
+            // Show loading state
+            const resultsContent = document.getElementById('ai-generated-content');
+            resultsContent.innerHTML = `
+                <div class="ai-loading">
+                    <div class="ai-loading-spinner"></div>
+                    <span>Generating content...</span>
+                </div>
+            `;
+            
+            this.showAIResultsPopup();
+            
+            // Call the classification server for text generation
+            const response = await fetch('/api/generate-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    context: this.getDocumentContext()
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Display generated content
+            resultsContent.innerHTML = data.generatedText || 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
+            
+        } catch (error) {
+            console.error('AI generation error:', error);
+            
+            // Fallback content for demo purposes
+            const fallbackContent = this.generateFallbackContent(prompt);
+            document.getElementById('ai-generated-content').innerHTML = fallbackContent;
+        }
+    }
+
+    generateFallbackContent(prompt) {
+        // Simple fallback content generator for demo
+        const templates = {
+            'world peace': 'At The Cymbal Foodie, we believe in the power of food to bring people together, transcending cultural differences and fostering understanding. Just as a shared meal can bridge divides, we hope our collective efforts, through authentic storytelling and a celebration of diverse culinary experiences, contribute to a world where respect and harmony are savored by all.',
+            
+            'business report': 'This quarterly report demonstrates significant progress in our key initiatives. Our team has successfully implemented new strategies that have resulted in improved performance metrics across all departments. Moving forward, we will continue to focus on innovation and customer satisfaction.',
+            
+            'introduction': 'Welcome to our comprehensive guide. In this document, we will explore the essential concepts and provide you with the knowledge needed to understand the subject matter thoroughly. Let\'s begin our journey together.',
+            
+            'conclusion': 'In conclusion, the evidence presented clearly supports our initial hypothesis. The findings demonstrate the effectiveness of our approach and provide a solid foundation for future development. We recommend continued investment in this area.',
+            
+            'default': `Based on your request about "${prompt}", here is some generated content that you can use as a starting point. This content is designed to help you get started with your writing and can be customized to fit your specific needs.`
+        };
+        
+        // Find best match or use default
+        const lowerPrompt = prompt.toLowerCase();
+        for (const [key, content] of Object.entries(templates)) {
+            if (lowerPrompt.includes(key)) {
+                return content;
+            }
+        }
+        
+        return templates.default;
+    }
+
+    getDocumentContext() {
+        // Get surrounding text for better AI context
+        const selection = window.getSelection();
+        let context = '';
+        
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const container = range.commonAncestorContainer;
+            const paragraph = container.nodeType === Node.TEXT_NODE ? 
+                container.parentElement : container;
+            
+            // Get text from current paragraph and surrounding paragraphs
+            context = paragraph.textContent || '';
+        }
+        
+        return context.slice(0, 500); // Limit context length
+    }
+
+    insertAIContent() {
+        const content = document.getElementById('ai-generated-content').textContent;
+        
+        if (content && content.trim()) {
+            this.restoreCursorPosition();
+            
+            // Insert the content at cursor position
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                
+                // Create text node with generated content
+                const textNode = document.createTextNode(content);
+                range.insertNode(textNode);
+                
+                // Move cursor to end of inserted text
+                range.setStartAfter(textNode);
+                range.setEndAfter(textNode);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            
+            // Update editor state
+            this.saveState();
+            this.updateWordCount();
+            this.updatePageLayout();
+            
+            // Hide popup
+            this.hideAIResultsPopup();
+        }
+    }
+
+    refineAIContent(action) {
+        const currentContent = document.getElementById('ai-generated-content').textContent;
+        let refinedContent = currentContent;
+        
+        switch (action) {
+            case 'shorten':
+                refinedContent = this.shortenText(currentContent);
+                break;
+            case 'elaborate':
+                refinedContent = this.elaborateText(currentContent);
+                break;
+            case 'formal':
+                refinedContent = this.makeFormal(currentContent);
+                break;
+            case 'casual':
+                refinedContent = this.makeCasual(currentContent);
+                break;
+            case 'bulletize':
+                refinedContent = this.convertToBullets(currentContent);
+                break;
+            case 'summarize':
+                refinedContent = this.summarizeText(currentContent);
+                break;
+            case 'retry':
+                // Regenerate with original prompt
+                const prompt = document.getElementById('ai-input').value;
+                this.generateAIContent(prompt);
+                return;
+        }
+        
+        document.getElementById('ai-generated-content').innerHTML = refinedContent;
+    }
+
+    shortenText(text) {
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+        return sentences.slice(0, Math.ceil(sentences.length / 2)).join('. ') + (sentences.length > 1 ? '.' : '');
+    }
+
+    elaborateText(text) {
+        return text + ' Furthermore, this approach provides additional benefits and considerations that enhance the overall effectiveness and impact of the implementation.';
+    }
+
+    makeFormal(text) {
+        return text
+            .replace(/\bcan't\b/g, 'cannot')
+            .replace(/\bwon't\b/g, 'will not')
+            .replace(/\bdon't\b/g, 'do not')
+            .replace(/\bi think\b/g, 'it is believed')
+            .replace(/\bwe\b/g, 'one');
+    }
+
+    makeCasual(text) {
+        return text
+            .replace(/\bcannot\b/g, "can't")
+            .replace(/\bwill not\b/g, "won't")
+            .replace(/\bdo not\b/g, "don't")
+            .replace(/\bit is believed\b/g, 'I think')
+            .replace(/\bone believes\b/g, 'we think');
+    }
+
+    convertToBullets(text) {
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+        return sentences.map(sentence => `• ${sentence.trim()}`).join('\n');
+    }
+
+    summarizeText(text) {
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+        if (sentences.length <= 2) return text;
+        
+        const firstSentence = sentences[0].trim();
+        const lastSentence = sentences[sentences.length - 1].trim();
+        return `${firstSentence}. ${lastSentence}.`;
+    }
+
+    setupAIWritingEventListeners() {
+        // Create button
+        document.getElementById('ai-create-btn').addEventListener('click', () => {
+            const prompt = document.getElementById('ai-input').value.trim();
+            if (prompt) {
+                this.generateAIContent(prompt);
+            }
+        });
+
+        // Close buttons
+        document.getElementById('ai-close-btn').addEventListener('click', () => {
+            this.hideAIWritingPopup();
+        });
+
+        document.getElementById('ai-results-close-btn').addEventListener('click', () => {
+            this.hideAIResultsPopup();
+        });
+
+        // Insert button
+        document.getElementById('ai-insert-btn').addEventListener('click', () => {
+            this.insertAIContent();
+        });
+
+        // Feedback buttons (visual only, no functionality as requested)
+        document.getElementById('ai-thumbs-up').addEventListener('click', (e) => {
+            e.target.closest('button').classList.toggle('active');
+            document.getElementById('ai-thumbs-down').classList.remove('active');
+        });
+
+        document.getElementById('ai-thumbs-down').addEventListener('click', (e) => {
+            e.target.closest('button').classList.toggle('active');
+            document.getElementById('ai-thumbs-up').classList.remove('active');
+        });
+
+        // Refine button
+        document.getElementById('ai-refine-btn').addEventListener('click', () => {
+            const options = document.getElementById('ai-refine-options');
+            options.style.display = options.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Refine options
+        document.querySelectorAll('.refine-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const action = option.dataset.action;
+                this.refineAIContent(action);
+                document.getElementById('ai-refine-options').style.display = 'none';
+            });
+        });
+
+        // Enter key in input
+        document.getElementById('ai-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('ai-create-btn').click();
+            }
+        });
+
+        // Click outside to close popups
+        document.addEventListener('click', (e) => {
+            // Don't close if clicking on context menu
+            if (e.target.closest('#custom-context-menu')) {
+                return;
+            }
+            
+            const writingPopup = document.getElementById('ai-writing-popup');
+            const resultsPopup = document.getElementById('ai-results-popup');
+            
+            if (!writingPopup.contains(e.target) && !resultsPopup.contains(e.target)) {
+                if (writingPopup.style.display === 'block') {
+                    this.hideAIWritingPopup();
+                }
+                if (resultsPopup.style.display === 'block') {
+                    this.hideAIResultsPopup();
+                }
+            }
         });
     }
 

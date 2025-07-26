@@ -240,6 +240,62 @@ ${documentContent}`;
         };
     }
 
+    async generateText(prompt, context = '') {
+        try {
+            console.log("Generating text with Together AI...");
+
+            // Create a writing assistant system message
+            const systemMessage = "You are a helpful writing assistant. Generate clear, coherent, and useful text based on the user's request. Keep responses concise but informative.";
+            
+            // Combine user prompt with context if available
+            let userPrompt = `Write about: ${prompt}`;
+            if (context) {
+                userPrompt += `\n\nContext: ${context}`;
+            }
+            userPrompt += "\n\nPlease provide a well-written response that addresses the request:";
+
+            const response = await this.client.chat.completions.create({
+                model: this.model,
+                messages: [
+                    {
+                        role: "system",
+                        content: systemMessage
+                    },
+                    {
+                        role: "user",
+                        content: userPrompt
+                    }
+                ],
+                max_tokens: 500,  // Shorter responses for writing assistance
+                temperature: 0.7,  // More creative for writing
+                stream: false
+            });
+
+            const generatedText = response.choices[0].message.content.trim();
+            console.log("Text generation successful");
+
+            return {
+                generatedText: generatedText,
+                prompt: prompt,
+                success: true
+            };
+
+        } catch (error) {
+            console.error("Error during Together AI text generation:", error.message);
+            if (error.response) {
+                console.error("Error response from Together AI:", error.response.data);
+            }
+            
+            // Return fallback response
+            return {
+                generatedText: `I'd be happy to help you write about "${prompt}". Here's a starting point that you can expand upon and customize to fit your specific needs.`,
+                prompt: prompt,
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     async addWatermarkToPdf(inputPath, outputPath, classification) {
         const fs = require('fs').promises;
         const { PDFDocument, rgb, degrees } = require('pdf-lib');

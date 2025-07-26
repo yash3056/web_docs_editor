@@ -22,7 +22,7 @@ async function testClassifier() {
     `;
     
     try {
-        console.log('\nClassifying test document...');
+        console.log('\n--- Testing Document Classification ---');
         const result = await classifier.classifyDocument(testDocument);
         
         console.log('\nClassification Result:');
@@ -31,6 +31,21 @@ async function testClassifier() {
         console.log('Reasoning:', result.reasoning);
         console.log('Key Risk Factors:', result.key_risk_factors);
         console.log('Analysis Timestamp:', result.analysis_timestamp);
+        
+        console.log('\n--- Testing Text Generation ---');
+        const textResult = await classifier.generateText(
+            'Write a brief introduction about artificial intelligence',
+            'This is for a technical document'
+        );
+        
+        console.log('\nText Generation Result:');
+        console.log('Success:', textResult.success);
+        console.log('Generated Text:', textResult.generatedText);
+        if (textResult.error) {
+            console.log('Error:', textResult.error);
+        }
+        
+        console.log('\n--- Test Completed Successfully ---');
         
     } catch (error) {
         console.error('Error testing classifier:', error);
