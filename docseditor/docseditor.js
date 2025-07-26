@@ -107,8 +107,8 @@ class DocsEditor {
             // Track cursor movement with keyboard navigation
             this.editor.addEventListener('keyup', (e) => {
                 // Update cursor page on arrow keys, page up/down, home/end
-                const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
-                                      'PageUp', 'PageDown', 'Home', 'End'];
+                const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+                    'PageUp', 'PageDown', 'Home', 'End'];
                 if (navigationKeys.includes(e.key)) {
                     setTimeout(() => {
                         this.updateCurrentPage();
@@ -146,11 +146,11 @@ class DocsEditor {
 
             const range = selection.getRangeAt(0);
             const cursorNode = range.startContainer;
-            
+
             // Find the actual element containing the cursor
-            let cursorElement = cursorNode.nodeType === Node.TEXT_NODE ? 
+            let cursorElement = cursorNode.nodeType === Node.TEXT_NODE ?
                 cursorNode.parentElement : cursorNode;
-            
+
             // Make sure we're working within the editor
             if (!this.editor.contains(cursorElement)) {
                 cursorElement = this.editor;
@@ -159,7 +159,7 @@ class DocsEditor {
             // Get the offset of the cursor element relative to the editor
             let offsetTop = 0;
             let element = cursorElement;
-            
+
             while (element && element !== this.editor) {
                 offsetTop += element.offsetTop || 0;
                 element = element.offsetParent;
@@ -199,8 +199,6 @@ class DocsEditor {
             pageInfoElement.textContent = `Page ${currentPage} of ${totalPages}`;
         }
     }
-
-
 
     initializeEventListeners() {
         // Dashboard navigation
@@ -756,24 +754,33 @@ class DocsEditor {
     }
 
     insertHTML(html) {
+        console.log('insertHTML called with:', html);
+
         // Ensure the editor has focus
         this.editor.focus();
 
         const selection = window.getSelection();
+        console.log('Current selection range count:', selection.rangeCount);
 
         if (selection.rangeCount === 0) {
+            console.log('No selection found, creating one at end of editor');
             // If no selection, create one at the end of the editor
             const range = document.createRange();
             range.selectNodeContents(this.editor);
             range.collapse(false); // Collapse to end
             selection.removeAllRanges();
             selection.addRange(range);
+        } else {
+            const range = selection.getRangeAt(0);
+            console.log('Current selection start:', range.startContainer, 'offset:', range.startOffset);
         }
 
         // Try modern approach first
         if (document.queryCommandSupported && document.queryCommandSupported('insertHTML')) {
             try {
+                console.log('Trying document.execCommand insertHTML');
                 const result = document.execCommand('insertHTML', false, html);
+                console.log('execCommand result:', result);
                 if (result) {
                     this.saveState();
                     this.updatePageLayout();
@@ -782,6 +789,8 @@ class DocsEditor {
             } catch (e) {
                 console.warn('insertHTML failed, using fallback method:', e);
             }
+        } else {
+            console.log('insertHTML not supported, using fallback');
         }
 
         // Fallback method that works better with modern browsers
@@ -1893,7 +1902,7 @@ class DocsEditor {
 
     setupCustomContextMenu() {
         const contextMenu = document.getElementById('custom-context-menu');
-        
+
         // Disable default context menu on the editor
         this.editor.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -1925,35 +1934,40 @@ class DocsEditor {
         const contextMenu = document.getElementById('custom-context-menu');
         const selection = window.getSelection();
         const hasSelection = selection.toString().length > 0;
-        
+
+        // IMPORTANT: Store cursor position when context menu is shown (right-click)
+        // This ensures we capture the position before any menu interactions
+        this.storeCursorPosition();
+        console.log('✅ Cursor position stored during context menu show');
+
         // Update menu items based on current state
         this.updateContextMenuState(hasSelection);
-        
+
         // Position the menu
         const x = event.clientX;
         const y = event.clientY;
-        
+
         // Show menu temporarily to get dimensions
         contextMenu.style.display = 'block';
         contextMenu.style.visibility = 'hidden';
-        
+
         const menuRect = contextMenu.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        
+
         let menuX = x;
         let menuY = y;
-        
+
         // Adjust horizontal position if menu would go off screen
         if (x + menuRect.width > viewportWidth) {
             menuX = Math.max(10, viewportWidth - menuRect.width - 10);
         }
-        
+
         // Adjust vertical position if menu would go off screen
         if (y + menuRect.height > viewportHeight) {
             menuY = Math.max(10, viewportHeight - menuRect.height - 10);
         }
-        
+
         // Apply final position and show menu
         contextMenu.style.left = `${menuX}px`;
         contextMenu.style.top = `${menuY}px`;
@@ -1972,7 +1986,7 @@ class DocsEditor {
         const boldItem = document.getElementById('context-bold');
         const italicItem = document.getElementById('context-italic');
         const underlineItem = document.getElementById('context-underline');
-        
+
         // Cut and Copy only available when text is selected
         if (hasSelection) {
             cutItem.classList.remove('disabled');
@@ -1981,7 +1995,7 @@ class DocsEditor {
             cutItem.classList.add('disabled');
             copyItem.classList.add('disabled');
         }
-        
+
         // Update formatting buttons based on current selection
         if (hasSelection) {
             boldItem.classList.toggle('active', document.queryCommandState('bold'));
@@ -2083,15 +2097,18 @@ class DocsEditor {
     showAIWritingPopup() {
         const popup = document.getElementById('ai-writing-popup');
         const input = document.getElementById('ai-input');
-        
+
+        // Cursor position is already stored when context menu was shown
+        // No need to store it again here
+
         // Always center the popup on screen
         const x = window.innerWidth / 2 - 320; // Center horizontally (doubled width)
         const y = window.innerHeight / 2 - 150; // Center vertically
-        
+
         popup.style.left = `${x}px`;
         popup.style.top = `${y}px`;
         popup.style.display = 'block';
-        
+
         // Add show animation with a slight delay
         setTimeout(() => {
             popup.classList.add('show');
@@ -2099,10 +2116,7 @@ class DocsEditor {
             input.value = '';
             input.focus();
         }, 20);
-        
-        // Store cursor position for later insertion
-        this.storeCursorPosition();
-        
+
         // Make popup draggable
         this.makeDraggable(popup);
     }
@@ -2116,18 +2130,18 @@ class DocsEditor {
     showAIResultsPopup() {
         const popup = document.getElementById('ai-results-popup');
         const writingPopup = document.getElementById('ai-writing-popup');
-        
+
         // Position at same location as writing popup
         popup.style.left = writingPopup.style.left;
         popup.style.top = writingPopup.style.top;
         popup.style.display = 'block';
-        
+
         // Add show animation
         setTimeout(() => popup.classList.add('show'), 10);
-        
+
         // Make results popup draggable too
         this.makeDraggable(popup);
-        
+
         // Hide writing popup
         this.hideAIWritingPopup();
     }
@@ -2149,26 +2163,26 @@ class DocsEditor {
         header.addEventListener('mousedown', (e) => {
             // Don't start dragging if clicking on close button
             if (e.target.closest('.ai-close-btn')) return;
-            
+
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
             startLeft = parseInt(popup.style.left) || 0;
             startTop = parseInt(popup.style.top) || 0;
-            
+
             e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            
+
             const newLeft = startLeft + (e.clientX - startX);
             const newTop = startTop + (e.clientY - startY);
-            
+
             // Keep popup within viewport bounds
             const maxLeft = window.innerWidth - popup.offsetWidth;
             const maxTop = window.innerHeight - popup.offsetHeight;
-            
+
             popup.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
             popup.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
         });
@@ -2179,31 +2193,167 @@ class DocsEditor {
     }
 
     storeCursorPosition() {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            this.savedRange = selection.getRangeAt(0).cloneRange();
-        } else {
-            // If no selection, place at end of editor
-            this.savedRange = document.createRange();
-            this.savedRange.selectNodeContents(this.editor);
-            this.savedRange.collapse(false);
+        try {
+            console.log('=== STORING CURSOR POSITION ===');
+
+            // Remove any existing cursor markers first
+            this.removeCursorMarker();
+
+            const selection = window.getSelection();
+            console.log('Selection range count:', selection.rangeCount);
+
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                console.log('Range start container:', range.startContainer.nodeName);
+                console.log('Range start offset:', range.startOffset);
+                console.log('Range collapsed:', range.collapsed);
+
+                // Log the text content around the cursor for debugging
+                if (range.startContainer.nodeType === Node.TEXT_NODE) {
+                    const text = range.startContainer.textContent;
+                    const before = text.substring(0, range.startOffset);
+                    const after = text.substring(range.startOffset);
+                    console.log('Text before cursor:', before);
+                    console.log('Text after cursor:', after);
+                }
+
+                // Only store if it's within our editor
+                if (this.editor.contains(range.startContainer) && this.editor.contains(range.endContainer)) {
+                    // Insert a temporary marker at the cursor position
+                    const marker = document.createElement('span');
+                    marker.id = 'cursor-position-marker';
+                    marker.style.display = 'none';
+                    marker.textContent = '';
+
+                    // Clone the range and insert the marker
+                    const markerRange = range.cloneRange();
+                    markerRange.collapse(true); // Collapse to start
+
+                    try {
+                        markerRange.insertNode(marker);
+                        console.log('✅ Cursor marker inserted successfully using range.insertNode');
+
+                        // Restore the selection after the marker
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(marker);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+
+                    } catch (insertError) {
+                        console.warn('Range insertNode failed, trying text splitting method:', insertError.message);
+
+                        // Fallback: try text splitting method
+                        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+                            const textNode = range.startContainer;
+                            const parent = textNode.parentNode;
+                            const offset = range.startOffset;
+
+                            // Split the text node at cursor position
+                            const beforeText = textNode.textContent.substring(0, offset);
+                            const afterText = textNode.textContent.substring(offset);
+
+                            // Replace the text node with before + marker + after
+                            const beforeNode = document.createTextNode(beforeText);
+                            const afterNode = document.createTextNode(afterText);
+
+                            parent.insertBefore(beforeNode, textNode);
+                            parent.insertBefore(marker, textNode);
+                            parent.insertBefore(afterNode, textNode);
+                            parent.removeChild(textNode);
+
+                            console.log('✅ Cursor marker inserted using text splitting method');
+                        } else {
+                            throw insertError; // Re-throw if not a text node
+                        }
+                    }
+
+                    return;
+                } else {
+                    console.warn('Selection is not within editor bounds');
+                }
+            } else {
+                console.warn('No selection range found');
+            }
+
+            // Fallback: insert marker at end of editor
+            console.log('Using fallback cursor position at end');
+            const marker = document.createElement('span');
+            marker.id = 'cursor-position-marker';
+            marker.style.display = 'none';
+            marker.textContent = '';
+            this.editor.appendChild(marker);
+            console.log('✅ Fallback marker inserted at end');
+
+        } catch (error) {
+            console.error('Error storing cursor position:', error);
         }
+    }
+
+    removeCursorMarker() {
+        const existingMarker = document.getElementById('cursor-position-marker');
+        if (existingMarker) {
+            existingMarker.remove();
+        }
+    }
+
+    findCursorMarker() {
+        const marker = document.getElementById('cursor-position-marker');
+        if (marker) {
+            console.log('✅ Cursor marker found in DOM');
+            console.log('Marker parent:', marker.parentNode ? (marker.parentNode.tagName || marker.parentNode.nodeName) : 'NO PARENT');
+            console.log('Marker is in editor:', this.editor.contains(marker));
+        } else {
+            console.log('❌ Cursor marker NOT found in DOM');
+        }
+        return marker;
     }
 
     restoreCursorPosition() {
         if (this.savedRange) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(this.savedRange);
-            this.editor.focus();
+            try {
+                // Validate that the saved range is still valid
+                if (this.editor.contains(this.savedRange.startContainer) &&
+                    this.editor.contains(this.savedRange.endContainer)) {
+
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(this.savedRange);
+                    this.editor.focus();
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Saved range is invalid:', error);
+            }
         }
+
+        // Fallback: focus editor and place cursor at end
+        this.editor.focus();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(this.editor);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return false;
+    }
+
+    getCurrentCursorPosition() {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            if (this.editor.contains(range.startContainer) && this.editor.contains(range.endContainer)) {
+                return range.cloneRange();
+            }
+        }
+        return null;
     }
 
     async generateAIContent(prompt) {
         try {
             // Store original prompt for refinements
             this.currentPrompt = prompt;
-            
+
             // Show loading state
             const resultsContent = document.getElementById('ai-generated-content');
             resultsContent.innerHTML = `
@@ -2212,9 +2362,9 @@ class DocsEditor {
                     <span>Generating content...</span>
                 </div>
             `;
-            
+
             this.showAIResultsPopup();
-            
+
             // Call the classification server for text generation
             const response = await fetch('/api/generate-text', {
                 method: 'POST',
@@ -2233,30 +2383,30 @@ class DocsEditor {
             }
 
             const data = await response.json();
-            
+
             // Extract content after </think> token
             let generatedText = data.generatedText || 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
-            
+
             // Look for </think> token and extract only content after it
             const thinkEndIndex = generatedText.indexOf('</think>');
             if (thinkEndIndex !== -1) {
                 generatedText = generatedText.substring(thinkEndIndex + 8).trim(); // 8 is length of '</think>'
             }
-            
+
             // If no content after </think> or empty, use fallback
             if (!generatedText || generatedText.length === 0) {
                 generatedText = 'Sorry, I couldn\'t generate content for that prompt. Please try again.';
             }
-            
+
             // Convert markdown to HTML for display
             const htmlContent = this.convertMarkdownToHTML(generatedText);
-            
+
             // Display generated content as HTML
             resultsContent.innerHTML = htmlContent;
-            
+
         } catch (error) {
             console.error('AI generation error:', error);
-            
+
             // Fallback content for demo purposes
             const fallbackContent = this.generateFallbackContent(prompt);
             document.getElementById('ai-generated-content').innerHTML = fallbackContent;
@@ -2267,16 +2417,16 @@ class DocsEditor {
         // Simple fallback content generator for demo
         const templates = {
             'world peace': 'At The Cymbal Foodie, we believe in the power of food to bring people together, transcending cultural differences and fostering understanding. Just as a shared meal can bridge divides, we hope our collective efforts, through authentic storytelling and a celebration of diverse culinary experiences, contribute to a world where respect and harmony are savored by all.',
-            
+
             'business report': 'This quarterly report demonstrates significant progress in our key initiatives. Our team has successfully implemented new strategies that have resulted in improved performance metrics across all departments. Moving forward, we will continue to focus on innovation and customer satisfaction.',
-            
+
             'introduction': 'Welcome to our comprehensive guide. In this document, we will explore the essential concepts and provide you with the knowledge needed to understand the subject matter thoroughly. Let\'s begin our journey together.',
-            
+
             'conclusion': 'In conclusion, the evidence presented clearly supports our initial hypothesis. The findings demonstrate the effectiveness of our approach and provide a solid foundation for future development. We recommend continued investment in this area.',
-            
+
             'default': `Based on your request about "${prompt}", here is some generated content that you can use as a starting point. This content is designed to help you get started with your writing and can be customized to fit your specific needs.`
         };
-        
+
         // Find best match or use default
         const lowerPrompt = prompt.toLowerCase();
         for (const [key, content] of Object.entries(templates)) {
@@ -2284,7 +2434,7 @@ class DocsEditor {
                 return content;
             }
         }
-        
+
         return templates.default;
     }
 
@@ -2292,17 +2442,17 @@ class DocsEditor {
         // Get surrounding text for better AI context
         const selection = window.getSelection();
         let context = '';
-        
+
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             const container = range.commonAncestorContainer;
-            const paragraph = container.nodeType === Node.TEXT_NODE ? 
+            const paragraph = container.nodeType === Node.TEXT_NODE ?
                 container.parentElement : container;
-            
+
             // Get text from current paragraph and surrounding paragraphs
             context = paragraph.textContent || '';
         }
-        
+
         return context.slice(0, 500); // Limit context length
     }
 
@@ -2329,7 +2479,7 @@ class DocsEditor {
             .replace(/\n/gim, '<br>');
 
         // Wrap consecutive <li> elements in <ul> or <ol>
-        html = html.replace(/(<li>.*?<\/li>)/gims, function(match, p1) {
+        html = html.replace(/(<li>.*?<\/li>)/gims, function (match, p1) {
             if (match.includes('<li>') && !match.includes('<ul>') && !match.includes('<ol>')) {
                 // Check if it's numbered list items (originally numbered)
                 const isNumbered = markdown.includes('1. ') || markdown.includes('2. ') || markdown.includes('3. ');
@@ -2349,78 +2499,149 @@ class DocsEditor {
 
     insertAIContent() {
         const content = document.getElementById('ai-generated-content').innerHTML; // Use innerHTML to get formatted content
-        
+
         if (content && content.trim()) {
-            this.restoreCursorPosition();
-            
-            // Insert the content at cursor position without deleting existing content
-            const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                
-                // Don't delete contents - just insert at cursor position
-                // If there's a selection, move cursor to end of selection without deleting
-                if (!range.collapsed) {
-                    range.collapse(false); // Collapse to end of selection
+            console.log('=== INSERTING AI CONTENT ===');
+            console.log('Content to insert:', content);
+
+            // Focus the editor first
+            this.editor.focus();
+
+            // Find the cursor marker
+            const marker = this.findCursorMarker();
+
+            if (marker) {
+                console.log('✅ Found cursor marker');
+                console.log('Marker parent:', marker.parentNode.tagName || marker.parentNode.nodeName);
+                console.log('Marker parent text:', marker.parentNode.textContent.substring(0, 50) + '...');
+
+                try {
+                    // Create a temporary div to parse the HTML content
+                    const temp = document.createElement('div');
+                    temp.innerHTML = content;
+
+                    // Insert each child node before the marker
+                    const fragment = document.createDocumentFragment();
+                    while (temp.firstChild) {
+                        fragment.appendChild(temp.firstChild);
+                    }
+
+                    // Insert the content before the marker
+                    marker.parentNode.insertBefore(fragment, marker);
+
+                    // Remove the marker
+                    marker.remove();
+
+                    console.log('✅ AI content inserted successfully at marker position');
+
+                    // Update editor state
+                    this.saveState();
+                    this.updateWordCount();
+                    this.updatePageLayout();
+                    this.hideAIResultsPopup();
+                    return;
+
+                } catch (error) {
+                    console.error('❌ Error inserting at marker position:', error);
+                    // Continue to fallback
                 }
-                
-                // Create a temporary div to hold the HTML content
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = content;
-                
-                // Insert each child node from the temp div
-                const fragment = document.createDocumentFragment();
-                while (tempDiv.firstChild) {
-                    fragment.appendChild(tempDiv.firstChild);
-                }
-                
-                range.insertNode(fragment);
-                
-                // Move cursor to end of inserted content
-                range.collapse(false);
-                selection.removeAllRanges();
-                selection.addRange(range);
             } else {
-                // Fallback: insert at end of editor if no selection
-                this.editor.focus();
-                const range = document.createRange();
-                range.selectNodeContents(this.editor);
-                range.collapse(false);
-                
-                // Create a temporary div to hold the HTML content
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = content;
-                
-                // Insert each child node from the temp div
-                const fragment = document.createDocumentFragment();
-                while (tempDiv.firstChild) {
-                    fragment.appendChild(tempDiv.firstChild);
+                console.warn('❌ No cursor marker found, using fallback insertion');
+
+                // Fallback: try to use current cursor position or insert at end
+                const selection = window.getSelection();
+
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+
+                    // Make sure we're in the editor
+                    if (this.editor.contains(range.startContainer)) {
+                        console.log('Using current cursor position');
+
+                        // Don't delete existing content - just collapse to insertion point
+                        if (!range.collapsed) {
+                            range.collapse(false);
+                        }
+
+                        // Try execCommand first
+                        try {
+                            const result = document.execCommand('insertHTML', false, content);
+                            if (result) {
+                                console.log('execCommand insertHTML succeeded');
+                                this.saveState();
+                                this.updateWordCount();
+                                this.updatePageLayout();
+                                this.hideAIResultsPopup();
+                                return;
+                            }
+                        } catch (e) {
+                            console.warn('execCommand failed:', e);
+                        }
+
+                        // Manual insertion fallback
+                        try {
+                            const temp = document.createElement('div');
+                            temp.innerHTML = content;
+
+                            const fragment = document.createDocumentFragment();
+                            while (temp.firstChild) {
+                                fragment.appendChild(temp.firstChild);
+                            }
+
+                            range.insertNode(fragment);
+                            range.collapse(false);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+
+                            console.log('Manual insertion succeeded');
+                        } catch (error) {
+                            console.error('Manual insertion failed:', error);
+                            // Last resort: append to end
+                            const temp = document.createElement('div');
+                            temp.innerHTML = content;
+                            while (temp.firstChild) {
+                                this.editor.appendChild(temp.firstChild);
+                            }
+                        }
+                    } else {
+                        console.log('Selection not in editor, appending to end');
+                        const temp = document.createElement('div');
+                        temp.innerHTML = content;
+                        while (temp.firstChild) {
+                            this.editor.appendChild(temp.firstChild);
+                        }
+                    }
+                } else {
+                    console.log('No selection, appending to end of editor');
+                    const temp = document.createElement('div');
+                    temp.innerHTML = content;
+                    while (temp.firstChild) {
+                        this.editor.appendChild(temp.firstChild);
+                    }
                 }
-                
-                range.insertNode(fragment);
-                
-                range.collapse(false);
-                selection.removeAllRanges();
-                selection.addRange(range);
             }
-            
+
             // Update editor state
             this.saveState();
             this.updateWordCount();
             this.updatePageLayout();
-            
+
+            console.log('AI content insertion completed');
+
             // Hide popup
             this.hideAIResultsPopup();
+        } else {
+            console.warn('No AI content to insert');
         }
     }
 
     async refineAIContent(action) {
         // Get original prompt from stored value or input field
         const originalPrompt = this.currentPrompt || document.getElementById('ai-input').value || 'Please help me write content';
-        
+
         // Create refinement prompts for each action
         let refinementPrompt = '';
-        
+
         switch (action) {
             case 'shorten':
                 refinementPrompt = `${originalPrompt}. Please make the response shorter and more concise.`;
@@ -2446,7 +2667,7 @@ class DocsEditor {
             default:
                 refinementPrompt = originalPrompt;
         }
-        
+
         // Call generateAIContent with the refined prompt
         await this.generateAIContent(refinementPrompt);
     }
@@ -2486,7 +2707,7 @@ class DocsEditor {
     summarizeText(text) {
         const sentences = text.split(/[.!?]+/).filter(s => s.trim());
         if (sentences.length <= 2) return text;
-        
+
         const firstSentence = sentences[0].trim();
         const lastSentence = sentences[sentences.length - 1].trim();
         return `${firstSentence}. ${lastSentence}.`;
@@ -2555,10 +2776,10 @@ class DocsEditor {
             if (e.target.closest('#custom-context-menu')) {
                 return;
             }
-            
+
             const writingPopup = document.getElementById('ai-writing-popup');
             const resultsPopup = document.getElementById('ai-results-popup');
-            
+
             if (!writingPopup.contains(e.target) && !resultsPopup.contains(e.target)) {
                 if (writingPopup.style.display === 'block') {
                     this.hideAIWritingPopup();
@@ -2576,15 +2797,51 @@ class DocsEditor {
         const characters = text.length;
         const charactersNoSpaces = text.replace(/\s/g, '').length;
         const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
-        
+
         const message = `Document Statistics:
         
 Words: ${words}
 Characters (with spaces): ${characters}
 Characters (no spaces): ${charactersNoSpaces}
 Paragraphs: ${paragraphs}`;
-        
+
         alert(message);
+    }
+
+    // Debug method to test cursor position functionality
+    testCursorPosition() {
+        console.log('=== Testing Cursor Position ===');
+
+        // Store current position using marker
+        this.storeCursorPosition();
+
+        // Check if marker was created
+        const marker = this.findCursorMarker();
+        if (marker) {
+            console.log('✅ Marker created successfully');
+            // Make marker visible for debugging
+            marker.style.display = 'inline-block';
+            marker.style.backgroundColor = 'red';
+            marker.style.width = '3px';
+            marker.style.height = '1.2em';
+            marker.textContent = '|';
+
+            setTimeout(() => {
+                // Insert some test content using our AI insertion method
+                const testContent = '<span style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">TEST INSERTION ' + Date.now() + '</span>';
+
+                // Simulate AI content insertion
+                const aiContentDiv = document.getElementById('ai-generated-content');
+                if (aiContentDiv) {
+                    aiContentDiv.innerHTML = testContent;
+                    this.insertAIContent();
+                } else {
+                    console.error('AI content div not found');
+                }
+            }, 1000); // Wait 1 second so you can see the marker
+        } else {
+            console.error('❌ Marker was not created');
+        }
     }
 }
 
