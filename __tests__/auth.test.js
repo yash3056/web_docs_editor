@@ -13,7 +13,7 @@ process.env.NODE_ENV = 'test';
 const database = require('../database/database');
 const app = require('../server');
 
-let db, createUser;
+let db, createUser, server;
 
 beforeAll(async () => {
   // Initialize database for tests
@@ -22,10 +22,21 @@ beforeAll(async () => {
   createUser = database.createUser;
 });
 
-afterAll(() => {
+afterAll(async () => {
+  // Close database connection
   if (db) {
     db.close();
   }
+  
+  // Close server if it was started
+  if (server) {
+    await new Promise((resolve) => {
+      server.close(resolve);
+    });
+  }
+  
+  // Give time for cleanup
+  await new Promise(resolve => setTimeout(resolve, 100));
 });
 
 describe('Auth API', () => {

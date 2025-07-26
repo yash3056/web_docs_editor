@@ -17,10 +17,13 @@ describe('Database Encryption', () => {
     await database.initializeDatabaseAsync();
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     if (database.db) {
       database.db.close();
     }
+    
+    // Give time for cleanup
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   describe('Encryption Key Management', () => {

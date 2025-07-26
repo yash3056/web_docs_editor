@@ -803,8 +803,8 @@ if (require.main === module) {
             console.log(`Database path: ${process.env.ELECTRON_USER_DATA}`);
         }
     });
-} else {
-    // When required by Electron, start listening
+} else if (process.env.NODE_ENV !== 'test') {
+    // When required by Electron (but not in test mode), start listening
     setTimeout(() => {
         app.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
