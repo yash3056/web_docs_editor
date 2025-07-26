@@ -30,7 +30,7 @@ def get_llm_instance():
             n_ctx=CONTEXT_SIZE,
             verbose=False,
             n_batch=512,
-            n_gpu_layers=-1,
+            # n_gpu_layers=-1,
             # This tells llama-cpp to correctly handle Qwen's special tokens
             chat_format="chatml",
         )
