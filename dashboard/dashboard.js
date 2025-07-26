@@ -165,7 +165,10 @@ class AdvancedDocumentDashboard {
         document.getElementById('see-all-recent').addEventListener('click', () => this.showAllDocuments());
 
         // Bulk actions
-        document.getElementById('select-all').addEventListener('click', () => this.toggleSelectAll());
+        document.getElementById('toggle-selection').addEventListener('click', () => this.toggleSelectionMode());
+        document.getElementById('select-all').addEventListener('click', () => this.selectAllDocuments());
+        document.getElementById('deselect-all').addEventListener('click', () => this.deselectAllDocuments());
+        document.getElementById('export-selected').addEventListener('click', () => this.exportSelectedDocuments());
         document.getElementById('delete-selected').addEventListener('click', () => this.deleteSelectedDocuments());
 
         // Modal events
@@ -242,30 +245,171 @@ class AdvancedDocumentDashboard {
         this.renderAllDocuments();
     }
 
-    toggleSelectAll() {
+    toggleSelectionMode() {
+        console.log('Toggle selection mode called, current state:', this.isSelectionMode);
+        
+        const toggleBtn = document.getElementById('toggle-selection');
         const selectAllBtn = document.getElementById('select-all');
+        const deselectAllBtn = document.getElementById('deselect-all');
+        const exportSelectedBtn = document.getElementById('export-selected');
         const deleteSelectedBtn = document.getElementById('delete-selected');
 
         if (this.isSelectionMode) {
             // Exit selection mode
             this.isSelectionMode = false;
             this.selectedDocuments.clear();
-            selectAllBtn.textContent = 'Select All';
+            
+            console.log('Exiting selection mode');
+            
+            // Update button states
+            toggleBtn.textContent = 'Enable Selection';
+            selectAllBtn.style.display = 'none';
+            deselectAllBtn.style.display = 'none';
+            exportSelectedBtn.style.display = 'none';
             deleteSelectedBtn.style.display = 'none';
-            document.querySelectorAll('.document-card').forEach(card => {
-                card.classList.remove('selection-mode', 'selected');
-            });
+            
+            // Re-render documents to remove checkboxes
+            this.renderAllDocuments();
         } else {
             // Enter selection mode
             this.isSelectionMode = true;
-            selectAllBtn.textContent = 'Deselect All';
-            deleteSelectedBtn.style.display = 'block';
-            document.querySelectorAll('.document-card').forEach(card => {
-                card.classList.add('selection-mode');
-                const docId = card.dataset.id;
+            
+            console.log('Entering selection mode');
+            
+            // Update button states
+            toggleBtn.textContent = 'Exit Selection';
+            selectAllBtn.style.display = 'inline-flex';
+            deselectAllBtn.style.display = 'inline-flex';
+            
+            // Re-render documents to add checkboxes
+            this.renderAllDocuments();
+        }
+        
+        this.updateSelectionButtons();
+    }
+
+    selectAllDocuments() {
+        console.log('Select all documents called, selection mode:', this.isSelectionMode);
+        if (!this.isSelectionMode) return;
+        
+        // Clear current selection first
+        this.selectedDocuments.clear();
+        
+        // Select all documents and update UI
+        document.querySelectorAll('.document-card').forEach(card => {
+            const docId = card.dataset.id;
+            const checkbox = card.querySelector('.card-checkbox');
+            
+            if (checkbox) {
+                checkbox.checked = true;
                 this.selectedDocuments.add(docId);
                 card.classList.add('selected');
-            });
+            }
+        });
+        
+        console.log('Selected documents:', this.selectedDocuments.size);
+        this.updateSelectionButtons();
+    }
+
+    deselectAllDocuments() {
+        console.log('Deselect all documents called, selection mode:', this.isSelectionMode);
+        if (!this.isSelectionMode) return;
+        
+        // Clear selection
+        this.selectedDocuments.clear();
+        
+        // Update UI
+        document.querySelectorAll('.document-card').forEach(card => {
+            const checkbox = card.querySelector('.card-checkbox');
+            
+            if (checkbox) {
+                checkbox.checked = false;
+                card.classList.remove('selected');
+            }
+        });
+        
+        console.log('All documents deselected');
+        this.updateSelectionButtons();
+    }
+
+    updateSelectionButtons() {
+        const exportSelectedBtn = document.getElementById('export-selected');
+        const deleteSelectedBtn = document.getElementById('delete-selected');
+        
+        const hasSelection = this.selectedDocuments.size > 0;
+        
+        if (this.isSelectionMode) {
+            exportSelectedBtn.style.display = hasSelection ? 'inline-flex' : 'none';
+            deleteSelectedBtn.style.display = hasSelection ? 'inline-flex' : 'none';
+        } else {
+            exportSelectedBtn.style.display = 'none';
+            deleteSelectedBtn.style.display = 'none';
+        }
+    }
+
+    async exportSelectedDocuments() {
+        if (this.selectedDocuments.size === 0) {
+            this.showToast('No documents selected for export', 'warning');
+            return;
+        }
+
+        try {
+            // Show loading message
+            this.showToast(`Exporting ${this.selectedDocuments.size} document(s) to PDF...`, 'info');
+
+            const selectedDocs = this.documents.filter(doc => this.selectedDocuments.has(doc.id));
+            
+            // Check if ExportUtils is available
+            if (typeof ExportUtils === 'undefined') {
+                this.showToast('Export utility not available. Please refresh the page.', 'error');
+                return;
+            }
+
+            // Create combined content for all selected documents
+            let combinedContent = '';
+            
+            for (let i = 0; i < selectedDocs.length; i++) {
+                const doc = selectedDocs[i];
+                
+                // Add document title as heading
+                combinedContent += `<h1>${this.escapeHtml(doc.title)}</h1>`;
+                
+                // Add document content
+                let docContent = '';
+                if (Array.isArray(doc.content)) {
+                    // New multi-page format
+                    docContent = doc.content.join('');
+                } else {
+                    // Old single-page format
+                    docContent = doc.content || '';
+                }
+                
+                if (!docContent.trim() || docContent === '<p><br></p>' || docContent === '<br>') {
+                    combinedContent += '<p><em>This document has no content.</em></p>';
+                } else {
+                    combinedContent += docContent;
+                }
+                
+                // Add page break between documents (except for the last one)
+                if (i < selectedDocs.length - 1) {
+                    combinedContent += '<div style="page-break-after: always;"></div>';
+                }
+            }
+
+            // Generate filename
+            const timestamp = new Date().toISOString().split('T')[0];
+            const filename = selectedDocs.length === 1 
+                ? selectedDocs[0].title 
+                : `Selected_Documents_${timestamp}`;
+
+            // Export the combined content
+            await ExportUtils.exportContentAsPDF(combinedContent, filename);
+
+            this.showToast(`Successfully exported ${this.selectedDocuments.size} document(s) to PDF!`, 'success');
+
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Failed to export selected documents. Please try again.', 'error');
         }
     }
 
@@ -341,12 +485,24 @@ class AdvancedDocumentDashboard {
     }
 
     async deleteSelectedDocuments() {
-        if (this.selectedDocuments.size === 0) return;
+        if (this.selectedDocuments.size === 0) {
+            this.showToast('No documents selected for deletion', 'warning');
+            return;
+        }
 
         const count = this.selectedDocuments.size;
         const documentsToDelete = Array.from(this.selectedDocuments);
         let deletedCount = 0;
         let failedDeletions = [];
+
+        // Show confirmation dialog
+        const confirmed = confirm(`Are you sure you want to delete ${count} selected document(s)? This action cannot be undone.`);
+        if (!confirmed) {
+            return;
+        }
+
+        // Show loading message
+        this.showToast(`Deleting ${count} document(s)...`, 'info');
 
         // Delete from server if available
         if (this.serverAvailable) {
@@ -378,19 +534,17 @@ class AdvancedDocumentDashboard {
             }
         });
 
+        // Clear selection and update UI
         this.selectedDocuments.clear();
-        this.isSelectionMode = false;
         this.saveDocuments();
-        this.renderDocuments();
+        this.renderAllDocuments(); // Re-render the all documents view
         this.updateEmptyState();
         this.updateDocumentCount();
         this.updateStorageInfo();
         this.populateRecentActivity();
+        this.updateSelectionButtons();
 
-        document.getElementById('select-all').textContent = 'Select All';
-        document.getElementById('delete-selected').style.display = 'none';
-
-        this.showToast(`${count} document(s) deleted`, 'success');
+        this.showToast(`${count} document(s) deleted successfully`, 'success');
     }
 
     duplicateDocument(documentId) {
@@ -634,11 +788,12 @@ class AdvancedDocumentDashboard {
 
     createDocumentCard(doc) {
         const isListView = this.currentView === 'list';
-        const cardClass = `document-card ${isListView ? 'list-view' : ''}`;
+        const isSelected = this.selectedDocuments.has(doc.id);
+        const cardClass = `document-card ${isListView ? 'list-view' : ''} ${this.isSelectionMode ? 'selection-mode' : ''} ${isSelected ? 'selected' : ''}`;
 
         return `
             <div class="${cardClass}" data-id="${doc.id}">
-                ${this.isSelectionMode ? `<input type="checkbox" class="card-checkbox" ${this.selectedDocuments.has(doc.id) ? 'checked' : ''}>` : ''}
+                ${this.isSelectionMode ? `<input type="checkbox" class="card-checkbox" ${isSelected ? 'checked' : ''}>` : ''}
                 
                 <div class="document-icon">
                     <i class="fas fa-file-alt"></i>
@@ -696,16 +851,24 @@ class AdvancedDocumentDashboard {
                         card.classList.remove('selected');
                     }
 
-                    // Update UI based on selection
-                    const deleteBtn = document.getElementById('delete-selected');
-                    if (this.selectedDocuments.size > 0) {
-                        deleteBtn.style.display = 'block';
-                        deleteBtn.textContent = `Delete Selected (${this.selectedDocuments.size})`;
-                    } else {
-                        deleteBtn.style.display = 'none';
-                    }
+                    // Update selection buttons visibility
+                    this.updateSelectionButtons();
                 });
             }
+
+            // Handle card click (but not when clicking checkbox or buttons)
+            card.addEventListener('click', (e) => {
+                // Don't open document if clicking on checkbox, buttons, or if in selection mode
+                if (e.target.type === 'checkbox' || 
+                    e.target.tagName === 'BUTTON' || 
+                    e.target.closest('button') ||
+                    this.isSelectionMode) {
+                    return;
+                }
+                
+                const docId = card.dataset.id;
+                this.openDocument(docId);
+            });
 
             // Double click to open
             card.addEventListener('dblclick', () => {
