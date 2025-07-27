@@ -141,13 +141,14 @@ const PORT = process.env.PORT || 3000;
 // Check if running in Electron
 const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 
-// Initialize database
+// Initialize database - it will create if it doesn't exist
 (async () => {
     try {
         await initializeDatabaseAsync();
         console.log('Database initialized successfully');
     } catch (error) {
         console.error('Failed to initialize database:', error);
+        console.log('The database will be created automatically on first use.');
     }
 })();
 
@@ -850,10 +851,10 @@ app.post('/api/generate-text', authenticateToken, async (req, res) => {
 
     } catch (error) {
         console.error('Error generating text:', error);
-        
+
         // Provide fallback response
         const fallbackText = `I'd be happy to help you write about "${req.body.prompt}". Here's a starting point that you can expand upon and customize to fit your specific needs.`;
-        
+
         res.json({
             success: false,
             generatedText: fallbackText,

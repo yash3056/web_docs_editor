@@ -56,11 +56,34 @@ The Web Docs Editor now features a comprehensive dashboard inspired by Microsoft
 
 ## Getting Started
 
-1. **Open the Editor**: Simply open `docseditor.html` in any modern web browser
-2. **Start Writing**: Click in the editor area and begin typing
-3. **Format Text**: Use the toolbar to format your text
-4. **Save Your Work**: Use Ctrl+S or click the Save button
-5. **Export**: Click Export dropdown and choose from HTML, PDF, or DOCX formats
+### Simple Setup
+
+After cloning the repository:
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start the application
+npm start
+```
+
+That's it! The database and all necessary files will be created automatically on first run.
+
+### First Run
+
+1. **Start the Server**: Run `npm start`
+2. **Open Browser**: Navigate to `http://localhost:3000`
+3. **Create Account**: Register a new user account
+4. **Start Creating**: Begin creating and editing documents
+
+### Using the Editor
+
+1. **Create Documents**: Use the dashboard to create new documents
+2. **Edit Content**: Use the rich text editor with formatting tools
+3. **Version Control**: Track changes and manage document versions
+4. **Export Documents**: Export to HTML, PDF, or DOCX formats
+5. **Classify Documents**: Use the built-in classification system
 
 ## Keyboard Shortcuts
 
@@ -140,6 +163,25 @@ To run the editor locally:
 3. Start editing!
 
 No build process or server required - it's a pure client-side application.
+
+## Troubleshooting
+
+### Common Issues After Git Clone
+
+**Problem**: SQLite rebuild errors
+```bash
+# Solution: Run the rebuild command
+npm rebuild
+```
+
+### Development Commands
+
+```bash
+npm start          # Start the production server
+npm run dev        # Start with nodemon (auto-restart)
+npm rebuild        # Rebuild native modules only
+npm test           # Run tests
+```
 
 ## Contributing
 
