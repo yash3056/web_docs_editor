@@ -266,6 +266,10 @@ class DocsEditor {
         // Version control
         document.getElementById('version-control-btn').addEventListener('click', () => this.openVersionControl());
 
+        // Line spacing controls
+        document.getElementById('line-spacing-btn').addEventListener('click', () => this.toggleLineSpacingMenu());
+        this.setupLineSpacingEventListeners();
+
         // Save and export
         const saveBtn = document.getElementById('save-btn');
         if (saveBtn) {
@@ -287,10 +291,18 @@ class DocsEditor {
 
         // Close export menu when clicking outside
         document.addEventListener('click', (e) => {
+            // Close export menu
             const exportDropdown = document.querySelector('.export-dropdown');
             const exportMenu = document.getElementById('export-menu');
-            if (!exportDropdown.contains(e.target)) {
-                exportMenu.classList.remove('show');
+            if (!exportDropdown?.contains(e.target)) {
+                exportMenu?.classList.remove('show');
+            }
+
+            // Close line spacing menu
+            const lineSpacingDropdown = document.querySelector('.line-spacing-dropdown');
+            const lineSpacingMenu = document.getElementById('line-spacing-menu');
+            if (!lineSpacingDropdown?.contains(e.target)) {
+                lineSpacingMenu?.classList.remove('show');
             }
         });
 
@@ -368,6 +380,482 @@ class DocsEditor {
                 }
             }
         });
+    }
+
+    // Line Spacing Methods
+    toggleLineSpacingMenu() {
+        const menu = document.getElementById('line-spacing-menu');
+        menu.classList.toggle('show');
+        
+        // Close menu when clicking outside
+        if (menu.classList.contains('show')) {
+            setTimeout(() => {
+                document.addEventListener('click', this.closeLineSpacingMenu.bind(this), { once: true });
+            }, 0);
+        }
+    }
+
+    closeLineSpacingMenu(event) {
+        const dropdown = document.querySelector('.line-spacing-dropdown');
+        const menu = document.getElementById('line-spacing-menu');
+        
+        if (!dropdown.contains(event.target)) {
+            menu.classList.remove('show');
+        }
+    }
+
+    setupLineSpacingEventListeners() {
+        const menu = document.getElementById('line-spacing-menu');
+        
+        // Handle spacing option clicks
+        menu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            const option = e.target.closest('.spacing-option');
+            if (!option) return;
+
+            const spacing = option.dataset.spacing;
+            const id = option.id;
+
+            if (spacing) {
+                // Apply line spacing
+                this.applyLineSpacing(parseFloat(spacing));
+            } else if (id === 'line-spacing-options') {
+                // Open detailed spacing modal
+                this.showLineSpacingModal();
+            } else if (id === 'add-space-before') {
+                this.adjustParagraphSpacing('before', 12);
+            } else if (id === 'remove-space-before') {
+                this.adjustParagraphSpacing('before', 0);
+            } else if (id === 'add-space-after') {
+                this.adjustParagraphSpacing('after', 12);
+            } else if (id === 'remove-space-after') {
+                this.adjustParagraphSpacing('after', 0);
+            }
+
+            this.closeLineSpacingMenu({ target: document.body });
+        });
+
+        // Setup modal event listeners
+        this.setupLineSpacingModalEvents();
+    }
+
+    applyLineSpacing(spacing) {
+        console.log('Applying line spacing:', spacing);
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount === 0 || selection.toString().trim() === '') {
+            // No selection or empty selection, apply to entire editor content
+            console.log('No selection, applying to all content');
+            this.applyLineSpacingToEditor(spacing);
+        } else {
+            // Apply to selected content
+            console.log('Applying to selection');
+            this.applySpacingToSelection(spacing);
+        }
+
+        this.updateLineSpacingButton(spacing);
+        this.saveState();
+    }
+
+    applyLineSpacingToEditor(spacing) {
+        // Apply to the editor itself first
+        this.setElementLineSpacing(this.editor, spacing);
+        
+        // Also apply to all child block elements
+        const blockElements = this.editor.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote');
+        blockElements.forEach(element => {
+            this.setElementLineSpacing(element, spacing);
+        });
+        
+        console.log(`Applied line spacing ${spacing} to editor and ${blockElements.length} block elements`);
+    }
+
+    getCurrentParagraphElement() {
+        const selection = window.getSelection();
+        let element = selection.anchorNode;
+        
+        console.log('Starting from node:', element);
+        
+        // If text node, get parent element
+        if (element && element.nodeType === Node.TEXT_NODE) {
+            element = element.parentElement;
+            console.log('Text node parent:', element);
+        }
+
+        // Find the paragraph-level element
+        while (element && element !== this.editor) {
+            console.log('Checking element:', element.tagName);
+            if (this.isParagraphElement(element)) {
+                console.log('Found paragraph element:', element.tagName);
+                return element;
+            }
+            element = element.parentElement;
+        }
+
+        console.log('No paragraph element found, checking if editor has div children');
+        
+        // If we reach the editor and no paragraph found, 
+        // check if content is directly in editor without proper block elements
+        const firstChild = this.editor.firstElementChild;
+        if (firstChild && this.isParagraphElement(firstChild)) {
+            console.log('Found first child paragraph:', firstChild.tagName);
+            return firstChild;
+        }
+
+        // If still no paragraph element, create one
+        console.log('Creating paragraph element for content');
+        return this.wrapContentInParagraph();
+    }
+
+    isParagraphElement(element) {
+        const blockElements = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'];
+        return blockElements.includes(element.tagName);
+    }
+
+    wrapContentInParagraph() {
+        // If there's loose text content in the editor, wrap it in a paragraph
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        
+        // Get the current cursor position
+        const currentNode = range.startContainer;
+        
+        // If we're in a text node directly in the editor
+        if (currentNode.parentNode === this.editor || 
+            (currentNode === this.editor && this.editor.childNodes.length > 0)) {
+            
+            // Create a paragraph element
+            const p = document.createElement('p');
+            
+            // Move current content to the paragraph
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+                // Wrap the text node
+                const parent = currentNode.parentNode;
+                parent.insertBefore(p, currentNode);
+                p.appendChild(currentNode);
+            } else if (currentNode === this.editor) {
+                // Editor is selected, wrap all content
+                while (this.editor.firstChild) {
+                    p.appendChild(this.editor.firstChild);
+                }
+                this.editor.appendChild(p);
+            }
+            
+            return p;
+        }
+        
+        return null;
+    }
+
+    setElementLineSpacing(element, spacing) {
+        // Use !important to override CSS defaults
+        element.style.setProperty('line-height', spacing.toString(), 'important');
+        console.log(`Applied line-height: ${spacing} to element:`, element.tagName, element);
+    }
+
+    applySpacingToSelection(spacing) {
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        
+        // Get all paragraph elements within the selection
+        const elements = this.getParagraphElementsInRange(range);
+        
+        elements.forEach(element => {
+            this.setElementLineSpacing(element, spacing);
+        });
+    }
+
+    getParagraphElementsInRange(range) {
+        const elements = [];
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode: (node) => {
+                    if (this.isParagraphElement(node) && range.intersectsNode(node)) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            elements.push(node);
+        }
+
+        return elements;
+    }
+
+    adjustParagraphSpacing(position, value) {
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount === 0) {
+            const currentElement = this.getCurrentParagraphElement();
+            if (currentElement) {
+                this.setParagraphSpacing(currentElement, position, value);
+            }
+        } else {
+            const range = selection.getRangeAt(0);
+            const elements = this.getParagraphElementsInRange(range);
+            elements.forEach(element => {
+                this.setParagraphSpacing(element, position, value);
+            });
+        }
+
+        this.saveState();
+    }
+
+    setParagraphSpacing(element, position, value) {
+        const property = position === 'before' ? 'marginTop' : 'marginBottom';
+        element.style[property] = value + 'pt';
+    }
+
+    updateLineSpacingButton(spacing) {
+        // Update button text to show current spacing
+        const btn = document.getElementById('line-spacing-btn');
+        if (btn) {
+            const icon = btn.querySelector('i:first-child');
+            const chevron = btn.querySelector('i:last-child');
+            
+            // You could update the button to show current spacing
+            // For now, we'll keep the icon as is
+        }
+    }
+
+    showLineSpacingModal() {
+        const modal = document.getElementById('line-spacing-modal');
+        
+        // Get current spacing values from selection
+        this.populateLineSpacingModal();
+        
+        modal.style.display = 'block';
+        
+        // Focus first input
+        setTimeout(() => {
+            const firstInput = modal.querySelector('select, input');
+            if (firstInput) firstInput.focus();
+        }, 100);
+    }
+
+    populateLineSpacingModal() {
+        // Get current paragraph element to read existing values
+        const currentElement = this.getCurrentParagraphElement();
+        
+        if (currentElement) {
+            const computedStyle = window.getComputedStyle(currentElement);
+            
+            // Parse line height
+            const lineHeight = computedStyle.lineHeight;
+            if (lineHeight && lineHeight !== 'normal') {
+                const fontSize = parseFloat(computedStyle.fontSize);
+                const lineHeightValue = parseFloat(lineHeight);
+                const ratio = lineHeightValue / fontSize;
+                
+                document.getElementById('line-spacing-value').value = ratio.toFixed(1);
+                
+                // Set appropriate type
+                if (Math.abs(ratio - 1.0) < 0.1) {
+                    document.getElementById('line-spacing-type').value = 'single';
+                } else if (Math.abs(ratio - 1.5) < 0.1) {
+                    document.getElementById('line-spacing-type').value = '1.5';
+                } else if (Math.abs(ratio - 2.0) < 0.1) {
+                    document.getElementById('line-spacing-type').value = 'double';
+                } else {
+                    document.getElementById('line-spacing-type').value = 'multiple';
+                }
+            }
+            
+            // Parse margins
+            const marginTop = parseFloat(computedStyle.marginTop) || 0;
+            const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
+            
+            document.getElementById('space-before').value = Math.round(marginTop * 0.75); // Convert px to pt approximately
+            document.getElementById('space-after').value = Math.round(marginBottom * 0.75);
+        }
+        
+        this.updateSpacingPreview();
+    }
+
+    setupLineSpacingModalEvents() {
+        // Type selection change
+        document.getElementById('line-spacing-type').addEventListener('change', (e) => {
+            const type = e.target.value;
+            const valueInput = document.getElementById('line-spacing-value');
+            const unitSpan = document.getElementById('line-spacing-unit');
+            
+            switch (type) {
+                case 'single':
+                    valueInput.value = '1.0';
+                    valueInput.disabled = true;
+                    unitSpan.textContent = 'lines';
+                    break;
+                case '1.5':
+                    valueInput.value = '1.5';
+                    valueInput.disabled = true;
+                    unitSpan.textContent = 'lines';
+                    break;
+                case 'double':
+                    valueInput.value = '2.0';
+                    valueInput.disabled = true;
+                    unitSpan.textContent = 'lines';
+                    break;
+                case 'multiple':
+                    valueInput.disabled = false;
+                    unitSpan.textContent = 'lines';
+                    break;
+                case 'at-least':
+                    valueInput.disabled = false;
+                    unitSpan.textContent = 'pt';
+                    break;
+                case 'exactly':
+                    valueInput.disabled = false;
+                    unitSpan.textContent = 'pt';
+                    break;
+            }
+            this.updateSpacingPreview();
+        });
+
+        // Value changes
+        ['line-spacing-value', 'space-before', 'space-after'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                this.updateSpacingPreview();
+            });
+        });
+
+        // Checkbox change
+        document.getElementById('dont-add-space').addEventListener('change', () => {
+            this.updateSpacingPreview();
+        });
+
+        // Modal buttons
+        document.getElementById('apply-spacing-btn').addEventListener('click', () => {
+            this.applyDetailedSpacing();
+            this.closeLineSpacingModal();
+        });
+
+        document.getElementById('cancel-spacing-btn').addEventListener('click', () => {
+            this.closeLineSpacingModal();
+        });
+
+        // Close button
+        const modal = document.getElementById('line-spacing-modal');
+        const closeBtn = modal.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeLineSpacingModal();
+            });
+        }
+
+        // Click outside to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeLineSpacingModal();
+            }
+        });
+    }
+
+    updateSpacingPreview() {
+        const preview = document.getElementById('spacing-preview');
+        const type = document.getElementById('line-spacing-type').value;
+        const value = parseFloat(document.getElementById('line-spacing-value').value) || 1.0;
+        const spaceBefore = parseFloat(document.getElementById('space-before').value) || 0;
+        const spaceAfter = parseFloat(document.getElementById('space-after').value) || 0;
+
+        // Calculate line height
+        let lineHeight;
+        switch (type) {
+            case 'single':
+                lineHeight = '1.0';
+                break;
+            case '1.5':
+                lineHeight = '1.5';
+                break;
+            case 'double':
+                lineHeight = '2.0';
+                break;
+            case 'multiple':
+                lineHeight = value.toString();
+                break;
+            case 'at-least':
+                lineHeight = value + 'pt';
+                break;
+            case 'exactly':
+                lineHeight = value + 'pt';
+                break;
+            default:
+                lineHeight = '1.15';
+        }
+
+        // Apply styles to preview
+        const paragraphs = preview.querySelectorAll('p');
+        paragraphs.forEach((p, index) => {
+            p.style.lineHeight = lineHeight;
+            p.style.marginTop = (index === 0 ? 0 : spaceBefore) + 'pt';
+            p.style.marginBottom = spaceAfter + 'pt';
+        });
+    }
+
+    applyDetailedSpacing() {
+        const type = document.getElementById('line-spacing-type').value;
+        const value = parseFloat(document.getElementById('line-spacing-value').value) || 1.0;
+        const spaceBefore = parseFloat(document.getElementById('space-before').value) || 0;
+        const spaceAfter = parseFloat(document.getElementById('space-after').value) || 0;
+
+        // Calculate line height
+        let lineHeight;
+        switch (type) {
+            case 'single':
+                lineHeight = 1.0;
+                break;
+            case '1.5':
+                lineHeight = 1.5;
+                break;
+            case 'double':
+                lineHeight = 2.0;
+                break;
+            case 'multiple':
+                lineHeight = value;
+                break;
+            case 'at-least':
+            case 'exactly':
+                lineHeight = value + 'pt';
+                break;
+            default:
+                lineHeight = 1.15;
+        }
+
+        // Apply to current selection or paragraph
+        const selection = window.getSelection();
+        
+        if (selection.rangeCount === 0) {
+            const currentElement = this.getCurrentParagraphElement();
+            if (currentElement) {
+                this.applyDetailedSpacingToElement(currentElement, lineHeight, spaceBefore, spaceAfter);
+            }
+        } else {
+            const range = selection.getRangeAt(0);
+            const elements = this.getParagraphElementsInRange(range);
+            elements.forEach(element => {
+                this.applyDetailedSpacingToElement(element, lineHeight, spaceBefore, spaceAfter);
+            });
+        }
+
+        this.saveState();
+        this.showNotification('Spacing applied successfully!', 'success');
+    }
+
+    applyDetailedSpacingToElement(element, lineHeight, spaceBefore, spaceAfter) {
+        element.style.lineHeight = lineHeight.toString();
+        element.style.marginTop = spaceBefore + 'pt';
+        element.style.marginBottom = spaceAfter + 'pt';
+    }
+
+    closeLineSpacingModal() {
+        const modal = document.getElementById('line-spacing-modal');
+        modal.style.display = 'none';
     }
 
     updateWordCount() {

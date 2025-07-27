@@ -145,6 +145,55 @@
             <div class="toolbar-separator"></div>
 
             <div class="toolbar-group">
+                <div class="line-spacing-dropdown">
+                    <button class="toolbar-btn line-spacing-btn" id="line-spacing-btn" title="Line and Paragraph Spacing">
+                        <i class="fas fa-align-justify"></i>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="line-spacing-menu" id="line-spacing-menu">
+                        <div class="spacing-option" data-spacing="1.0">
+                            <span>1.0</span>
+                        </div>
+                        <div class="spacing-option" data-spacing="1.15">
+                            <span>1.15</span>
+                        </div>
+                        <div class="spacing-option" data-spacing="1.5">
+                            <span>1.5</span>
+                        </div>
+                        <div class="spacing-option" data-spacing="2.0">
+                            <span>2.0</span>
+                        </div>
+                        <div class="spacing-option" data-spacing="2.5">
+                            <span>2.5</span>
+                        </div>
+                        <div class="spacing-option" data-spacing="3.0">
+                            <span>3.0</span>
+                        </div>
+                        <div class="spacing-separator"></div>
+                        <div class="spacing-option" id="line-spacing-options">
+                            <i class="fas fa-cog"></i>
+                            <span>Line Spacing Options...</span>
+                        </div>
+                        <div class="spacing-separator"></div>
+                        <div class="spacing-option" id="add-space-before">
+                            <span>Add Space Before Paragraph</span>
+                        </div>
+                        <div class="spacing-option" id="remove-space-before">
+                            <span>Remove Space Before Paragraph</span>
+                        </div>
+                        <div class="spacing-option" id="add-space-after">
+                            <span>Add Space After Paragraph</span>
+                        </div>
+                        <div class="spacing-option" id="remove-space-after">
+                            <span>Remove Space After Paragraph</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
                 <button class="toolbar-btn" id="bullet-list-btn" title="Bullet List">
                     <i class="fas fa-list-ul"></i>
                 </button>
@@ -322,6 +371,74 @@
                 <button class="btn btn-primary" id="apply-watermark-btn">Apply</button>
                 <button class="btn btn-secondary" id="remove-watermark-btn">Remove</button>
                 <button class="btn btn-secondary" id="cancel-watermark-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Line Spacing Options Modal -->
+    <div id="line-spacing-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Line and Paragraph Spacing</h3>
+            
+            <div class="spacing-sections">
+                <div class="spacing-section">
+                    <h4>Line Spacing</h4>
+                    <div class="form-group">
+                        <label for="line-spacing-type">Type:</label>
+                        <select id="line-spacing-type">
+                            <option value="single">Single</option>
+                            <option value="1.5">1.5 lines</option>
+                            <option value="double">Double</option>
+                            <option value="multiple">Multiple</option>
+                            <option value="at-least">At least</option>
+                            <option value="exactly">Exactly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="line-spacing-value">At:</label>
+                        <input type="number" id="line-spacing-value" min="0.1" step="0.1" value="1.0">
+                        <span id="line-spacing-unit">lines</span>
+                    </div>
+                </div>
+
+                <div class="spacing-section">
+                    <h4>Paragraph Spacing</h4>
+                    <div class="form-group">
+                        <label for="space-before">Before:</label>
+                        <input type="number" id="space-before" min="0" step="1" value="0">
+                        <span>pt</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="space-after">After:</label>
+                        <input type="number" id="space-after" min="0" step="1" value="0">
+                        <span>pt</span>
+                    </div>
+                </div>
+
+                <div class="spacing-section">
+                    <h4>Options</h4>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="dont-add-space">
+                            Don't add space between paragraphs of the same style
+                        </label>
+                    </div>
+                </div>
+
+                <div class="spacing-preview">
+                    <h4>Preview</h4>
+                    <div class="preview-content" id="spacing-preview">
+                        <p>This is a sample paragraph to show how the spacing will look.</p>
+                        <p>This is another paragraph to demonstrate the spacing between paragraphs.</p>
+                        <p>You can see how the line spacing and paragraph spacing affect the text layout.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="apply-spacing-btn">OK</button>
+                <button class="btn btn-secondary" id="cancel-spacing-btn">Cancel</button>
             </div>
         </div>
     </div>
