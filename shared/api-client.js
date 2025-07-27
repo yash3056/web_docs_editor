@@ -327,6 +327,63 @@ class DocumentAPI {
             return false;
         }
     }
+
+    // AI Text Generation
+    async generateText(prompt, context = '') {
+        console.log('=== API GENERATE TEXT START ===');
+        console.log('Prompt:', prompt);
+        console.log('Context:', context);
+        
+        try {
+            // Use classification server URL (port 8000) for text generation
+            const classificationServerUrl = 'http://localhost:8000';
+            const url = `${classificationServerUrl}/generate-text`;
+            const requestBody = { 
+                prompt: prompt,
+                context: context 
+            };
+            
+            console.log('Request URL:', url);
+            console.log('Request body:', requestBody);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error text:', errorText);
+                throw new Error(`Failed to generate text: ${response.status} ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Response JSON:', result);
+            
+            const returnValue = {
+                text: result.generatedText,
+                success: result.success
+            };
+            
+            console.log('Returning:', returnValue);
+            console.log('=== API GENERATE TEXT END ===');
+            
+            return returnValue;
+        } catch (error) {
+            console.error('=== API GENERATE TEXT ERROR ===');
+            console.error('Error generating text:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            throw error;
+        }
+    }
 }
 
 // Export for use in other files

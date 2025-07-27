@@ -5,12 +5,22 @@ pyinstaller --onefile --console --name classification_server --hidden-import lla
 ```
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from llama_cpp import Llama
 import json
 import traceback
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # --- CONFIGURATION ---
 # IMPORTANT: Update this path to your local Qwen GGUF model
