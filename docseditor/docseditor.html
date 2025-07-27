@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="../shared/export-utils.js"></script>
+    <!-- Showdown.js for markdown to HTML conversion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <script>
         // Check authentication before loading the page
         const authToken = localStorage.getItem('authToken');
@@ -24,6 +27,7 @@
         }
     </script>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -35,7 +39,8 @@
                 </h1>
             </div>
             <div class="header-center">
-                <input type="text" id="document-title" class="document-title" placeholder="Untitled Document" value="Untitled Document">
+                <input type="text" id="document-title" class="document-title" placeholder="Untitled Document"
+                    value="Untitled Document">
             </div>
             <div class="header-right">
                 <button class="btn btn-info" id="dashboard-btn">
@@ -229,14 +234,14 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <h3>Insert Image</h3>
-            
+
             <div class="modal-body">
                 <!-- Image Source Tabs -->
                 <div class="image-tabs">
                     <button class="tab-btn active" id="url-tab">From URL</button>
                     <button class="tab-btn" id="upload-tab">Upload File</button>
                 </div>
-                
+
                 <!-- URL Tab Content -->
                 <div class="tab-content active" id="url-content">
                     <div class="form-group">
@@ -244,7 +249,7 @@
                         <input type="url" id="image-url" placeholder="https://example.com/image.jpg">
                     </div>
                 </div>
-                
+
                 <!-- Upload Tab Content -->
                 <div class="tab-content" id="upload-content">
                     <div class="form-group">
@@ -256,7 +261,7 @@
                             <p class="file-info">Supports: JPG, PNG, GIF, WebP</p>
                         </div>
                     </div>
-                    
+
                     <!-- Image Preview -->
                     <div class="image-preview" id="image-preview" style="display: none;">
                         <img id="preview-img" src="" alt="Preview">
@@ -266,19 +271,19 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Common Fields -->
                 <div class="form-group">
                     <label for="image-alt">Alt Text (Description):</label>
                     <input type="text" id="image-alt" placeholder="Describe the image for accessibility">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="image-width">Width (optional):</label>
                     <input type="number" id="image-width" placeholder="Auto" min="50" max="1000">
                 </div>
             </div>
-            
+
             <div class="modal-actions">
                 <button class="btn btn-primary" id="insert-image-btn">Insert</button>
                 <button class="btn btn-secondary" id="cancel-image-btn">Cancel</button>
@@ -344,6 +349,38 @@
         <div class="context-menu-item" id="context-ai-writing">
             <i class="fas fa-magic"></i>
             <span>AI Writing</span>
+        </div>
+        <div class="context-menu-item has-submenu" id="context-refine-text" style="display: none;">
+            <i class="fas fa-magic"></i>
+            <span>Refine the selected text</span>
+            <span class="new-badge">New</span>
+            <i class="fas fa-chevron-right submenu-arrow"></i>
+            <div class="context-submenu" id="refine-submenu">
+                <div class="context-menu-item" data-action="rephrase">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Rephrase</span>
+                </div>
+                <div class="context-menu-item" data-action="shorten">
+                    <i class="fas fa-compress-alt"></i>
+                    <span>Shorten</span>
+                </div>
+                <div class="context-menu-item" data-action="formal">
+                    <i class="fas fa-user-tie"></i>
+                    <span>More formal</span>
+                </div>
+                <div class="context-menu-item" data-action="casual">
+                    <i class="fas fa-comments"></i>
+                    <span>More casual</span>
+                </div>
+                <div class="context-menu-item" data-action="bulletize">
+                    <i class="fas fa-list-ul"></i>
+                    <span>Bulletize</span>
+                </div>
+                <div class="context-menu-item" data-action="summarize">
+                    <i class="fas fa-compress"></i>
+                    <span>Summarize</span>
+                </div>
+            </div>
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" id="context-bold">
@@ -413,7 +450,8 @@
             </div>
             <div class="ai-disclaimer">
                 <i class="fas fa-info-circle"></i>
-                This is a creative writing aid, and is not intended to be factual. <a href="#" class="learn-more-link">Learn more</a>
+                This is a creative writing aid, and is not intended to be factual. <a href="#"
+                    class="learn-more-link">Learn more</a>
             </div>
             <div class="ai-actions">
                 <div class="ai-feedback">
@@ -465,7 +503,80 @@
         </div>
     </div>
 
+    <!-- Refine Text Results Popup -->
+    <div class="refine-results-popup" id="refine-results-popup" style="display: none;">
+        <div class="refine-popup-header">
+            <div class="refine-icon">
+                <i class="fas fa-magic"></i>
+            </div>
+            <span class="refine-title" id="refine-title">Formal</span>
+            <button class="refine-close-btn" id="refine-close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="refine-popup-body">
+            <div class="refine-content" id="refine-content">
+                <!-- Refined content will be inserted here -->
+            </div>
+            <div class="refine-disclaimer">
+                <i class="fas fa-info-circle"></i>
+                This is a creative writing aid, and is not intended to be factual. <a href="#"
+                    class="learn-more-link">Learn more</a>
+            </div>
+            <div class="refine-actions">
+                <div class="refine-feedback">
+                    <button class="refine-feedback-btn" id="refine-thumbs-up" title="Good response">
+                        <i class="fas fa-thumbs-up"></i>
+                    </button>
+                    <button class="refine-feedback-btn" id="refine-thumbs-down" title="Poor response">
+                        <i class="fas fa-thumbs-down"></i>
+                    </button>
+                </div>
+                <div class="refine-input-container">
+                    <input type="text" class="refine-prompt-input" id="refine-prompt-input"
+                        placeholder="Refine with a prompt">
+                </div>
+                <div class="refine-buttons">
+                    <div class="refine-dropdown">
+                        <button class="refine-action-btn" id="refine-action-btn">
+                            Refine
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="refine-dropdown-menu" id="refine-dropdown-menu" style="display: none;">
+                            <div class="refine-dropdown-item" data-action="rephrase">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Rephrase</span>
+                            </div>
+                            <div class="refine-dropdown-item" data-action="shorten">
+                                <i class="fas fa-compress-alt"></i>
+                                <span>Shorten</span>
+                            </div>
+                            <div class="refine-dropdown-item" data-action="formal">
+                                <i class="fas fa-user-tie"></i>
+                                <span>More formal</span>
+                            </div>
+                            <div class="refine-dropdown-item" data-action="casual">
+                                <i class="fas fa-comments"></i>
+                                <span>More casual</span>
+                            </div>
+                            <div class="refine-dropdown-item" data-action="bulletize">
+                                <i class="fas fa-list-ul"></i>
+                                <span>Bulletize</span>
+                            </div>
+                            <div class="refine-dropdown-item" data-action="summarize">
+                                <i class="fas fa-compress"></i>
+                                <span>Summarize</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="refine-insert-btn" id="refine-insert-btn">Insert</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="../shared/api-client.js"></script>
     <script src="docseditor.js"></script>
 </body>
+
 </html>

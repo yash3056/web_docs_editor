@@ -48,6 +48,7 @@ class DocsEditor {
         this.setupAutoSave();
         this.setupCustomContextMenu();
         this.setupAIWritingEventListeners();
+        this.setupRefinePopupEventListeners();
 
         // Add cleanup on page unload
         window.addEventListener('beforeunload', () => {
@@ -58,13 +59,18 @@ class DocsEditor {
     }
 
     async checkServerStatus() {
+        console.log('=== CHECKING SERVER STATUS ===');
         try {
+            console.log('Calling api.checkServerHealth()...');
             this.serverAvailable = await this.api.checkServerHealth();
+            console.log('Server health check result:', this.serverAvailable);
             console.log('Server status:', this.serverAvailable ? 'Online' : 'Offline');
         } catch (error) {
+            console.error('Server check error:', error);
             this.serverAvailable = false;
             console.log('Server check failed, using offline mode');
         }
+        console.log('Final serverAvailable value:', this.serverAvailable);
     }
 
     initializeEditor() {
@@ -1919,9 +1925,26 @@ class DocsEditor {
     }
 
     showCustomContextMenu(event) {
+        console.log('=== SHOW CUSTOM CONTEXT MENU ===');
         const contextMenu = document.getElementById('custom-context-menu');
         const selection = window.getSelection();
         const hasSelection = selection.toString().length > 0;
+        
+        console.log('Has selection:', hasSelection);
+        console.log('Selection text:', selection.toString());
+        console.log('Selection range count:', selection.rangeCount);
+
+        // Store the current selection to preserve it
+        this.savedSelection = null;
+        if (hasSelection && selection.rangeCount > 0) {
+            this.savedSelection = {
+                range: selection.getRangeAt(0).cloneRange(),
+                text: selection.toString()
+            };
+            console.log('Saved selection:', this.savedSelection);
+        } else {
+            console.log('No selection to save');
+        }
 
         // IMPORTANT: Store cursor position when context menu is shown (right-click)
         // This ensures we capture the position before any menu interactions
@@ -1974,6 +1997,8 @@ class DocsEditor {
         const boldItem = document.getElementById('context-bold');
         const italicItem = document.getElementById('context-italic');
         const underlineItem = document.getElementById('context-underline');
+        const aiWritingItem = document.getElementById('context-ai-writing');
+        const refineTextItem = document.getElementById('context-refine-text');
 
         // Cut and Copy only available when text is selected
         if (hasSelection) {
@@ -1982,6 +2007,17 @@ class DocsEditor {
         } else {
             cutItem.classList.add('disabled');
             copyItem.classList.add('disabled');
+        }
+
+        // Show appropriate AI option based on selection
+        if (hasSelection) {
+            // Show refine text option when text is selected
+            aiWritingItem.style.display = 'none';
+            refineTextItem.style.display = 'flex';
+        } else {
+            // Show AI writing option when no text is selected
+            aiWritingItem.style.display = 'flex';
+            refineTextItem.style.display = 'none';
         }
 
         // Update formatting buttons based on current selection
@@ -2073,13 +2109,293 @@ class DocsEditor {
             this.hideCustomContextMenu();
         });
 
-        // AI Writing
+        // AI Writing (when no text selected)
         document.getElementById('context-ai-writing').addEventListener('click', (e) => {
             e.preventDefault();
-            e.stopPropagation(); // Prevent event bubbling
+            e.stopPropagation();
             this.showAIWritingPopup();
             this.hideCustomContextMenu();
         });
+
+        // Refine text submenu handlers (when text is selected)
+        const refineOptions = document.querySelectorAll('#refine-submenu .context-menu-item');
+        console.log('Found refine options:', refineOptions.length);
+        
+        refineOptions.forEach((option, index) => {
+            const action = option.getAttribute('data-action');
+            console.log(`Setting up handler for option ${index}:`, action);
+            
+            option.addEventListener('click', (e) => {
+                console.log('=== REFINE OPTION CLICKED ===');
+                console.log('Clicked option:', action);
+                console.log('Event:', e);
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('Calling handleRefineText with action:', action);
+                this.handleRefineText(action);
+                this.hideCustomContextMenu();
+            });
+        });
+    }
+
+    handleRefineText(action) {
+        console.log('=== HANDLE REFINE TEXT START ===');
+        console.log('Action:', action);
+        console.log('Saved selection exists:', !!this.savedSelection);
+        
+        // Check if we have saved selection
+        if (!this.savedSelection || !this.savedSelection.text.trim()) {
+            console.error('No saved selection or empty text');
+            console.log('Saved selection:', this.savedSelection);
+            this.showNotification('Please select text to refine', 'error');
+            return;
+        }
+
+        const selectedText = this.savedSelection.text;
+        console.log('Selected text to refine:', selectedText);
+        console.log('Text length:', selectedText.length);
+
+        // Restore the selection first
+        const restored = this.restoreSelection();
+        console.log('Selection restored:', restored);
+
+        // Show loading state
+        this.showNotification('Refining text...', 'info');
+
+        // Call the refine API
+        console.log('Calling refineSelectedText...');
+        this.refineSelectedText(selectedText, action);
+        console.log('=== HANDLE REFINE TEXT END ===');
+    }
+
+    restoreSelection() {
+        if (this.savedSelection && this.savedSelection.range) {
+            try {
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(this.savedSelection.range);
+                this.editor.focus();
+                return true;
+            } catch (error) {
+                console.warn('Failed to restore selection:', error);
+                return false;
+            }
+        }
+        return false;
+    }
+
+    async refineSelectedText(text, action) {
+        console.log('=== REFINE SELECTED TEXT START ===');
+        console.log('Input text:', text);
+        console.log('Action:', action);
+        console.log('Server available:', this.serverAvailable);
+        
+        try {
+            // Check if server is available
+            if (!this.serverAvailable) {
+                console.error('Server not available');
+                this.showNotification('AI service is not available', 'error');
+                return;
+            }
+
+            // Prepare the prompt based on action
+            let prompt = '';
+            switch (action) {
+                case 'rephrase':
+                    prompt = `Please rephrase the following text while keeping the same meaning: "${text}"`;
+                    break;
+                case 'shorten':
+                    prompt = `Please make the following text shorter and more concise: "${text}"`;
+                    break;
+                case 'formal':
+                    prompt = `Please rewrite the following text in a more formal tone: "${text}"`;
+                    break;
+                case 'casual':
+                    prompt = `Please rewrite the following text in a more casual tone: "${text}"`;
+                    break;
+                case 'bulletize':
+                    prompt = `Please convert the following text into bullet points: "${text}"`;
+                    break;
+                case 'summarize':
+                    prompt = `Please summarize the following text: "${text}"`;
+                    break;
+                default:
+                    prompt = `Please improve the following text: "${text}"`;
+            }
+
+            console.log('Generated prompt:', prompt);
+
+            // Store action title for popup
+            let actionTitle = '';
+            switch (action) {
+                case 'rephrase': actionTitle = 'Rephrase'; break;
+                case 'shorten': actionTitle = 'Shorten'; break;
+                case 'formal': actionTitle = 'Formal'; break;
+                case 'casual': actionTitle = 'Casual'; break;
+                case 'bulletize': actionTitle = 'Bulletize'; break;
+                case 'summarize': actionTitle = 'Summarize'; break;
+                default: actionTitle = 'Improve'; break;
+            }
+
+            console.log('Action title:', actionTitle);
+
+            // Call the AI API
+            console.log('Calling API generateText...');
+            const response = await this.api.generateText(prompt);
+            console.log('API response received:', response);
+
+            if (response && response.text) {
+                console.log('Raw response text:', response.text);
+                
+                // Process the response to remove content before </think>
+                let processedText = this.processAIResponse(response.text);
+                console.log('Processed text:', processedText);
+                
+                // Show the refine results popup
+                console.log('Showing refine results popup...');
+                this.showRefineResultsPopup(processedText, actionTitle);
+                console.log('Popup should be visible now');
+            } else {
+                console.error('No response or no text in response:', response);
+                throw new Error('No response from AI service');
+            }
+
+        } catch (error) {
+            console.error('=== ERROR IN REFINE SELECTED TEXT ===');
+            console.error('Error details:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            this.showNotification('Failed to refine text. Please try again.', 'error');
+        }
+        
+        console.log('=== REFINE SELECTED TEXT END ===');
+    }
+
+    processAIResponse(text) {
+        // Remove everything before and including </think> tag
+        const thinkEndIndex = text.indexOf('</think>');
+        if (thinkEndIndex !== -1) {
+            text = text.substring(thinkEndIndex + 8); // 8 is length of '</think>'
+        }
+        
+        // Clean up any remaining whitespace
+        return text.trim();
+    }
+
+    showRefineResultsPopup(text, actionTitle) {
+        console.log('=== SHOW REFINE RESULTS POPUP START ===');
+        console.log('Text to show:', text);
+        console.log('Action title:', actionTitle);
+        
+        const popup = document.getElementById('refine-results-popup');
+        const titleElement = document.getElementById('refine-title');
+        const contentElement = document.getElementById('refine-content');
+        
+        console.log('Popup element found:', !!popup);
+        console.log('Title element found:', !!titleElement);
+        console.log('Content element found:', !!contentElement);
+        
+        if (!popup || !titleElement || !contentElement) {
+            console.error('Required popup elements not found!');
+            console.error('Popup:', popup);
+            console.error('Title:', titleElement);
+            console.error('Content:', contentElement);
+            return;
+        }
+        
+        // Set the title
+        titleElement.textContent = actionTitle;
+        console.log('Title set to:', actionTitle);
+        
+        // Convert markdown to HTML using Showdown
+        console.log('Showdown available:', typeof showdown !== 'undefined');
+        if (typeof showdown !== 'undefined') {
+            try {
+                const converter = new showdown.Converter();
+                const htmlContent = converter.makeHtml(text);
+                console.log('Converted HTML:', htmlContent);
+                contentElement.innerHTML = htmlContent;
+            } catch (showdownError) {
+                console.error('Showdown conversion error:', showdownError);
+                contentElement.textContent = text;
+            }
+        } else {
+            // Fallback if Showdown is not loaded
+            console.log('Using fallback text content');
+            contentElement.textContent = text;
+        }
+        
+        // Store the processed text for insertion
+        this.currentRefinedText = text;
+        console.log('Stored refined text:', this.currentRefinedText);
+        
+        // Position the popup in the center of the screen
+        const x = window.innerWidth / 2 - 250; // Center horizontally (popup width is 500px)
+        const y = window.innerHeight / 2 - 200; // Center vertically
+        
+        console.log('Positioning popup at:', x, y);
+        popup.style.left = `${x}px`;
+        popup.style.top = `${y}px`;
+        popup.style.display = 'block';
+        
+        console.log('Popup display set to block');
+        
+        // Add show animation
+        setTimeout(() => {
+            popup.classList.add('show');
+            console.log('Show class added to popup');
+        }, 10);
+        
+        // Make popup draggable
+        try {
+            this.makeDraggable(popup);
+            console.log('Popup made draggable');
+        } catch (dragError) {
+            console.error('Error making popup draggable:', dragError);
+        }
+        
+        console.log('=== SHOW REFINE RESULTS POPUP END ===');
+    }
+
+    hideRefineResultsPopup() {
+        const popup = document.getElementById('refine-results-popup');
+        popup.classList.remove('show');
+        setTimeout(() => popup.style.display = 'none', 200);
+    }
+
+    replaceSelectedText(newText) {
+        if (this.restoreSelection()) {
+            try {
+                // Check if the text contains HTML tags
+                const hasHtmlTags = /<[^>]*>/g.test(newText);
+                
+                if (hasHtmlTags) {
+                    // Use insertHTML for rich content
+                    document.execCommand('insertHTML', false, newText);
+                } else {
+                    // Use insertText for plain text
+                    document.execCommand('insertText', false, newText);
+                }
+
+                // Update editor state
+                this.updateWordCount();
+                this.updatePageLayout();
+                this.updateCurrentPage();
+                this.saveState();
+
+                // Clear saved selection
+                this.savedSelection = null;
+
+            } catch (error) {
+                console.error('Error replacing text:', error);
+                this.showNotification('Failed to replace text', 'error');
+            }
+        } else {
+            // Fallback: insert at cursor position
+            this.insertHTML(newText);
+        }
     }
 
     showAIWritingPopup() {
@@ -2141,7 +2457,16 @@ class DocsEditor {
     }
 
     makeDraggable(popup) {
-        const header = popup.querySelector('.ai-popup-header');
+        // Try to find header with different class names
+        const header = popup.querySelector('.ai-popup-header') || 
+                      popup.querySelector('.refine-popup-header') ||
+                      popup.querySelector('.popup-header');
+        
+        if (!header) {
+            console.warn('No draggable header found for popup');
+            return;
+        }
+        
         let isDragging = false;
         let startX, startY, startLeft, startTop;
 
@@ -2150,7 +2475,7 @@ class DocsEditor {
 
         header.addEventListener('mousedown', (e) => {
             // Don't start dragging if clicking on close button
-            if (e.target.closest('.ai-close-btn')) return;
+            if (e.target.closest('.ai-close-btn') || e.target.closest('.refine-close-btn')) return;
 
             isDragging = true;
             startX = e.clientX;
@@ -2774,6 +3099,118 @@ class DocsEditor {
                 }
                 if (resultsPopup.style.display === 'block') {
                     this.hideAIResultsPopup();
+                }
+            }
+        });
+    }
+
+    setupRefinePopupEventListeners() {
+        // Close button
+        document.getElementById('refine-close-btn').addEventListener('click', () => {
+            this.hideRefineResultsPopup();
+        });
+
+        // Insert button
+        document.getElementById('refine-insert-btn').addEventListener('click', () => {
+            if (this.currentRefinedText) {
+                // Convert markdown to plain text for insertion
+                let textToInsert = this.currentRefinedText;
+                if (typeof showdown !== 'undefined') {
+                    const converter = new showdown.Converter();
+                    const htmlContent = converter.makeHtml(textToInsert);
+                    // Create a temporary div to extract text content
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlContent;
+                    textToInsert = tempDiv.innerHTML; // Keep HTML for rich text insertion
+                }
+                
+                this.replaceSelectedText(textToInsert);
+                this.hideRefineResultsPopup();
+                this.showNotification('Text refined and inserted successfully!', 'success');
+            }
+        });
+
+        // Feedback buttons
+        document.getElementById('refine-thumbs-up').addEventListener('click', (e) => {
+            e.target.closest('button').classList.toggle('active');
+            document.getElementById('refine-thumbs-down').classList.remove('active');
+        });
+
+        document.getElementById('refine-thumbs-down').addEventListener('click', (e) => {
+            e.target.closest('button').classList.toggle('active');
+            document.getElementById('refine-thumbs-up').classList.remove('active');
+        });
+
+        // Refine dropdown toggle
+        document.getElementById('refine-action-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('refine-dropdown-menu');
+            const isVisible = dropdown.style.display === 'block';
+            dropdown.style.display = isVisible ? 'none' : 'block';
+        });
+
+        // Refine dropdown options
+        document.querySelectorAll('.refine-dropdown-item').forEach(item => {
+            item.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const action = item.getAttribute('data-action');
+                
+                // Hide dropdown
+                document.getElementById('refine-dropdown-menu').style.display = 'none';
+                
+                // Perform refinement
+                if (this.savedSelection) {
+                    try {
+                        this.showNotification('Refining text...', 'info');
+                        await this.refineSelectedText(this.savedSelection.text, action);
+                    } catch (error) {
+                        console.error('Error with dropdown refine:', error);
+                        this.showNotification('Failed to refine text', 'error');
+                    }
+                }
+            });
+        });
+
+        // Refine with custom prompt
+        document.getElementById('refine-prompt-input').addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const promptInput = e.target;
+                const customPrompt = promptInput.value.trim();
+                
+                if (customPrompt && this.savedSelection) {
+                    try {
+                        this.showNotification('Refining with custom prompt...', 'info');
+                        const fullPrompt = `${customPrompt}: "${this.savedSelection.text}"`;
+                        const response = await this.api.generateText(fullPrompt);
+                        
+                        if (response && response.text) {
+                            const processedText = this.processAIResponse(response.text);
+                            this.showRefineResultsPopup(processedText, 'Custom');
+                            promptInput.value = ''; // Clear the input
+                        }
+                    } catch (error) {
+                        console.error('Error with custom refine:', error);
+                        this.showNotification('Failed to refine with custom prompt', 'error');
+                    }
+                }
+            }
+        });
+
+        // Click outside to close popup and dropdown
+        document.addEventListener('click', (e) => {
+            const refinePopup = document.getElementById('refine-results-popup');
+            const dropdown = document.getElementById('refine-dropdown-menu');
+            
+            // Close dropdown if clicking outside
+            if (!e.target.closest('.refine-dropdown')) {
+                dropdown.style.display = 'none';
+            }
+            
+            // Close popup if clicking outside
+            if (!refinePopup.contains(e.target) && !e.target.closest('#custom-context-menu')) {
+                if (refinePopup.style.display === 'block') {
+                    this.hideRefineResultsPopup();
                 }
             }
         });
