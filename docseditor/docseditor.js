@@ -1850,18 +1850,6 @@ class DocsEditor {
         }, 5000);
     }
 
-    // Test method for debugging image insertion
-    testImageInsertion() {
-        console.log('Testing image insertion...');
-        console.log('Editor element:', this.editor);
-        console.log('Editor contentEditable:', this.editor.contentEditable);
-        console.log('Current selection:', window.getSelection());
-
-        // Try inserting a simple test image
-        const testImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwZiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VGVzdDwvdGV4dD48L3N2Zz4=" alt="Test Image" style="max-width: 100px;">';
-        this.insertHTML(testImg);
-    }
-
     updatePageLayout() {
         // Get the current content height
         const contentHeight = this.editor.scrollHeight;
@@ -2806,42 +2794,6 @@ Characters (no spaces): ${charactersNoSpaces}
 Paragraphs: ${paragraphs}`;
 
         alert(message);
-    }
-
-    // Debug method to test cursor position functionality
-    testCursorPosition() {
-        console.log('=== Testing Cursor Position ===');
-
-        // Store current position using marker
-        this.storeCursorPosition();
-
-        // Check if marker was created
-        const marker = this.findCursorMarker();
-        if (marker) {
-            console.log('✅ Marker created successfully');
-            // Make marker visible for debugging
-            marker.style.display = 'inline-block';
-            marker.style.backgroundColor = 'red';
-            marker.style.width = '3px';
-            marker.style.height = '1.2em';
-            marker.textContent = '|';
-
-            setTimeout(() => {
-                // Insert some test content using our AI insertion method
-                const testContent = '<span style="background-color: yellow; padding: 2px 4px; border-radius: 3px;">TEST INSERTION ' + Date.now() + '</span>';
-
-                // Simulate AI content insertion
-                const aiContentDiv = document.getElementById('ai-generated-content');
-                if (aiContentDiv) {
-                    aiContentDiv.innerHTML = testContent;
-                    this.insertAIContent();
-                } else {
-                    console.error('AI content div not found');
-                }
-            }, 1000); // Wait 1 second so you can see the marker
-        } else {
-            console.error('❌ Marker was not created');
-        }
     }
 }
 
