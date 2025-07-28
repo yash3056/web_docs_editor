@@ -191,8 +191,7 @@ function createWindow() {
             enableRemoteModule: false,
             preload: path.join(__dirname, 'preload.js')
         },
-        icon: path.join(__dirname, 'images', 'logo.png'),
-        show: false,
+        icon: isDev ? path.join(__dirname, '..', 'images', 'icon.ico') : path.join(process.resourcesPath, 'app.asar', 'images', 'icon.ico'),
         titleBarStyle: 'default',
         autoHideMenuBar: false
     });

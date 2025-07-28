@@ -3729,25 +3729,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('✅ DocsEditor initialized and available globally');
 });
 
-// Handle beforeunload to warn about unsaved changes
-window.addEventListener('beforeunload', (e) => {
-    // Don't show warning if we're navigating programmatically
-    if (window.docsEditor && window.docsEditor.isNavigating) {
-        return;
-    }
 
-    // Check if there's actual content and it hasn't been saved
-    const editor = document.getElementById('editor');
-    const lastSaved = document.getElementById('last-saved');
-
-    if (editor && lastSaved) {
-        const hasContent = editor.innerHTML.trim() && editor.innerHTML !== '<p><br></p>' && editor.innerHTML !== '<br>';
-        const neverSaved = lastSaved.textContent === 'Never saved' || lastSaved.textContent.includes('Never saved');
-
-        // Only show warning if there's actual content and it's never been saved
-        if (hasContent && neverSaved) {
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    }
-});

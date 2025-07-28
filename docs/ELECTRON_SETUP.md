@@ -49,7 +49,7 @@ web_docs_editor/
 ├── package.json         # Updated with Electron scripts
 
 ├── images/
-│   └── logo.png         # Application icon
+│   └── icon.ico         # Application icon
 └── dist-windows/        # Build output directory
 ```
 
