@@ -7,25 +7,22 @@ jest.mock('keytar', () => ({
   getPassword: jest.fn().mockResolvedValue(null),
 }));
 
-// Set test environment before importing modules
-process.env.NODE_ENV = 'test';
-
 const database = require('../database/database');
-const app = require('../server');
+const { getAdapter } = require('../database/DatabaseManager');
+const createTestApp = require('../test-utils/test-server');
 
-let db, createUser, server;
+let app, db, adapter, server;
 
 beforeAll(async () => {
-  // Initialize database for tests
-  await database.initializeDatabaseAsync();
-  db = database.db;
-  createUser = database.createUser;
+  // Initialize test server with database
+  app = await createTestApp();
+  adapter = getAdapter();
+  db = database.db; // Keep for direct SQL operations in tests
 });
 
 afterAll(async () => {
-  // Close database connection
-  if (db) {
-    db.close();
+  if (adapter) {
+    await adapter.disconnect();
   }
   
   // Close server if it was started
@@ -44,8 +41,12 @@ describe('Auth API', () => {
   let user;
 
   beforeEach(async () => {
-    db.exec('DELETE FROM users');
-    user = await createUser('test@example.com', 'testuser', 'password123');
+    // Clear users table
+    if (db) {
+      db.exec('DELETE FROM users');
+    }
+    // Create test user using the adapter
+    user = await adapter.createUser('test@example.com', 'testuser', 'password123');
     token = generateToken(user);
   });
 

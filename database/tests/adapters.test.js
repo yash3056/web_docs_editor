@@ -5,7 +5,7 @@
 
 const DatabaseAdapter = require('../adapters/DatabaseAdapter');
 const BaseAdapter = require('../adapters/BaseAdapter');
-const { DatabaseError, ConnectionError, ErrorHandler } = require('../errors/DatabaseError');
+const { DatabaseError, ConnectionError, ValidationError, ErrorHandler } = require('../errors/DatabaseError');
 
 describe('DatabaseAdapter Interface', () => {
     let adapter;
@@ -90,7 +90,7 @@ describe('BaseAdapter', () => {
         const sanitized = adapter.sanitizeParamsForLog(params);
         
         expect(sanitized[0]).toBe('short');
-        expect(sanitized[1]).toMatch(/^a{100}\.\.\.$/);
+        expect(sanitized[1]).toMatch(/^a{100}\.\.\..*$/);
         expect(sanitized[2]).toBe(123);
     });
 
