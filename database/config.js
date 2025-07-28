@@ -9,20 +9,47 @@ class ConfigManager {
      * @returns {Object} PostgreSQL configuration object
      */
     static getPostgreSQLConfig() {
+        // Check if DATABASE_URL is provided (common in Render, Heroku, etc.)
+        if (process.env.DATABASE_URL) {
+            const url = new URL(process.env.DATABASE_URL);
+            return {
+                host: url.hostname,
+                port: parseInt(url.port) || 5432,
+                database: url.pathname.slice(1), // Remove leading slash
+                user: url.username,
+                password: url.password,
+                ssl: process.env.POSTGRES_SSL === 'false' ? false : {
+                    rejectUnauthorized: false // Required for Render and most cloud providers
+                },
+                
+                // Connection pool settings
+                min: parseInt(process.env.POSTGRES_POOL_MIN) || 2,
+                max: parseInt(process.env.POSTGRES_POOL_MAX) || 10,
+                idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT) || 30000,
+                connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT) || 10000, // Longer for cloud
+                
+                // Application settings
+                application_name: 'WebDocsEditor',
+                statement_timeout: parseInt(process.env.POSTGRES_STATEMENT_TIMEOUT) || 30000
+            };
+        }
+
+        // Fallback to individual environment variables
         return {
             host: process.env.POSTGRES_HOST || 'localhost',
             port: parseInt(process.env.POSTGRES_PORT) || 5432,
             database: process.env.POSTGRES_DB || 'webdocseditor',
             user: process.env.POSTGRES_USER || 'postgres',
             password: process.env.POSTGRES_PASSWORD || '',
-            ssl: process.env.POSTGRES_SSL === 'true' ? true : 
-                 process.env.POSTGRES_SSL === 'false' ? false : 'prefer',
+            ssl: process.env.POSTGRES_SSL === 'false' ? false : {
+                rejectUnauthorized: false // Required for Render and most cloud providers
+            },
             
             // Connection pool settings
             min: parseInt(process.env.POSTGRES_POOL_MIN) || 2,
             max: parseInt(process.env.POSTGRES_POOL_MAX) || 10,
             idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT) || 30000,
-            connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT) || 2000,
+            connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT) || 10000, // Longer for cloud
             
             // Application settings
             application_name: 'WebDocsEditor',
@@ -107,8 +134,19 @@ class ConfigManager {
      * @returns {boolean} True if basic PostgreSQL config is available
      */
     static hasPostgreSQLConfig() {
-        const config = this.getPostgreSQLConfig();
-        return !!(config.user && config.database && config.host);
+        // Check if DATABASE_URL is provided
+        if (process.env.DATABASE_URL) {
+            try {
+                const url = new URL(process.env.DATABASE_URL);
+                return !!(url.hostname && url.username && url.pathname);
+            } catch (error) {
+                console.warn('Invalid DATABASE_URL format:', error.message);
+                return false;
+            }
+        }
+
+        // Check individual environment variables
+        return !!(process.env.POSTGRES_HOST || process.env.POSTGRES_USER || process.env.POSTGRES_DB);
     }
 
     /**
