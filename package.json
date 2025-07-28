@@ -57,11 +57,13 @@
   "build": {
     "appId": "com.yashprakash.webdocseditor",
     "productName": "Web Docs Editor",
+    "icon": "images/icon.ico",
     "directories": {
       "output": "dist-windows"
     },
     "files": [
       "**/*",
+      "images/**/*",
       "!dist-windows/**/*",
       "!dist",
       "!*.gguf",
@@ -88,7 +90,8 @@
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "images/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -98,10 +101,12 @@
       "createStartMenuShortcut": true
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "images/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "images/icon.ico"
     },
     "publish": null
   }

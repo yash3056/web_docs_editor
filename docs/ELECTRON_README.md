@@ -102,7 +102,7 @@ Built applications will be placed in the `dist-windows` directory:
 ├── index.html       # Main app interface
 
 └── images/
-    └── logo.png     # App icon
+    └── icon.ico     # App icon
 ```
 
 ## Next Steps
