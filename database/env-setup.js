@@ -91,21 +91,34 @@ POSTGRES_STATEMENT_TIMEOUT=30000
 
         // Check if any PostgreSQL config is provided
         const hasPostgresConfig = !!(
+            process.env.DATABASE_URL ||
             process.env.POSTGRES_USER || 
             process.env.POSTGRES_PASSWORD || 
             process.env.POSTGRES_DB
         );
 
         if (hasPostgresConfig) {
-            // If any PostgreSQL config is provided, check for required fields
-            if (!process.env.POSTGRES_USER) {
-                warnings.push('POSTGRES_USER not set, using default: postgres');
-            }
-            if (!process.env.POSTGRES_DB) {
-                warnings.push('POSTGRES_DB not set, using default: webdocseditor');
-            }
-            if (!process.env.POSTGRES_PASSWORD) {
-                warnings.push('POSTGRES_PASSWORD not set, connection may fail');
+            // If DATABASE_URL is provided, that's sufficient
+            if (process.env.DATABASE_URL) {
+                try {
+                    const url = new URL(process.env.DATABASE_URL);
+                    if (!url.hostname || !url.username || !url.pathname) {
+                        errors.push('DATABASE_URL is malformed');
+                    }
+                } catch (error) {
+                    errors.push('DATABASE_URL is invalid: ' + error.message);
+                }
+            } else {
+                // Check individual parameters
+                if (!process.env.POSTGRES_USER) {
+                    warnings.push('POSTGRES_USER not set, using default: postgres');
+                }
+                if (!process.env.POSTGRES_DB) {
+                    warnings.push('POSTGRES_DB not set, using default: webdocseditor');
+                }
+                if (!process.env.POSTGRES_PASSWORD) {
+                    warnings.push('POSTGRES_PASSWORD not set, connection may fail');
+                }
             }
         } else {
             warnings.push('No PostgreSQL configuration found, will attempt with defaults and fall back to SQLite');
