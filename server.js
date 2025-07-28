@@ -145,7 +145,7 @@ const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 (async () => {
     try {
         await initializeDatabaseAsync();
-        console.log('Database initialized successfully');
+        // console.log('Database initialized successfully');
     } catch (error) {
         console.error('Failed to initialize database:', error);
         console.log('The database will be created automatically on first use.');
@@ -642,14 +642,51 @@ app.post('/api/documents/classify', authenticateToken, async (req, res) => {
 app.post('/api/classify-document', authenticateToken, upload.single('document'), async (req, res) => {
     try {
         let documentContent = '';
+        let result;
 
         if (req.file) {
-            // External PDF file uploaded
+            // External file uploaded
             const filePath = req.file.path;
             const originalName = req.file.originalname;
 
-            // For now, we'll use the filename as content since PDF text extraction is complex
-            documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
+            // Check if it's a PDF file and use the new PDF endpoint
+            if (originalName.toLowerCase().endsWith('.pdf')) {
+                try {
+                    console.log('Using PDF classification endpoint for uploaded file...');
+                    
+                    // Read the PDF file and send it to the Python server
+                    const fileBuffer = await fs.readFile(filePath);
+                    
+                    // Create form data for the PDF endpoint
+                    const FormData = require('form-data');
+                    const formData = new FormData();
+                    formData.append('file', fileBuffer, originalName);
+                    
+                    // Call the new PDF classification endpoint
+                    const response = await axios.post(`${classifier.apiUrl}/classify-pdf`, formData, {
+                        headers: {
+                            ...formData.getHeaders(),
+                            'Content-Type': 'multipart/form-data'
+                        },
+                        maxContentLength: Infinity,
+                        maxBodyLength: Infinity
+                    });
+                    
+                    result = response.data;
+                    console.log('PDF classification successful:', result.classification);
+                    
+                } catch (pdfError) {
+                    console.error('PDF classification failed, falling back to basic analysis:', pdfError.message);
+                    
+                    // Fallback to basic analysis if PDF processing fails
+                    documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
+                    result = await classifier.classifyDocument(documentContent);
+                }
+            } else {
+                // For non-PDF files, use basic metadata
+                documentContent = `Document: ${originalName}\nFile type: ${path.extname(originalName)}\nThis document requires classification analysis.`;
+                result = await classifier.classifyDocument(documentContent);
+            }
 
             // Clean up uploaded file
             try {
@@ -675,12 +712,12 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
             } else {
                 documentContent = content;
             }
+
+            console.log(`Classifying document content (${documentContent.length} characters)`);
+
+            // Classify the document using regular text classification
+            result = await classifier.classifyDocument(documentContent);
         }
-
-        console.log(`Classifying document content (${documentContent.length} characters)`);
-
-        // Classify the document
-        const result = await classifier.classifyDocument(documentContent);
 
         res.json({
             success: true,
@@ -691,7 +728,8 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
             sensitive_content: result.sensitive_content,
             potential_damage: result.potential_damage,
             handling_recommendations: result.handling_recommendations,
-            analysis_timestamp: result.analysis_timestamp
+            analysis_timestamp: result.analysis_timestamp,
+            pdf_metadata: result.pdf_metadata || null // Include PDF metadata if available
         });
 
     } catch (error) {
@@ -714,13 +752,48 @@ app.post('/api/classify-and-watermark', authenticateToken, upload.single('docume
         const originalName = req.file.originalname;
         const baseName = path.parse(originalName).name;
 
-        // For PDF files, we'll use basic analysis
-        const documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
-
         console.log(`Classifying and watermarking document: ${originalName}`);
 
-        // Classify the document
-        const result = await classifier.classifyDocument(documentContent);
+        let result;
+        
+        // Check if it's a PDF file and use the new PDF endpoint
+        if (originalName.toLowerCase().endsWith('.pdf')) {
+            try {
+                console.log('Using PDF classification endpoint...');
+                
+                // Read the PDF file and send it to the Python server
+                const fileBuffer = await fs.readFile(filePath);
+                
+                // Create form data for the PDF endpoint
+                const FormData = require('form-data');
+                const formData = new FormData();
+                formData.append('file', fileBuffer, originalName);
+                
+                // Call the new PDF classification endpoint
+                const response = await axios.post(`${classifier.apiUrl}/classify-pdf`, formData, {
+                    headers: {
+                        ...formData.getHeaders(),
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity
+                });
+                
+                result = response.data;
+                console.log('PDF classification successful:', result.classification);
+                
+            } catch (pdfError) {
+                console.error('PDF classification failed, falling back to basic analysis:', pdfError.message);
+                
+                // Fallback to basic analysis if PDF processing fails
+                const documentContent = `Document: ${originalName}\nFile type: PDF\nThis document requires classification analysis.`;
+                result = await classifier.classifyDocument(documentContent);
+            }
+        } else {
+            // For non-PDF files, use the original method
+            const documentContent = `Document: ${originalName}\nFile type: ${path.extname(originalName)}\nThis document requires classification analysis.`;
+            result = await classifier.classifyDocument(documentContent);
+        }
 
         // Create watermarked PDF
         const timestamp = Date.now();
@@ -745,6 +818,7 @@ app.post('/api/classify-and-watermark', authenticateToken, upload.single('docume
             potential_damage: result.potential_damage,
             handling_recommendations: result.handling_recommendations,
             analysis_timestamp: result.analysis_timestamp,
+            pdf_metadata: result.pdf_metadata || null, // Include PDF metadata if available
             watermarked_file: outputPath,
             download_url: `/api/download-classified/${path.basename(outputPath)}`
         });
