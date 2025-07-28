@@ -116,10 +116,6 @@ async function ensureDirectories() {
 }
 
 // Initialize directories on startup
-console.log('Documents stored in:', DOCUMENTS_DIR);
-console.log('Exports stored in:', EXPORTS_DIR);
-console.log('Uploads stored in:', UPLOADS_DIR);
-console.log('Running in', process.env.ELECTRON_USER_DATA ? 'Electron mode' : 'standalone mode');
 ensureDirectories();
 
 // API Routes
@@ -836,6 +832,7 @@ if (require.main === module) {
         console.log(`Server listening on port ${PORT}`);
         console.log(`Documents stored in: ${DOCUMENTS_DIR}`);
         console.log(`Exports stored in: ${EXPORTS_DIR}`);
+        console.log(`Uploads stored in: ${UPLOADS_DIR}`);
         console.log(`Running in ${isElectron ? 'Electron' : 'standalone'} mode`);
         if (isElectron) {
             console.log(`Database path: ${process.env.ELECTRON_USER_DATA}`);
@@ -846,10 +843,6 @@ if (require.main === module) {
     setTimeout(() => {
         app.listen(PORT, () => {
             console.log(`Server running on http://localhost:${PORT}`);
-            console.log(`Server listening on port ${PORT}`);
-            console.log('Documents stored in:', DOCUMENTS_DIR);
-            console.log('Exports stored in:', EXPORTS_DIR);
-            console.log('Running in', process.env.ELECTRON_USER_DATA ? 'Electron mode' : 'standalone mode');
         });
     }, 1000);
 }
