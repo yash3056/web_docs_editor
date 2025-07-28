@@ -17,3 +17,4 @@ dist/
 __pycache__/
 uploads/
 .env
+.kiro/
