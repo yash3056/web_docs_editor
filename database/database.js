@@ -219,10 +219,7 @@ async function initializeDatabaseAsync() {
     }
 }
 
-// Initialize database only if not in test mode
-if (process.env.NODE_ENV !== 'test') {
-    initializeDatabaseAsync().catch(console.error);
-}
+// Database will be initialized explicitly by the server
 
 // Create tables
 function initDatabase() {
