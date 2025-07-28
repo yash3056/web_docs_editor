@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { getUserById } = require('../database/database');
+const { getAdapter } = require('../database/DatabaseManager');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 
@@ -23,7 +23,7 @@ function verifyToken(token) {
     }
 }
 
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -36,14 +36,20 @@ function authenticateToken(req, res, next) {
         return res.status(403).json({ error: 'Invalid or expired token' });
     }
 
-    // Verify user still exists
-    const user = getUserById(decoded.id);
-    if (!user) {
-        return res.status(403).json({ error: 'User not found' });
-    }
+    try {
+        // Verify user still exists
+        const adapter = getAdapter();
+        const user = await adapter.getUserById(decoded.id);
+        if (!user) {
+            return res.status(403).json({ error: 'User not found' });
+        }
 
-    req.user = decoded;
-    next();
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('Authentication error:', error);
+        return res.status(500).json({ error: 'Authentication failed' });
+    }
 }
 
 module.exports = {

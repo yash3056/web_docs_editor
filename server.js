@@ -4,25 +4,8 @@ const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
 const { PDFDocument, rgb, degrees } = require('pdf-lib');
-require('dotenv').config();
-const {
-    initializeDatabaseAsync,
-    createUser,
-    validateUser,
-    saveDocument,
-    saveDocumentWithVersion,
-    getUserDocuments,
-    getUserDocument,
-    deleteUserDocument,
-    getDocumentVersionHistory,
-    restoreDocumentVersion,
-    compareDocumentVersions,
-    getVersionChanges,
-    createDocumentBranch,
-    getDocumentBranches,
-    createVersionTag,
-    getVersionTags
-} = require('./database/database');
+// Import new database manager
+const { initialize: initializeDatabase, getAdapter } = require('./database/DatabaseManager');
 const { generateToken, authenticateToken } = require('./auth/auth');
 const TogetherClassifier = require('./together-classifier');
 
@@ -32,14 +15,14 @@ const PORT = process.env.PORT || 3000;
 // Check if running in Electron
 const isElectron = process.env.ELECTRON_USER_DATA !== undefined;
 
-// Initialize database - it will create if it doesn't exist
+// Initialize database with PostgreSQL fallback to SQLite
 (async () => {
     try {
-        await initializeDatabaseAsync();
+        await initializeDatabase();
         console.log('Database initialized successfully');
     } catch (error) {
         console.error('Failed to initialize database:', error);
-        console.log('The database will be created automatically on first use.');
+        process.exit(1);
     }
 })();
 
@@ -133,7 +116,8 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
-        const user = await createUser(email, username, password);
+        const adapter = getAdapter();
+        const user = await adapter.createUser(email, username, password);
         const token = generateToken(user);
 
         res.json({
@@ -155,7 +139,8 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const user = await validateUser(email, password);
+        const adapter = getAdapter();
+        const user = await adapter.validateUser(email, password);
         if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
@@ -178,7 +163,8 @@ app.post('/api/login', async (req, res) => {
 // Get all documents for authenticated user
 app.get('/api/documents', authenticateToken, async (req, res) => {
     try {
-        const documents = getUserDocuments(req.user.id);
+        const adapter = getAdapter();
+        const documents = await adapter.getUserDocuments(req.user.id);
         res.json(documents);
     } catch (error) {
         console.error('Error fetching documents:', error);
@@ -190,7 +176,8 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
 app.get('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const document = getUserDocument(id, req.user.id);
+        const adapter = getAdapter();
+        const document = await adapter.getUserDocument(id, req.user.id);
 
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
@@ -220,7 +207,8 @@ app.post('/api/documents', authenticateToken, async (req, res) => {
         document.lastModified = Date.now();
 
         // Save document to database
-        saveDocument(document, req.user.id);
+        const adapter = getAdapter();
+        await adapter.saveDocument(document, req.user.id);
 
         console.log(`Document saved: ${document.title} (${document.id}) for user ${req.user.username}`);
         res.json({ success: true, document });
@@ -234,7 +222,8 @@ app.post('/api/documents', authenticateToken, async (req, res) => {
 app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const deleted = deleteUserDocument(id, req.user.id);
+        const adapter = getAdapter();
+        const deleted = await adapter.deleteUserDocument(id, req.user.id);
 
         if (!deleted) {
             return res.status(404).json({ error: 'Document not found' });
@@ -271,7 +260,8 @@ app.post('/api/documents/:id/versions', authenticateToken, async (req, res) => {
         document.lastModified = Date.now();
 
         // Save document with version control
-        saveDocumentWithVersion(document, req.user.id, commitMessage || 'Document updated');
+        const adapter = getAdapter();
+        await adapter.saveDocumentWithVersion(document, req.user.id, commitMessage || 'Document updated');
 
         console.log(`Document version saved: ${document.title} (${document.id}) for user ${req.user.username}`);
         res.json({ success: true, document });
@@ -285,7 +275,8 @@ app.post('/api/documents/:id/versions', authenticateToken, async (req, res) => {
 app.get('/api/documents/:id/versions', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const versions = getDocumentVersionHistory(id, req.user.id);
+        const adapter = getAdapter();
+        const versions = await adapter.getDocumentVersionHistory(id, req.user.id);
 
         if (!versions) {
             return res.status(404).json({ error: 'Document not found' });
@@ -303,7 +294,8 @@ app.post('/api/documents/:id/versions/:versionId/restore', authenticateToken, as
     try {
         const { id, versionId } = req.params;
 
-        const result = restoreDocumentVersion(id, parseInt(versionId), req.user.id);
+        const adapter = getAdapter();
+        const result = await adapter.restoreDocumentVersion(id, parseInt(versionId), req.user.id);
 
         console.log(`Document restored: ${id} to version ${versionId} for user ${req.user.username}`);
         res.json({ success: true, result });
@@ -318,7 +310,8 @@ app.get('/api/documents/:id/versions/:versionId1/compare/:versionId2', authentic
     try {
         const { id, versionId1, versionId2 } = req.params;
 
-        const comparison = compareDocumentVersions(
+        const adapter = getAdapter();
+        const comparison = await adapter.compareDocumentVersions(
             id,
             parseInt(versionId1),
             parseInt(versionId2),
@@ -342,7 +335,8 @@ app.post('/api/documents/:id/branches', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Branch name is required' });
         }
 
-        const branch = createDocumentBranch(id, branchName, baseVersionId, req.user.id);
+        const adapter = getAdapter();
+        const branch = await adapter.createDocumentBranch(id, branchName, baseVersionId, req.user.id);
 
         console.log(`Document branch created: ${branchName} for document ${id} by user ${req.user.username}`);
         res.json({ success: true, branch });
@@ -356,7 +350,8 @@ app.post('/api/documents/:id/branches', authenticateToken, async (req, res) => {
 app.get('/api/documents/:id/branches', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const branches = getDocumentBranches(id, req.user.id);
+        const adapter = getAdapter();
+        const branches = await adapter.getDocumentBranches(id, req.user.id);
 
         if (!branches) {
             return res.status(404).json({ error: 'Document not found' });
@@ -379,7 +374,8 @@ app.post('/api/documents/:id/versions/:versionId/tags', authenticateToken, async
             return res.status(400).json({ error: 'Tag name is required' });
         }
 
-        const tag = createVersionTag(parseInt(versionId), tagName, description, req.user.id);
+        const adapter = getAdapter();
+        const tag = await adapter.createVersionTag(parseInt(versionId), tagName, description, req.user.id);
 
         console.log(`Version tag created: ${tagName} for version ${versionId} by user ${req.user.username}`);
         res.json({ success: true, tag });
@@ -393,7 +389,8 @@ app.post('/api/documents/:id/versions/:versionId/tags', authenticateToken, async
 app.get('/api/documents/:id/versions/:versionId/tags', authenticateToken, async (req, res) => {
     try {
         const { versionId } = req.params;
-        const tags = getVersionTags(parseInt(versionId), req.user.id);
+        const adapter = getAdapter();
+        const tags = await adapter.getVersionTags(parseInt(versionId), req.user.id);
 
         if (!tags) {
             return res.status(404).json({ error: 'Version not found' });
@@ -417,7 +414,8 @@ app.post('/api/documents/:id/export', authenticateToken, async (req, res) => {
         }
 
         // Get document details from database
-        const document = getUserDocument(id, req.user.id);
+        const adapter = getAdapter();
+        const document = await adapter.getUserDocument(id, req.user.id);
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
@@ -508,7 +506,8 @@ app.post('/api/documents/classify', authenticateToken, async (req, res) => {
         }
 
         // Get document content
-        const document = getUserDocument(documentId, req.user.id);
+        const adapter = getAdapter();
+        const document = await adapter.getUserDocument(documentId, req.user.id);
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
@@ -518,7 +517,7 @@ app.post('/api/documents/classify', authenticateToken, async (req, res) => {
 
         // Save classification result to document metadata
         document.classification = classification;
-        saveDocument(document, req.user.id);
+        await adapter.saveDocument(document, req.user.id);
 
         // Add watermark to document PDF
         const pdfPath = path.join(DOCUMENTS_DIR, `${documentId}.pdf`);
@@ -561,7 +560,8 @@ app.post('/api/classify-document', authenticateToken, upload.single('document'),
 
             if (documentId) {
                 // Get document from database
-                const document = await getUserDocument(documentId, req.user.id);
+                const adapter = getAdapter();
+                const document = await adapter.getUserDocument(documentId, req.user.id);
                 if (!document) {
                     return res.status(404).json({ error: 'Document not found' });
                 }
