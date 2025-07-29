@@ -1,5 +1,5 @@
 const { initializeDatabaseAsync } = require('./database/database');
-const keytar = require('keytar');
+// Keytar removed - using file-based key storage
 
 async function verifyDatabase() {
     console.log('=== Database Verification Tool ===');
@@ -8,9 +8,13 @@ async function verifyDatabase() {
     console.log('Electron User Data:', process.env.ELECTRON_USER_DATA || 'not set');
     
     try {
-        // Check credential vault
-        const key = await keytar.getPassword('WebDocsEditor_Database', 'EncryptionKey_v1');
-        console.log('Encryption key found in credential vault:', key ? 'YES' : 'NO');
+        // Check encryption key file
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        const keyPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor', '.dbkey');
+        const keyExists = fs.existsSync(keyPath);
+        console.log('Encryption key found in file:', keyExists ? 'YES' : 'NO');
         
         // Initialize database
         const db = await initializeDatabaseAsync();

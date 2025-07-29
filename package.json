@@ -29,11 +29,10 @@
     "electron-store": "^10.1.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "keytar": "^7.9.0",
     "multer": "^2.0.1",
     "pdf-lib": "^1.17.1",
-    "together-ai": "^0.20.0",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "together-ai": "^0.20.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
@@ -84,8 +83,7 @@
       "!docs/**/*"
     ],
     "asarUnpack": [
-      "node_modules/better-sqlite3-multiple-ciphers/**/*",
-      "node_modules/keytar/**/*"
+      "node_modules/better-sqlite3-multiple-ciphers/**/*"
     ],
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,

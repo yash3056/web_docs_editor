@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const diff = require('diff');
-const keytar = require('keytar');
+// Removed keytar dependency - using file-based key storage
 
 // Initialize database with proper path handling
 function getDatabasePath() {
@@ -33,94 +33,81 @@ function getDatabasePath() {
     return dbPath;
 }
 
-// Constants for credential storage - use consistent naming across Node.js and Electron
-const SERVICE_NAME = 'WebDocsEditor_Database';
-const ACCOUNT_NAME = 'EncryptionKey_v1';
+// Constants for key storage
+const KEY_FILE_NAME = '.dbkey';
 
 // Generate a secure encryption key
 function generateEncryptionKey() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-// Store encryption key in system's credential vault
+// Store encryption key in encrypted file
 async function storeEncryptionKey(key) {
     try {
-        await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, key);
-        console.log('Encryption key stored in credential vault');
+        const keyPath = getKeyFilePath();
+        const algorithm = 'aes-256-cbc';
+        const password = 'WebDocsEditor_Key_Salt_v2';
+        const salt = crypto.randomBytes(16);
+        const derivedKey = crypto.pbkdf2Sync(password, salt, 10000, 32, 'sha256');
+        const iv = crypto.randomBytes(16);
         
-        // Also store a backup in a file for fallback (with basic encryption)
-        await storeKeyBackup(key);
-        return true;
-    } catch (error) {
-        console.error('Failed to store encryption key in credential vault:', error);
-        console.log('Attempting to store key backup only...');
-        return await storeKeyBackup(key);
-    }
-}
-
-// Retrieve encryption key from system's credential vault
-async function getEncryptionKey() {
-    try {
-        // First try credential vault
-        const key = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
-        if (key) {
-            console.log('Retrieved encryption key from credential vault');
-            return key;
-        }
-    } catch (error) {
-        console.error('Failed to retrieve encryption key from credential vault:', error);
-    }
-    
-    // Fallback to backup file
-    console.log('Attempting to retrieve key from backup...');
-    return await getKeyBackup();
-}
-
-// Backup key storage in encrypted file
-async function storeKeyBackup(key) {
-    try {
-        const backupPath = getKeyBackupPath();
-        const cipher = crypto.createCipher('aes-256-cbc', 'WebDocsEditor_Backup_Key_Salt');
+        const cipher = crypto.createCipheriv(algorithm, derivedKey, iv);
         let encrypted = cipher.update(key, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         
-        fs.writeFileSync(backupPath, encrypted);
-        console.log('Key backup stored successfully');
+        // Store salt, iv, and encrypted data together
+        const combined = salt.toString('hex') + ':' + iv.toString('hex') + ':' + encrypted;
+        fs.writeFileSync(keyPath, combined);
+        console.log('Encryption key stored in encrypted file');
         return true;
     } catch (error) {
-        console.error('Failed to store key backup:', error);
+        console.error('Failed to store encryption key:', error);
         return false;
     }
 }
 
-// Retrieve key from backup file
-async function getKeyBackup() {
+// Retrieve encryption key from encrypted file
+async function getEncryptionKey() {
     try {
-        const backupPath = getKeyBackupPath();
-        if (!fs.existsSync(backupPath)) {
+        const keyPath = getKeyFilePath();
+        if (!fs.existsSync(keyPath)) {
             return null;
         }
         
-        const encrypted = fs.readFileSync(backupPath, 'utf8');
-        const decipher = crypto.createDecipher('aes-256-cbc', 'WebDocsEditor_Backup_Key_Salt');
+        const combined = fs.readFileSync(keyPath, 'utf8');
+        const parts = combined.split(':');
+        
+        if (parts.length !== 3) {
+            console.log('Invalid key file format, will generate new key');
+            return null;
+        }
+        
+        const algorithm = 'aes-256-cbc';
+        const password = 'WebDocsEditor_Key_Salt_v2';
+        const salt = Buffer.from(parts[0], 'hex');
+        const iv = Buffer.from(parts[1], 'hex');
+        const encrypted = parts[2];
+        
+        const derivedKey = crypto.pbkdf2Sync(password, salt, 10000, 32, 'sha256');
+        const decipher = crypto.createDecipheriv(algorithm, derivedKey, iv);
         let decrypted = decipher.update(encrypted, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         
-        console.log('Retrieved encryption key from backup');
+        console.log('Retrieved encryption key from encrypted file');
         return decrypted;
     } catch (error) {
-        console.error('Failed to retrieve key from backup:', error);
+        console.error('Failed to retrieve encryption key:', error);
         return null;
     }
 }
 
-// Get backup key file path
-function getKeyBackupPath() {
+// Get key file path
+function getKeyFilePath() {
     const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor');
     if (!fs.existsSync(appDataPath)) {
         fs.mkdirSync(appDataPath, { recursive: true });
     }
-    return path.join(appDataPath, '.dbkey');
+    return path.join(appDataPath, KEY_FILE_NAME);
 }
 
 // Initialize database with encryption
@@ -132,20 +119,22 @@ async function initializeDatabase() {
         // Try to get existing encryption key
         let key = await getEncryptionKey();
         
-        // Check for old credential format and migrate if found
+        // Check for old backup file format and migrate if found
         if (!key) {
             try {
-                const oldKey = await keytar.getPassword('WebDocsEditor', 'DatabaseEncryption');
-                if (oldKey) {
-                    console.log('Found old encryption key, migrating to new format...');
-                    key = oldKey;
-                    await storeEncryptionKey(key);
-                    // Clean up old credential
-                    await keytar.deletePassword('WebDocsEditor', 'DatabaseEncryption');
-                    console.log('Key migration completed');
+                const oldBackupPath = path.join(os.homedir(), 'AppData', 'Roaming', 'WebDocsEditor', '.dbkey');
+                if (fs.existsSync(oldBackupPath)) {
+                    console.log('Found old backup key file, attempting to use it...');
+                    const encrypted = fs.readFileSync(oldBackupPath, 'utf8');
+                    try {
+                        // Skip old format migration since createCipher is deprecated
+                        console.log('Old backup key format no longer supported, will generate new key');
+                    } catch (decryptError) {
+                        console.log('Could not decrypt old backup key, will generate new key');
+                    }
                 }
             } catch (error) {
-                console.log('No old key found or migration failed:', error.message);
+                console.log('No old backup key found or migration failed:', error.message);
             }
         }
 

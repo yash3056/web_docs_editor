@@ -111,7 +111,7 @@ class DatabaseManager {
         this.databaseType = 'sqlite';
         this.logConnectionAttempt('sqlite', true, 'Connected successfully with encryption');
         
-        console.log('✅ SQLite connection established with keytar encryption');
+        console.log('✅ SQLite connection established with file-based encryption');
     }
 
     /**

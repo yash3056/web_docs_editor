@@ -1,11 +1,7 @@
 const request = require('supertest');
 const { generateToken } = require('../auth/auth');
 
-// Mock keytar for testing to avoid credential storage during tests
-jest.mock('keytar', () => ({
-  setPassword: jest.fn().mockResolvedValue(true),
-  getPassword: jest.fn().mockResolvedValue(null),
-}));
+// Keytar removed - no longer needed for testing
 
 const database = require('../database/database');
 const { getAdapter } = require('../database/DatabaseManager');
