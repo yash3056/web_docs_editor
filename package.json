@@ -30,7 +30,6 @@
     "express": "^4.21.2",
     "form-data": "^4.0.4",
     "jsonwebtoken": "^9.0.2",
-    "keytar": "^7.9.0",
     "multer": "^2.0.1",
     "pdf-lib": "^1.17.1",
     "pg": "^8.16.3"
@@ -84,8 +83,7 @@
       "!docs/**/*"
     ],
     "asarUnpack": [
-      "node_modules/better-sqlite3-multiple-ciphers/**/*",
-      "node_modules/keytar/**/*"
+      "node_modules/better-sqlite3-multiple-ciphers/**/*"
     ],
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,

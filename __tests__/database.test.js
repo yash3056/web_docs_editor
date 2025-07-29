@@ -1,10 +1,6 @@
 const crypto = require('crypto');
 
-// Mock keytar for testing
-jest.mock('keytar', () => ({
-  setPassword: jest.fn().mockResolvedValue(true),
-  getPassword: jest.fn().mockResolvedValue(null),
-}));
+// Keytar removed - no longer needed for testing
 
 // Set test environment before importing
 process.env.NODE_ENV = 'test';
