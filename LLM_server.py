@@ -1,8 +1,11 @@
 """
-To export it to exectuable file, run the following command:
+To export it to executable file, run the following command:
 ```bash
-pyinstaller --onefile --console --name LLM_server --hidden-import llama_cpp --collect-all llama_cpp --hidden-import PyPDF2 LLM_server.py
+pyinstaller --onefile --console --name LLM_server --hidden-import llama_cpp --collect-all llama_cpp --hidden-import PyPDF2 --add-data "security_analysis_prompt.txt;." LLM_server.py
 ```
+
+Note: The --add-data flag ensures that the security_analysis_prompt.txt file is included in the executable.
+After creating the executable, make sure both the LLM_server.exe and security_analysis_prompt.txt files are in the same directory.
 """
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +15,8 @@ import json
 import traceback
 import PyPDF2
 import io
+import os
+import sys
 from typing import Optional
 
 app = FastAPI()
@@ -110,14 +115,30 @@ def extract_text_from_pdf(pdf_file: bytes) -> str:
         return error_msg
 
 # --- PROMPT ENGINEERING ---
-def create_security_analysis_prompt(document_content: str) -> str:
+def load_security_analysis_prompt() -> str:
     """
-    Constructs the detailed user-facing prompt for the security analysis task.
-    This entire block will be treated as the 'user' message.
+    Loads the security analysis prompt from an external text file.
+    This allows the prompt to be edited without recompiling the executable.
     """
-    # This detailed prompt remains unchanged.
-    return """
-You are an expert security analyst for the Indian Government. Analyze this document thoroughly and classify its security level based on official Indian Government security classification standards.
+    # Get the directory where the script/executable is located
+    if getattr(sys, 'frozen', False):
+        # If running as compiled executable
+        script_dir = os.path.dirname(sys.executable)
+    else:
+        # If running as script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    prompt_file_path = os.path.join(script_dir, "security_analysis_prompt.txt")
+    
+    try:
+        with open(prompt_file_path, 'r', encoding='utf-8') as file:
+            prompt_template = file.read().strip()
+        print(f"Successfully loaded prompt from: {prompt_file_path}")
+        return prompt_template
+    except FileNotFoundError:
+        print(f"Warning: Prompt file not found at {prompt_file_path}. Using fallback prompt.")
+        # Fallback to a basic prompt if file is missing
+        return """You are an expert security analyst for the Indian Government. Analyze this document thoroughly and classify its security level based on official Indian Government security classification standards.
 
 **OFFICIAL INDIAN CLASSIFICATION LEVELS:**
 
@@ -195,7 +216,21 @@ First, provide your step-by-step reasoning. Then, provide the final analysis in 
 
 **IMPORTANT:** Be thorough and err on the side of caution. If in doubt between two classification levels, choose the higher one. Consider that seemingly innocent information might have intelligence value when combined with other sources.
 Analyze the uploaded document now:
-""" + document_content
+"""
+    except Exception as e:
+        print(f"Error loading prompt file: {e}. Using fallback prompt.")
+        return "Analyze this document and provide security classification in JSON format. Analyze the uploaded document now:"
+
+def create_security_analysis_prompt(document_content: str) -> str:
+    """
+    Constructs the detailed user-facing prompt for the security analysis task.
+    This entire block will be treated as the 'user' message.
+    """
+    # Load the prompt template from external file
+    prompt_template = load_security_analysis_prompt()
+    
+    # Append the document content to the prompt
+    return prompt_template + "\n" + document_content
 
 # --- API ENDPOINT ---
 @app.post("/classify")
