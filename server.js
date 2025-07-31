@@ -76,7 +76,7 @@ const upload = multer({ dest: UPLOADS_DIR });
 
 // Initialize Together AI classifier
 const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY;
-const TOGETHER_MODEL = process.env.TOGETHER_MODEL || 'deepseek-ai/DeepSeek-R1-0528';
+const TOGETHER_MODEL = process.env.TOGETHER_MODEL || 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free';
 
 if (!TOGETHER_API_KEY) {
     console.error('TOGETHER_API_KEY environment variable is required');

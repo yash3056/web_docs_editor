@@ -11,7 +11,7 @@ async function testClassifier() {
     
     console.log('Testing Together AI classifier...');
     console.log('API Key:', apiKey.substring(0, 10) + '...');
-    console.log('Model: deepseek-ai/DeepSeek-R1-0528');
+    console.log('Model: Qwen/Qwen3-32B-FP8');
     
     const classifier = new TogetherClassifier(apiKey);
     
