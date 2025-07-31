@@ -354,7 +354,7 @@ body {
     width: 100%;
     max-width: 8.5in;
     margin: 0 auto;
-    background: transparent;
+    background: white;
     padding: 0 20px;
 }
 
@@ -368,7 +368,7 @@ body {
     color: #333;
     outline: none;
     border: none;
-    background: white;
+    background: transparent;
     box-sizing: border-box;
     position: relative;
     z-index: 2;
@@ -492,13 +492,13 @@ body {
 
 /* Watermark styles */
 .watermark {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     pointer-events: none;
-    z-index: 0;
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -508,8 +508,8 @@ body {
 .watermark-text {
     font-size: 48px;
     font-weight: bold;
-    color: #cccccc;
-    opacity: 0.2;
+    color: #999999;
+    opacity: 0.3;
     transform: rotate(-30deg);
     user-select: none;
     white-space: nowrap;

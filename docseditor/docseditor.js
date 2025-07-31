@@ -1371,9 +1371,8 @@ class DocsEditor {
 
         watermark.appendChild(watermarkText);
 
-        // Insert watermark into editor container
-        const editorContainer = document.querySelector('.editor-container');
-        editorContainer.appendChild(watermark);
+        // Append to body for fixed positioning to work properly
+        document.body.appendChild(watermark);
 
         // Save watermark settings
         this.watermarkSettings = {
@@ -1388,6 +1387,15 @@ class DocsEditor {
         this.updateWatermarkButtonState();
 
         this.showNotification('Watermark applied successfully!', 'success');
+        
+        console.log('Watermark applied:', {
+            text,
+            opacity,
+            size,
+            color,
+            angle,
+            element: watermark
+        });
     }
 
     removeWatermark() {
