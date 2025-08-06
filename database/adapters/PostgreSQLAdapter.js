@@ -362,10 +362,12 @@ class PostgreSQLAdapter extends BaseAdapter {
 
             const row = result.rows[0];
             const doc = JSON.parse(row.content);
+            
+            // Ensure database fields take precedence over JSON content fields
             return {
                 ...doc,
                 id: row.id,
-                title: row.title,
+                title: row.title, // Database title takes precedence
                 createdAt: new Date(row.created_at).getTime(),
                 lastModified: new Date(row.last_modified).getTime()
             };
@@ -467,33 +469,237 @@ class PostgreSQLAdapter extends BaseAdapter {
 
     // Placeholder implementations for other version control methods
     async restoreDocumentVersion(documentId, versionId, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('restoreDocumentVersion not yet implemented for PostgreSQL');
+        try {
+            // First verify user has access to this document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [documentId, userId]);
+
+            if (docResult.rows.length === 0) {
+                throw new Error('Document not found or access denied');
+            }
+
+            // Get the version to restore
+            const versionResult = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1 AND document_id = $2
+            `, [versionId, documentId]);
+
+            if (versionResult.rows.length === 0) {
+                throw new Error('Version not found');
+            }
+
+            const version = versionResult.rows[0];
+
+            // Parse the document content from the version
+            const versionDoc = JSON.parse(version.content);
+
+            // Save as new version with restore message
+            return await this.saveDocumentWithVersion(
+                {
+                    ...versionDoc,
+                    id: documentId,
+                    lastModified: Date.now()
+                },
+                userId,
+                `Restored from version ${version.version_number}`
+            );
+        } catch (error) {
+            throw ErrorHandler.createError(error, 'restore document version');
+        }
     }
 
     async compareDocumentVersions(documentId, versionId1, versionId2, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('compareDocumentVersions not yet implemented for PostgreSQL');
+        try {
+            // First verify user has access to this document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [documentId, userId]);
+
+            if (docResult.rows.length === 0) {
+                throw new Error('Document not found or access denied');
+            }
+
+            // Get both versions
+            const version1Result = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1 AND document_id = $2
+            `, [versionId1, documentId]);
+
+            const version2Result = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1 AND document_id = $2
+            `, [versionId2, documentId]);
+
+            if (version1Result.rows.length === 0 || version2Result.rows.length === 0) {
+                throw new Error('One or both versions not found');
+            }
+
+            const version1 = version1Result.rows[0];
+            const version2 = version2Result.rows[0];
+
+            const doc1 = JSON.parse(version1.content);
+            const doc2 = JSON.parse(version2.content);
+
+            const text1 = this.extractTextContent(doc1.content);
+            const text2 = this.extractTextContent(doc2.content);
+
+            // Generate sentence-level diff for better readability
+            const sentences1 = text1.split(/[.!?]+/).filter(s => s.trim());
+            const sentences2 = text2.split(/[.!?]+/).filter(s => s.trim());
+
+            // Generate character-level diff
+            const charDiff = diff.diffChars(text1, text2);
+
+            // Generate word-level diff for better readability
+            const wordDiff = diff.diffWords(text1, text2);
+
+            // Generate line-level diff
+            const lineDiff = diff.diffLines(text1, text2);
+
+            // Generate sentence-level diff
+            const sentenceDiff = diff.diffArrays(sentences1, sentences2);
+
+            return {
+                version1: {
+                    id: version1.id,
+                    number: version1.version_number,
+                    title: version1.title,
+                    content: text1,
+                    createdAt: version1.created_at,
+                    commitMessage: version1.commit_message
+                },
+                version2: {
+                    id: version2.id,
+                    number: version2.version_number,
+                    title: version2.title,
+                    content: text2,
+                    createdAt: version2.created_at,
+                    commitMessage: version2.commit_message
+                },
+                diff: {
+                    chars: charDiff,
+                    words: wordDiff,
+                    lines: lineDiff,
+                    sentences: sentenceDiff
+                }
+            };
+        } catch (error) {
+            throw ErrorHandler.createError(error, 'compare document versions');
+        }
     }
 
     async createDocumentBranch(documentId, branchName, baseVersionId, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('createDocumentBranch not yet implemented for PostgreSQL');
+        try {
+            // First verify user has access to this document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [documentId, userId]);
+
+            if (docResult.rows.length === 0) {
+                throw new Error('Document not found or access denied');
+            }
+
+            const result = await this.query(`
+                INSERT INTO document_branches (document_id, branch_name, base_version_id, created_by)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, branch_name
+            `, [documentId, branchName, baseVersionId, userId]);
+
+            return result.rows[0];
+        } catch (error) {
+            if (error.originalError && error.originalError.code === '23505') {
+                throw new Error('Branch name already exists for this document');
+            }
+            throw ErrorHandler.createError(error, 'create document branch');
+        }
     }
 
     async getDocumentBranches(documentId, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('getDocumentBranches not yet implemented for PostgreSQL');
+        try {
+            // First verify user has access to this document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [documentId, userId]);
+
+            if (docResult.rows.length === 0) {
+                return null;
+            }
+
+            const result = await this.query(`
+                SELECT * FROM document_branches WHERE document_id = $1 AND is_active = true
+            `, [documentId]);
+
+            return result.rows;
+        } catch (error) {
+            throw ErrorHandler.createError(error, 'get document branches');
+        }
     }
 
     async createVersionTag(versionId, tagName, description, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('createVersionTag not yet implemented for PostgreSQL');
+        try {
+            // First verify the version exists
+            const versionResult = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1
+            `, [versionId]);
+
+            if (versionResult.rows.length === 0) {
+                throw new Error('Version not found');
+            }
+
+            const version = versionResult.rows[0];
+
+            // Check if user has access to the document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [version.document_id, userId]);
+
+            if (docResult.rows.length === 0) {
+                throw new Error('Access denied');
+            }
+
+            const result = await this.query(`
+                INSERT INTO version_tags (version_id, tag_name, description, created_by)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, tag_name
+            `, [versionId, tagName, description, userId]);
+
+            return result.rows[0];
+        } catch (error) {
+            if (error.originalError && error.originalError.code === '23505') {
+                throw new Error('Tag name already exists for this version');
+            }
+            throw ErrorHandler.createError(error, 'create version tag');
+        }
     }
 
     async getVersionTags(versionId, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('getVersionTags not yet implemented for PostgreSQL');
+        try {
+            // First verify the version exists
+            const versionResult = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1
+            `, [versionId]);
+
+            if (versionResult.rows.length === 0) {
+                return null;
+            }
+
+            const version = versionResult.rows[0];
+
+            // Check if user has access to the document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [version.document_id, userId]);
+
+            if (docResult.rows.length === 0) {
+                return null;
+            }
+
+            const result = await this.query(`
+                SELECT * FROM version_tags WHERE version_id = $1
+            `, [versionId]);
+
+            return result.rows;
+        } catch (error) {
+            throw ErrorHandler.createError(error, 'get version tags');
+        }
     }
 
     async getVersionChanges(documentId, versionId, userId) {
