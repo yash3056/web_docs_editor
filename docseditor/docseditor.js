@@ -53,9 +53,96 @@ class DocsEditor {
         // Add cleanup on page unload
         window.addEventListener('beforeunload', () => {
             this.cleanupAutoSave();
+            this.cleanup();
         });
 
         console.log('✅ DocsEditor initialized properly as Word-like editor');
+
+        // Set up print handling for watermarks
+        this.setupPrintHandling();
+
+        // Set up canvas monitoring for automatic watermark application
+        this.setupCanvasMonitoring();
+
+        // Make test methods available globally for debugging
+        window.testCanvasWatermark = () => this.testCanvasWatermark();
+        window.testWatermark = () => this.testWatermark();
+    }
+
+    // Setup print handling to include watermarks
+    setupPrintHandling() {
+        window.addEventListener('beforeprint', async () => {
+            if (this.watermarkSettings) {
+                try {
+                    // Create a print-friendly version with watermark
+                    const printCanvas = await this.renderDocumentToCanvas({
+                        width: 794, // A4 width in pixels at 96 DPI
+                        height: 1123, // A4 height in pixels at 96 DPI
+                        scale: 1,
+                        backgroundColor: '#ffffff'
+                    });
+
+                    // Create a temporary image element for printing
+                    const printImage = document.createElement('img');
+                    printImage.src = printCanvas.toDataURL();
+                    printImage.style.width = '100%';
+                    printImage.style.height = 'auto';
+                    printImage.id = 'print-watermark-image';
+
+                    // Hide the original editor and show the watermarked image
+                    this.editor.style.display = 'none';
+                    this.editor.parentNode.insertBefore(printImage, this.editor);
+                } catch (error) {
+                    console.error('Error preparing print with watermark:', error);
+                }
+            }
+        });
+
+        window.addEventListener('afterprint', () => {
+            // Restore original editor visibility
+            const printImage = document.getElementById('print-watermark-image');
+            if (printImage) {
+                printImage.remove();
+            }
+            this.editor.style.display = '';
+        });
+    }
+
+    // Setup monitoring for new canvas elements to automatically apply watermarks
+    setupCanvasMonitoring() {
+        // Create a MutationObserver to watch for new canvas elements
+        this.canvasObserver = new MutationObserver((mutations) => {
+            if (!this.watermarkSettings) return;
+
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if the added node is a canvas
+                        if (node.tagName === 'CANVAS') {
+                            this.drawWatermarkOnCanvas(node, this.watermarkSettings);
+                        }
+                        // Check if the added node contains canvases
+                        const canvases = node.querySelectorAll ? node.querySelectorAll('canvas') : [];
+                        canvases.forEach(canvas => {
+                            this.drawWatermarkOnCanvas(canvas, this.watermarkSettings);
+                        });
+                    }
+                });
+            });
+        });
+
+        // Start observing the document for canvas additions
+        this.canvasObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // Cleanup method
+    cleanup() {
+        if (this.canvasObserver) {
+            this.canvasObserver.disconnect();
+        }
     }
 
     async checkServerStatus() {
@@ -77,6 +164,9 @@ class DocsEditor {
         if (this.editor) {
             this.editor.setAttribute('contenteditable', 'true');
             this.editor.setAttribute('spellcheck', 'true');
+
+            // Don't clear content here - let loadDocument handle it
+            // Content will be loaded by loadDocument after initialization
 
             // Add input event listener for real-time updates
             this.editor.addEventListener('input', () => {
@@ -386,7 +476,7 @@ class DocsEditor {
     toggleLineSpacingMenu() {
         const menu = document.getElementById('line-spacing-menu');
         menu.classList.toggle('show');
-        
+
         // Close menu when clicking outside
         if (menu.classList.contains('show')) {
             setTimeout(() => {
@@ -398,7 +488,7 @@ class DocsEditor {
     closeLineSpacingMenu(event) {
         const dropdown = document.querySelector('.line-spacing-dropdown');
         const menu = document.getElementById('line-spacing-menu');
-        
+
         if (!dropdown.contains(event.target)) {
             menu.classList.remove('show');
         }
@@ -406,11 +496,11 @@ class DocsEditor {
 
     setupLineSpacingEventListeners() {
         const menu = document.getElementById('line-spacing-menu');
-        
+
         // Handle spacing option clicks
         menu.addEventListener('click', (e) => {
             e.stopPropagation();
-            
+
             const option = e.target.closest('.spacing-option');
             if (!option) return;
 
@@ -443,7 +533,7 @@ class DocsEditor {
     applyLineSpacing(spacing) {
         console.log('Applying line spacing:', spacing);
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount === 0 || selection.toString().trim() === '') {
             // No selection or empty selection, apply to entire editor content
             console.log('No selection, applying to all content');
@@ -461,22 +551,22 @@ class DocsEditor {
     applyLineSpacingToEditor(spacing) {
         // Apply to the editor itself first
         this.setElementLineSpacing(this.editor, spacing);
-        
+
         // Also apply to all child block elements
         const blockElements = this.editor.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote');
         blockElements.forEach(element => {
             this.setElementLineSpacing(element, spacing);
         });
-        
+
         console.log(`Applied line spacing ${spacing} to editor and ${blockElements.length} block elements`);
     }
 
     getCurrentParagraphElement() {
         const selection = window.getSelection();
         let element = selection.anchorNode;
-        
+
         console.log('Starting from node:', element);
-        
+
         // If text node, get parent element
         if (element && element.nodeType === Node.TEXT_NODE) {
             element = element.parentElement;
@@ -494,7 +584,7 @@ class DocsEditor {
         }
 
         console.log('No paragraph element found, checking if editor has div children');
-        
+
         // If we reach the editor and no paragraph found, 
         // check if content is directly in editor without proper block elements
         const firstChild = this.editor.firstElementChild;
@@ -517,17 +607,17 @@ class DocsEditor {
         // If there's loose text content in the editor, wrap it in a paragraph
         const selection = window.getSelection();
         const range = selection.getRangeAt(0);
-        
+
         // Get the current cursor position
         const currentNode = range.startContainer;
-        
+
         // If we're in a text node directly in the editor
-        if (currentNode.parentNode === this.editor || 
+        if (currentNode.parentNode === this.editor ||
             (currentNode === this.editor && this.editor.childNodes.length > 0)) {
-            
+
             // Create a paragraph element
             const p = document.createElement('p');
-            
+
             // Move current content to the paragraph
             if (currentNode.nodeType === Node.TEXT_NODE) {
                 // Wrap the text node
@@ -541,10 +631,10 @@ class DocsEditor {
                 }
                 this.editor.appendChild(p);
             }
-            
+
             return p;
         }
-        
+
         return null;
     }
 
@@ -557,10 +647,10 @@ class DocsEditor {
     applySpacingToSelection(spacing) {
         const selection = window.getSelection();
         const range = selection.getRangeAt(0);
-        
+
         // Get all paragraph elements within the selection
         const elements = this.getParagraphElementsInRange(range);
-        
+
         elements.forEach(element => {
             this.setElementLineSpacing(element, spacing);
         });
@@ -591,7 +681,7 @@ class DocsEditor {
 
     adjustParagraphSpacing(position, value) {
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount === 0) {
             const currentElement = this.getCurrentParagraphElement();
             if (currentElement) {
@@ -619,7 +709,7 @@ class DocsEditor {
         if (btn) {
             const icon = btn.querySelector('i:first-child');
             const chevron = btn.querySelector('i:last-child');
-            
+
             // You could update the button to show current spacing
             // For now, we'll keep the icon as is
         }
@@ -627,12 +717,12 @@ class DocsEditor {
 
     showLineSpacingModal() {
         const modal = document.getElementById('line-spacing-modal');
-        
+
         // Get current spacing values from selection
         this.populateLineSpacingModal();
-        
+
         modal.style.display = 'block';
-        
+
         // Focus first input
         setTimeout(() => {
             const firstInput = modal.querySelector('select, input');
@@ -643,19 +733,19 @@ class DocsEditor {
     populateLineSpacingModal() {
         // Get current paragraph element to read existing values
         const currentElement = this.getCurrentParagraphElement();
-        
+
         if (currentElement) {
             const computedStyle = window.getComputedStyle(currentElement);
-            
+
             // Parse line height
             const lineHeight = computedStyle.lineHeight;
             if (lineHeight && lineHeight !== 'normal') {
                 const fontSize = parseFloat(computedStyle.fontSize);
                 const lineHeightValue = parseFloat(lineHeight);
                 const ratio = lineHeightValue / fontSize;
-                
+
                 document.getElementById('line-spacing-value').value = ratio.toFixed(1);
-                
+
                 // Set appropriate type
                 if (Math.abs(ratio - 1.0) < 0.1) {
                     document.getElementById('line-spacing-type').value = 'single';
@@ -667,15 +757,15 @@ class DocsEditor {
                     document.getElementById('line-spacing-type').value = 'multiple';
                 }
             }
-            
+
             // Parse margins
             const marginTop = parseFloat(computedStyle.marginTop) || 0;
             const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
-            
+
             document.getElementById('space-before').value = Math.round(marginTop * 0.75); // Convert px to pt approximately
             document.getElementById('space-after').value = Math.round(marginBottom * 0.75);
         }
-        
+
         this.updateSpacingPreview();
     }
 
@@ -685,7 +775,7 @@ class DocsEditor {
             const type = e.target.value;
             const valueInput = document.getElementById('line-spacing-value');
             const unitSpan = document.getElementById('line-spacing-unit');
-            
+
             switch (type) {
                 case 'single':
                     valueInput.value = '1.0';
@@ -829,7 +919,7 @@ class DocsEditor {
 
         // Apply to current selection or paragraph
         const selection = window.getSelection();
-        
+
         if (selection.rangeCount === 0) {
             const currentElement = this.getCurrentParagraphElement();
             if (currentElement) {
@@ -1232,6 +1322,9 @@ class DocsEditor {
             if (text.trim()) {
                 this.applyWatermark(text, opacity, size, color, angle);
                 document.getElementById('watermark-modal').style.display = 'none';
+
+                // Auto-save the document with the watermark
+                this.saveDocument(true);
             } else {
                 this.showNotification('Please enter watermark text', 'error');
             }
@@ -1240,6 +1333,9 @@ class DocsEditor {
         document.getElementById('remove-watermark-btn').addEventListener('click', () => {
             this.removeWatermark();
             document.getElementById('watermark-modal').style.display = 'none';
+
+            // Auto-save the document after removing watermark
+            this.saveDocument(true);
         });
 
         document.getElementById('cancel-watermark-btn').addEventListener('click', () => {
@@ -1348,32 +1444,51 @@ class DocsEditor {
         // Remove existing watermark
         this.removeWatermark();
 
-        // Create watermark element
-        const watermark = document.createElement('div');
-        watermark.className = 'watermark';
-        watermark.id = 'document-watermark';
+        // Apply watermark directly to the editor using CSS
+        const editor = document.querySelector('#editor');
+        if (!editor) {
+            console.error('Editor element not found');
+            this.showNotification('Error: Could not apply watermark', 'error');
+            return;
+        }
 
-        const watermarkText = document.createElement('div');
-        watermarkText.className = 'watermark-text';
-        watermarkText.textContent = text;
-
-        // Apply styles based on settings
+        // Create watermark as a pseudo-element using CSS
         const sizeMap = {
             small: '36px',
             medium: '48px',
             large: '60px'
         };
 
-        watermarkText.style.fontSize = sizeMap[size];
-        watermarkText.style.color = color;
-        watermarkText.style.opacity = opacity;
-        watermarkText.style.transform = `rotate(${angle}deg)`;
+        // Create a style element for the watermark
+        let watermarkStyle = document.getElementById('watermark-style');
+        if (!watermarkStyle) {
+            watermarkStyle = document.createElement('style');
+            watermarkStyle.id = 'watermark-style';
+            document.head.appendChild(watermarkStyle);
+        }
 
-        watermark.appendChild(watermarkText);
+        // Generate CSS for the watermark
+        const watermarkCSS = `
+            #editor::before {
+                content: "${text}";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(${angle}deg);
+                font-size: ${sizeMap[size]};
+                font-weight: bold;
+                color: ${color};
+                opacity: ${opacity};
+                pointer-events: none;
+                z-index: 0;
+                white-space: nowrap;
+                letter-spacing: 0.1em;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            }
+        `;
 
-        // Insert watermark into editor container
-        const editorContainer = document.querySelector('.editor-container');
-        editorContainer.appendChild(watermark);
+        watermarkStyle.textContent = watermarkCSS;
+        console.log('Watermark applied as CSS pseudo-element');
 
         // Save watermark settings
         this.watermarkSettings = {
@@ -1384,23 +1499,235 @@ class DocsEditor {
             angle
         };
 
+        console.log('Watermark settings saved:', this.watermarkSettings);
+
+        // Apply watermark to any existing canvases
+        this.applyWatermarkToCanvases();
+
         // Update toolbar button state
         this.updateWatermarkButtonState();
 
         this.showNotification('Watermark applied successfully!', 'success');
     }
 
+    // Apply watermark to all canvas elements
+    applyWatermarkToCanvases() {
+        if (!this.watermarkSettings) return;
+
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+            this.drawWatermarkOnCanvas(canvas, this.watermarkSettings);
+        });
+    }
+
+    // Draw watermark directly on a canvas
+    drawWatermarkOnCanvas(canvas, watermarkSettings) {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Save current canvas state
+        ctx.save();
+
+        // Set up watermark properties
+        const sizeMap = {
+            small: 36,
+            medium: 48,
+            large: 60
+        };
+
+        const fontSize = sizeMap[watermarkSettings.size] || 48;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Set font and style
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.fillStyle = watermarkSettings.color;
+        ctx.globalAlpha = parseFloat(watermarkSettings.opacity);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Apply rotation
+        ctx.translate(centerX, centerY);
+        ctx.rotate((watermarkSettings.angle * Math.PI) / 180);
+
+        // Draw the watermark text
+        ctx.fillText(watermarkSettings.text, 0, 0);
+
+        // Restore canvas state
+        ctx.restore();
+    }
+
+    // Method to create a canvas from the current document content
+    async createDocumentCanvas() {
+        try {
+            // Use html2canvas to capture the document content
+            const canvas = await html2canvas(this.editor, {
+                backgroundColor: '#ffffff',
+                scale: 2, // Higher resolution
+                useCORS: true,
+                allowTaint: true
+            });
+
+            // Apply watermark to the canvas if settings exist
+            if (this.watermarkSettings) {
+                this.drawWatermarkOnCanvas(canvas, this.watermarkSettings);
+            }
+
+            return canvas;
+        } catch (error) {
+            console.error('Error creating document canvas:', error);
+            throw error;
+        }
+    }
+
+    // Debug function to test watermark
+    testWatermark() {
+        this.applyWatermark('CONFIDENTIAL', 0.4, 'medium', '#d0d0d0', -30);
+    }
+
+    // Debug function to test canvas watermark
+    async testCanvasWatermark() {
+        try {
+            console.log('Testing canvas watermark...');
+
+            // Apply a test watermark
+            this.applyWatermark('CANVAS TEST', 0.3, 'medium', '#0066cc', -45);
+
+            // Create canvas with watermark
+            const canvas = await this.renderDocumentToCanvas();
+
+            // Display the canvas for testing
+            const testDiv = document.createElement('div');
+            testDiv.style.position = 'fixed';
+            testDiv.style.top = '10px';
+            testDiv.style.right = '10px';
+            testDiv.style.zIndex = '9999';
+            testDiv.style.border = '2px solid red';
+            testDiv.style.backgroundColor = 'white';
+            testDiv.style.padding = '10px';
+
+            const testCanvas = document.createElement('canvas');
+            testCanvas.width = 300;
+            testCanvas.height = 200;
+            const ctx = testCanvas.getContext('2d');
+
+            // Scale down the original canvas to fit the test display
+            ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 300, 200);
+
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close Test';
+            closeBtn.onclick = () => testDiv.remove();
+
+            testDiv.appendChild(testCanvas);
+            testDiv.appendChild(document.createElement('br'));
+            testDiv.appendChild(closeBtn);
+            document.body.appendChild(testDiv);
+
+            console.log('Canvas watermark test completed. Check the preview in the top-right corner.');
+            this.showNotification('Canvas watermark test completed! Check preview in top-right corner.', 'success');
+
+        } catch (error) {
+            console.error('Canvas watermark test failed:', error);
+            this.showNotification('Canvas watermark test failed. Check console for details.', 'error');
+        }
+    }
+
     removeWatermark() {
-        const existingWatermark = document.getElementById('document-watermark');
-        if (existingWatermark) {
-            existingWatermark.remove();
+        // Remove CSS-based watermark
+        const watermarkStyle = document.getElementById('watermark-style');
+        if (watermarkStyle) {
+            watermarkStyle.remove();
             this.watermarkSettings = null;
             this.showNotification('Watermark removed successfully!', 'success');
+            console.log('Watermark CSS removed');
 
             // Update toolbar button state
             this.updateWatermarkButtonState();
         } else {
-            this.showNotification('No watermark to remove', 'info');
+            // Also check for old DOM-based watermark for backward compatibility
+            const existingWatermark = document.getElementById('document-watermark');
+            if (existingWatermark) {
+                existingWatermark.remove();
+                this.watermarkSettings = null;
+                this.showNotification('Watermark removed successfully!', 'success');
+                this.updateWatermarkButtonState();
+            } else {
+                this.showNotification('No watermark to remove', 'info');
+            }
+        }
+    }
+
+    // Method to get document content with watermark for export
+    async getDocumentContentWithWatermark() {
+        if (!this.watermarkSettings) {
+            // No watermark, return regular content
+            return this.editor.innerHTML;
+        }
+
+        try {
+            // Create a temporary container with the document content
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'relative';
+            tempContainer.style.width = this.editor.offsetWidth + 'px';
+            tempContainer.style.height = this.editor.offsetHeight + 'px';
+            tempContainer.style.backgroundColor = '#ffffff';
+            tempContainer.innerHTML = this.editor.innerHTML;
+
+            // Create watermark element for the temp container
+            const watermark = document.createElement('div');
+            watermark.style.position = 'absolute';
+            watermark.style.top = '0';
+            watermark.style.left = '0';
+            watermark.style.right = '0';
+            watermark.style.bottom = '0';
+            watermark.style.pointerEvents = 'none';
+            watermark.style.zIndex = '1';
+            watermark.style.display = 'flex';
+            watermark.style.alignItems = 'center';
+            watermark.style.justifyContent = 'center';
+            watermark.style.overflow = 'hidden';
+
+            const watermarkText = document.createElement('div');
+            const sizeMap = {
+                small: '36px',
+                medium: '48px',
+                large: '60px'
+            };
+
+            watermarkText.style.fontSize = sizeMap[this.watermarkSettings.size];
+            watermarkText.style.fontWeight = 'bold';
+            watermarkText.style.color = this.watermarkSettings.color;
+            watermarkText.style.opacity = this.watermarkSettings.opacity;
+            watermarkText.style.transform = `rotate(${this.watermarkSettings.angle}deg)`;
+            watermarkText.style.userSelect = 'none';
+            watermarkText.style.whiteSpace = 'nowrap';
+            watermarkText.style.letterSpacing = '0.1em';
+            watermarkText.textContent = this.watermarkSettings.text;
+
+            watermark.appendChild(watermarkText);
+            tempContainer.appendChild(watermark);
+
+            // Temporarily add to document for rendering
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.top = '-9999px';
+            document.body.appendChild(tempContainer);
+
+            // Create canvas from the temp container
+            const canvas = await html2canvas(tempContainer, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                allowTaint: true
+            });
+
+            // Remove temp container
+            document.body.removeChild(tempContainer);
+
+            return canvas;
+        } catch (error) {
+            console.error('Error creating watermarked content:', error);
+            return this.editor.innerHTML;
         }
     }
 
@@ -1419,6 +1746,79 @@ class DocsEditor {
             if (icon.classList.contains('fa-tint-slash')) {
                 icon.classList.replace('fa-tint-slash', 'fa-tint');
             }
+        }
+    }
+
+    // Enhanced method to render document with watermark on canvas
+    async renderDocumentToCanvas(options = {}) {
+        const {
+            width = this.editor.offsetWidth,
+            height = this.editor.offsetHeight,
+            scale = 2,
+            backgroundColor = '#ffffff'
+        } = options;
+
+        try {
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext('2d');
+
+            // Set background
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Scale context for high DPI
+            ctx.scale(scale, scale);
+
+            // First, render the document content using html2canvas
+            const documentCanvas = await html2canvas(this.editor, {
+                backgroundColor: backgroundColor,
+                scale: 1, // We handle scaling ourselves
+                useCORS: true,
+                allowTaint: true,
+                width: width,
+                height: height
+            });
+
+            // Draw the document content onto our canvas
+            ctx.drawImage(documentCanvas, 0, 0, width, height);
+
+            // Apply watermark if settings exist
+            if (this.watermarkSettings) {
+                this.drawWatermarkOnCanvas(canvas, this.watermarkSettings);
+            }
+
+            return canvas;
+        } catch (error) {
+            console.error('Error rendering document to canvas:', error);
+            throw error;
+        }
+    }
+
+    // Method to export current view as image with watermark
+    async exportAsImage(format = 'png') {
+        try {
+            const canvas = await this.renderDocumentToCanvas();
+
+            // Convert canvas to blob
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${this.documentTitle.value || 'document'}.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    resolve(blob);
+                }, `image/${format}`);
+            });
+        } catch (error) {
+            console.error('Error exporting as image:', error);
+            this.showNotification('Error exporting image. Please try again.', 'error');
         }
     }
 
@@ -1461,10 +1861,14 @@ class DocsEditor {
             // Get content from the editor (single page mode)
             const editorContent = this.editor ? this.editor.innerHTML : '';
 
+            console.log('💾 Save debug info:');
+            console.log('💾 Title:', title);
+            console.log('💾 Content length:', editorContent.length);
+            console.log('💾 Content preview:', editorContent.substring(0, 150) + '...');
+
             // Don't save if content is just the placeholder text
-            const isPlaceholderContent = editorContent === '<p>Start typing your document here...</p>' ||
-                editorContent === '<p><br></p>' ||
-                editorContent.trim() === '';
+            const isPlaceholderContent = this.isPlaceholderContent(editorContent);
+            console.log('💾 Is placeholder content:', isPlaceholderContent);
 
             const pagesContent = [editorContent]; // Wrap in array for compatibility
 
@@ -1478,11 +1882,7 @@ class DocsEditor {
             const hasContentChanged = contentHash !== lastContentHash;
 
             // Also check if this is essentially empty content (for new documents)
-            const isEmptyContent = editorContent.trim() === '' ||
-                editorContent === '<p><br></p>' ||
-                editorContent === '<br>' ||
-                editorContent === '<p></p>' ||
-                editorContent.replace(/<[^>]*>/g, '').trim() === '';
+            const isEmptyContent = this.isPlaceholderContent(editorContent);
 
             // Get plain text content for additional validation
             const plainTextContent = editorContent.replace(/<[^>]*>/g, '').trim();
@@ -1499,21 +1899,40 @@ class DocsEditor {
                 });
             }
 
-            // Skip saving if no changes detected OR if trying to save empty content for existing document
-            if ((!hasContentChanged && currentDocId) || (isEmptyContent && lastContentHash) || (!hasRealContent && lastContentHash)) {
+            // Check if watermark settings have changed
+            const lastWatermarkHash = localStorage.getItem('lastWatermarkHash_' + (currentDocId || 'new'));
+            const currentWatermarkHash = this.watermarkSettings ? JSON.stringify(this.watermarkSettings) : '';
+            const hasWatermarkChanged = currentWatermarkHash !== lastWatermarkHash;
+
+            if (showNotification) {
+                console.log('🔍 Watermark analysis:', {
+                    hasWatermarkChanged,
+                    currentWatermarkHash: currentWatermarkHash.substring(0, 50) + '...',
+                    lastWatermarkHash: (lastWatermarkHash || '').substring(0, 50) + '...'
+                });
+            }
+
+            // Skip saving if no changes detected (content OR watermark) AND document exists, OR if trying to save only placeholder content
+            if ((!hasContentChanged && !hasWatermarkChanged && currentDocId) || (isPlaceholderContent && currentDocId && !hasWatermarkChanged)) {
                 if (showNotification) {
-                    if (!hasContentChanged) {
-                        console.log('📄 No content changes detected, skipping version creation');
+                    if (!hasContentChanged && !hasWatermarkChanged) {
+                        console.log('📄 No content or watermark changes detected, skipping version creation');
                         this.showNotification('No changes to save', 'info');
-                    } else if (!hasRealContent) {
-                        console.log('📄 No real content detected, skipping version creation');
-                        this.showNotification('Cannot save empty document', 'warning');
-                    } else {
-                        console.log('📄 Empty content detected, skipping version creation');
+                    } else if (isPlaceholderContent) {
+                        console.log('📄 Placeholder content detected, skipping version creation');
                         this.showNotification('Cannot save empty document', 'warning');
                     }
                 }
-                return { success: true, reason: hasContentChanged ? 'Empty content' : 'No changes detected' };
+                return { success: true, reason: 'No changes detected' };
+            }
+
+            // For new documents, allow saving even with minimal content as long as it's not just placeholder
+            if (!currentDocId && isPlaceholderContent) {
+                if (showNotification) {
+                    console.log('📄 Cannot save new document with only placeholder content');
+                    this.showNotification('Please add some content before saving', 'warning');
+                }
+                return { success: false, reason: 'New document needs content' };
             }
 
             const document = {
@@ -1526,12 +1945,21 @@ class DocsEditor {
                 pageCount: 1
             };
 
+            console.log('💾 Saving document:', {
+                id: document.id,
+                title: document.title,
+                currentDocId: currentDocId,
+                isNewDocument: !currentDocId
+            });
+
             if (!currentDocId) {
                 localStorage.setItem('currentDocumentId', document.id);
+                console.log('🆔 Set new document ID:', document.id);
             }
 
             if (this.watermarkSettings) {
                 document.watermark = this.watermarkSettings;
+                console.log('Including watermark in document save:', this.watermarkSettings);
             }
 
             try {
@@ -1552,6 +1980,10 @@ class DocsEditor {
 
                     // Store content hash to prevent duplicate saves
                     localStorage.setItem('lastContentHash_' + document.id, contentHash);
+
+                    // Store watermark hash to prevent duplicate saves
+                    const currentWatermarkHash = this.watermarkSettings ? JSON.stringify(this.watermarkSettings) : '';
+                    localStorage.setItem('lastWatermarkHash_' + document.id, currentWatermarkHash);
 
                     // Update current document ID if new
                     if (!currentDocId) {
@@ -1581,6 +2013,10 @@ class DocsEditor {
 
                 // Store content hash even for local save
                 localStorage.setItem('lastContentHash_' + document.id, contentHash);
+
+                // Store watermark hash even for local save
+                const currentWatermarkHash = this.watermarkSettings ? JSON.stringify(this.watermarkSettings) : '';
+                localStorage.setItem('lastWatermarkHash_' + document.id, currentWatermarkHash);
 
                 // Fallback to local save
                 this.saveDocumentLocally(document);
@@ -1632,6 +2068,7 @@ class DocsEditor {
 
         if (this.watermarkSettings) {
             document.watermark = this.watermarkSettings;
+            console.log('Including watermark in document save (method 2):', this.watermarkSettings);
         }
 
         if (showNotification) {
@@ -1807,35 +2244,53 @@ class DocsEditor {
         console.log('🔍 Loading document...');
         const currentDocId = localStorage.getItem('currentDocumentId');
         console.log('📄 Current document ID:', currentDocId);
+        console.log('📚 All localStorage keys:', Object.keys(localStorage));
 
         if (currentDocId) {
+            console.log('🔍 Found currentDocId, attempting to load document:', currentDocId);
             try {
                 // Try to load from server first
                 console.log('🌐 Attempting to load from server...');
                 const currentDoc = await this.api.getDocument(currentDocId);
+                console.log('📡 Server response:', currentDoc);
 
                 if (currentDoc) {
-                    console.log('📖 Loading document from server:', currentDoc.title);
+                    console.log('� Content type:', Array.isArray(currentDoc.content) ? 'array' : typeof currentDoc.content);
+                    console.log('📡 Content length:', Array.isArray(currentDoc.content) ? currentDoc.content.length : currentDoc.content?.length || 0);
+
+                    if (Array.isArray(currentDoc.content) && currentDoc.content.length > 0) {
+                        console.log('📡 First page content preview:', currentDoc.content[0]?.substring(0, 100) + '...');
+                    } else if (currentDoc.content) {
+                        console.log('📡 Content preview:', currentDoc.content.substring(0, 100) + '...');
+                    }
+
+                    console.log('�📖 Loading document from server:', currentDoc.title);
                     this.documentTitle.value = currentDoc.title;
 
                     // Handle both old format (single content) and new format (pages array)
                     if (Array.isArray(currentDoc.content)) {
                         // New multi-page format - use first page content for the editor
                         if (currentDoc.content.length > 0 && currentDoc.content[0]) {
+                            console.log('📡 Loading from page array, content:', currentDoc.content[0]);
                             this.editor.innerHTML = currentDoc.content[0];
+                            console.log('📡 Editor content after setting:', this.editor.innerHTML);
                         } else {
-                            this.editor.innerHTML = '';
+                            console.log('📡 Empty page array, setting minimal content');
+                            this.editor.innerHTML = '<p><br></p>';
                         }
                     } else {
                         // Old single-page format - put content directly in editor
-                        this.editor.innerHTML = currentDoc.content || '';
+                        console.log('📡 Loading from single content:', currentDoc.content);
+                        this.editor.innerHTML = currentDoc.content || '<p><br></p>';
+                        console.log('📡 Editor content after setting:', this.editor.innerHTML);
                     }
 
-                    // Clear default placeholder content if it's still there
-                    if (this.editor.innerHTML.trim() === '' ||
-                        this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
-                        this.editor.innerHTML === '<p><br></p>') {
-                        this.editor.innerHTML = '';
+                    // DO NOT CLEAR CONTENT - just check if it's the default placeholder
+                    if (this.editor.innerHTML === '<p>Start typing your document here...</p>') {
+                        console.log('📡 Only clearing the specific default placeholder');
+                        this.editor.innerHTML = '<p><br></p>';
+                    } else {
+                        console.log('📡 Keeping loaded content as-is');
                     }
 
                     this.updateWordCount();
@@ -1846,8 +2301,13 @@ class DocsEditor {
                     const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
                     localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
 
+                    // Store initial watermark hash for change detection
+                    const initialWatermarkHash = currentDoc.watermark ? JSON.stringify(currentDoc.watermark) : '';
+                    localStorage.setItem('lastWatermarkHash_' + currentDocId, initialWatermarkHash);
+
                     // Restore watermark if it exists
                     if (currentDoc.watermark) {
+                        console.log('Restoring watermark from server:', currentDoc.watermark);
                         this.watermarkSettings = currentDoc.watermark;
                         this.applyWatermark(
                             currentDoc.watermark.text,
@@ -1875,27 +2335,42 @@ class DocsEditor {
             console.log('🎯 Found current document:', !!currentDoc);
 
             if (currentDoc) {
-                console.log('📖 Loading document from localStorage:', currentDoc.title);
+                console.log('� Content type:', Array.isArray(currentDoc.content) ? 'array' : typeof currentDoc.content);
+                console.log('📱 Content length:', Array.isArray(currentDoc.content) ? currentDoc.content.length : currentDoc.content?.length || 0);
+
+                if (Array.isArray(currentDoc.content) && currentDoc.content.length > 0) {
+                    console.log('📱 First page content preview:', currentDoc.content[0]?.substring(0, 100) + '...');
+                } else if (currentDoc.content) {
+                    console.log('📱 Content preview:', currentDoc.content.substring(0, 100) + '...');
+                }
+
+                console.log('�📖 Loading document from localStorage:', currentDoc.title);
                 this.documentTitle.value = currentDoc.title;
 
                 // Handle both old format (single content) and new format (pages array)
                 if (Array.isArray(currentDoc.content)) {
                     // New multi-page format - use first page content for the editor
                     if (currentDoc.content.length > 0 && currentDoc.content[0]) {
+                        console.log('📱 Loading from page array, content:', currentDoc.content[0]);
                         this.editor.innerHTML = currentDoc.content[0];
+                        console.log('📱 Editor content after setting:', this.editor.innerHTML);
                     } else {
-                        this.editor.innerHTML = '';
+                        console.log('📱 Empty page array, setting minimal content');
+                        this.editor.innerHTML = '<p><br></p>';
                     }
                 } else {
                     // Old single-page format - put content directly in editor
-                    this.editor.innerHTML = currentDoc.content || '';
+                    console.log('📱 Loading from single content:', currentDoc.content);
+                    this.editor.innerHTML = currentDoc.content || '<p><br></p>';
+                    console.log('📱 Editor content after setting:', this.editor.innerHTML);
                 }
 
-                // Clear default placeholder content if it's still there
-                if (this.editor.innerHTML.trim() === '' ||
-                    this.editor.innerHTML === '<p>Start typing your document here...</p>' ||
-                    this.editor.innerHTML === '<p><br></p>') {
-                    this.editor.innerHTML = '';
+                // DO NOT CLEAR CONTENT - just check if it's the default placeholder
+                if (this.editor.innerHTML === '<p>Start typing your document here...</p>') {
+                    console.log('📱 Only clearing the specific default placeholder');
+                    this.editor.innerHTML = '<p><br></p>';
+                } else {
+                    console.log('📱 Keeping loaded content as-is');
                 }
 
                 this.updateWordCount();
@@ -1906,8 +2381,13 @@ class DocsEditor {
                 const initialContentHash = this.calculateContentHash(this.editor.innerHTML, currentDoc.title);
                 localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
 
+                // Store initial watermark hash for change detection
+                const initialWatermarkHash = currentDoc.watermark ? JSON.stringify(currentDoc.watermark) : '';
+                localStorage.setItem('lastWatermarkHash_' + currentDocId, initialWatermarkHash);
+
                 // Restore watermark if it exists
                 if (currentDoc.watermark) {
+                    console.log('Restoring watermark from localStorage:', currentDoc.watermark);
                     this.watermarkSettings = currentDoc.watermark;
                     this.applyWatermark(
                         currentDoc.watermark.text,
@@ -1939,6 +2419,10 @@ class DocsEditor {
             if (currentDocId) {
                 const initialContentHash = this.calculateContentHash(data.content, data.title);
                 localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
+
+                // Store initial watermark hash for change detection
+                const initialWatermarkHash = data.watermark ? JSON.stringify(data.watermark) : '';
+                localStorage.setItem('lastWatermarkHash_' + currentDocId, initialWatermarkHash);
             }
 
             // Restore watermark if it exists
@@ -1955,17 +2439,80 @@ class DocsEditor {
                 this.updateWatermarkButtonState();
             }
         } else {
-            // No document found, clear any default content and initialize hash
-            this.editor.innerHTML = '';
+            // No document found, clear any default content and reset state
+            console.log('📄 No document found, creating new document');
+
+            // Set empty content but ensure editor is editable
+            this.editor.innerHTML = '<p><br></p>';
             this.documentTitle.value = 'Untitled Document';
 
-            // Initialize content hash for new document to prevent empty saves
-            const currentDocId = localStorage.getItem('currentDocumentId');
-            if (currentDocId) {
-                const initialContentHash = this.calculateContentHash('', 'Untitled Document');
-                localStorage.setItem('lastContentHash_' + currentDocId, initialContentHash);
-            }
+            // Clear the current document ID since no document was found
+            localStorage.removeItem('currentDocumentId');
+            console.log('🗑️ Cleared currentDocumentId - will create new document on save');
         }
+
+        // Final check and logging
+        console.log('📋 Final editor state after loadDocument:');
+        console.log('📋 Title:', this.documentTitle.value);
+        console.log('📋 Content length:', this.editor.innerHTML.length);
+        console.log('📋 Content preview:', this.editor.innerHTML.substring(0, 200) + '...');
+        console.log('📋 Plain text length:', (this.editor.textContent || '').length);
+        console.log('📋 Plain text preview:', (this.editor.textContent || '').substring(0, 200) + '...');
+
+        // Ensure editor always has editable content
+        if (!this.editor.innerHTML.trim() || this.editor.innerHTML === '') {
+            console.log('📋 Setting fallback content for empty editor');
+            this.editor.innerHTML = '<p><br></p>';
+        }
+
+        // Add a delay check to see if content gets cleared later
+        setTimeout(() => {
+            console.log('🕐 Content check after 1 second:');
+            console.log('🕐 Content:', this.editor.innerHTML.substring(0, 200) + '...');
+            console.log('🕐 Plain text:', (this.editor.textContent || '').substring(0, 200) + '...');
+        }, 1000);
+
+        setTimeout(() => {
+            console.log('🕐 Content check after 3 seconds:');
+            console.log('🕐 Content:', this.editor.innerHTML.substring(0, 200) + '...');
+            console.log('🕐 Plain text:', (this.editor.textContent || '').substring(0, 200) + '...');
+        }, 3000);
+    }
+
+    clearPlaceholderContent() {
+        if (!this.editor) return;
+
+        const content = this.editor.innerHTML;
+        const plainText = this.editor.textContent || this.editor.innerText || '';
+
+        // Check for various forms of placeholder or empty content
+        const isPlaceholder =
+            content === '<p>Start typing your document here...</p>' ||
+            content === '<p><br></p>' ||
+            content === '<br>' ||
+            content === '<p></p>' ||
+            content.trim() === '' ||
+            plainText.trim() === 'Start typing your document here...';
+
+        if (isPlaceholder) {
+            console.log('🧹 Clearing placeholder content:', content);
+            this.editor.innerHTML = '<p><br></p>'; // Set to editable empty paragraph instead of completely empty
+        } else {
+            console.log('✅ Content is not placeholder:', content.substring(0, 100) + '...');
+        }
+    }
+
+    isPlaceholderContent(content) {
+        if (!content) return true;
+
+        // Create a temporary element to get plain text
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+        return content === '<p>Start typing your document here...</p>' ||
+            plainText.trim() === 'Start typing your document here...' ||
+            (content.trim() === '' || plainText.trim() === '');
     }
 
     toggleExportMenu() {
@@ -2064,8 +2611,13 @@ class DocsEditor {
                 return;
             }
 
-            // Use the shared export utility
-            await ExportUtils.exportContentAsPDF(editorContent, title, this.watermarkSettings);
+            // If watermark exists, use canvas-based export for better watermark rendering
+            if (this.watermarkSettings) {
+                await this.exportAsPDFWithCanvas(title);
+            } else {
+                // Use the shared export utility for non-watermarked content
+                await ExportUtils.exportContentAsPDF(editorContent, title, this.watermarkSettings);
+            }
 
             this.closeExportMenu();
             this.showNotification('PDF exported successfully!', 'success');
@@ -2073,6 +2625,35 @@ class DocsEditor {
         } catch (error) {
             console.error('PDF export error:', error);
             this.showNotification('Error exporting PDF. Please try again.', 'error');
+        }
+    }
+
+    // Enhanced PDF export using canvas for better watermark rendering
+    async exportAsPDFWithCanvas(title) {
+        try {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            // Create canvas with watermark
+            const canvas = await this.renderDocumentToCanvas({
+                width: 794, // A4 width in pixels at 96 DPI
+                height: 1123, // A4 height in pixels at 96 DPI
+                scale: 2, // Higher resolution
+                backgroundColor: '#ffffff'
+            });
+
+            // Convert canvas to image and add to PDF
+            const imgData = canvas.toDataURL('image/png');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`${title}.pdf`);
+
+        } catch (error) {
+            console.error('Canvas-based PDF export error:', error);
+            // Fallback to regular export
+            await ExportUtils.exportContentAsPDF(this.editor.innerHTML, title, this.watermarkSettings);
         }
     }
 
@@ -2417,7 +2998,7 @@ class DocsEditor {
         const contextMenu = document.getElementById('custom-context-menu');
         const selection = window.getSelection();
         const hasSelection = selection.toString().length > 0;
-        
+
         console.log('Has selection:', hasSelection);
         console.log('Selection text:', selection.toString());
         console.log('Selection range count:', selection.rangeCount);
@@ -2608,19 +3189,19 @@ class DocsEditor {
         // Refine text submenu handlers (when text is selected)
         const refineOptions = document.querySelectorAll('#refine-submenu .context-menu-item');
         console.log('Found refine options:', refineOptions.length);
-        
+
         refineOptions.forEach((option, index) => {
             const action = option.getAttribute('data-action');
             console.log(`Setting up handler for option ${index}:`, action);
-            
+
             option.addEventListener('click', (e) => {
                 console.log('=== REFINE OPTION CLICKED ===');
                 console.log('Clicked option:', action);
                 console.log('Event:', e);
-                
+
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 console.log('Calling handleRefineText with action:', action);
                 this.handleRefineText(action);
                 this.hideCustomContextMenu();
@@ -2632,7 +3213,7 @@ class DocsEditor {
         console.log('=== HANDLE REFINE TEXT START ===');
         console.log('Action:', action);
         console.log('Saved selection exists:', !!this.savedSelection);
-        
+
         // Check if we have saved selection
         if (!this.savedSelection || !this.savedSelection.text.trim()) {
             console.error('No saved selection or empty text');
@@ -2679,7 +3260,7 @@ class DocsEditor {
         console.log('Input text:', text);
         console.log('Action:', action);
         console.log('Server available:', this.serverAvailable);
-        
+
         try {
             // Check if server is available
             if (!this.serverAvailable) {
@@ -2736,11 +3317,11 @@ class DocsEditor {
 
             if (response && response.text) {
                 console.log('Raw response text:', response.text);
-                
+
                 // Process the response to remove content before </think>
                 let processedText = this.processAIResponse(response.text);
                 console.log('Processed text:', processedText);
-                
+
                 // Show the refine results popup
                 console.log('Showing refine results popup...');
                 this.showRefineResultsPopup(processedText, actionTitle);
@@ -2757,7 +3338,7 @@ class DocsEditor {
             console.error('Error stack:', error.stack);
             this.showNotification('Failed to refine text. Please try again.', 'error');
         }
-        
+
         console.log('=== REFINE SELECTED TEXT END ===');
     }
 
@@ -2767,7 +3348,7 @@ class DocsEditor {
         if (thinkEndIndex !== -1) {
             text = text.substring(thinkEndIndex + 8); // 8 is length of '</think>'
         }
-        
+
         // Clean up any remaining whitespace
         return text.trim();
     }
@@ -2776,15 +3357,15 @@ class DocsEditor {
         console.log('=== SHOW REFINE RESULTS POPUP START ===');
         console.log('Text to show:', text);
         console.log('Action title:', actionTitle);
-        
+
         const popup = document.getElementById('refine-results-popup');
         const titleElement = document.getElementById('refine-title');
         const contentElement = document.getElementById('refine-content');
-        
+
         console.log('Popup element found:', !!popup);
         console.log('Title element found:', !!titleElement);
         console.log('Content element found:', !!contentElement);
-        
+
         if (!popup || !titleElement || !contentElement) {
             console.error('Required popup elements not found!');
             console.error('Popup:', popup);
@@ -2792,11 +3373,11 @@ class DocsEditor {
             console.error('Content:', contentElement);
             return;
         }
-        
+
         // Set the title
         titleElement.textContent = actionTitle;
         console.log('Title set to:', actionTitle);
-        
+
         // Convert markdown to HTML using Showdown
         console.log('Showdown available:', typeof showdown !== 'undefined');
         if (typeof showdown !== 'undefined') {
@@ -2814,28 +3395,28 @@ class DocsEditor {
             console.log('Using fallback text content');
             contentElement.textContent = text;
         }
-        
+
         // Store the processed text for insertion
         this.currentRefinedText = text;
         console.log('Stored refined text:', this.currentRefinedText);
-        
+
         // Position the popup in the center of the screen
         const x = window.innerWidth / 2 - 250; // Center horizontally (popup width is 500px)
         const y = window.innerHeight / 2 - 200; // Center vertically
-        
+
         console.log('Positioning popup at:', x, y);
         popup.style.left = `${x}px`;
         popup.style.top = `${y}px`;
         popup.style.display = 'block';
-        
+
         console.log('Popup display set to block');
-        
+
         // Add show animation
         setTimeout(() => {
             popup.classList.add('show');
             console.log('Show class added to popup');
         }, 10);
-        
+
         // Make popup draggable
         try {
             this.makeDraggable(popup);
@@ -2843,7 +3424,7 @@ class DocsEditor {
         } catch (dragError) {
             console.error('Error making popup draggable:', dragError);
         }
-        
+
         console.log('=== SHOW REFINE RESULTS POPUP END ===');
     }
 
@@ -2858,7 +3439,7 @@ class DocsEditor {
             try {
                 // Check if the text contains HTML tags
                 const hasHtmlTags = /<[^>]*>/g.test(newText);
-                
+
                 if (hasHtmlTags) {
                     // Use insertHTML for rich content
                     document.execCommand('insertHTML', false, newText);
@@ -2946,15 +3527,15 @@ class DocsEditor {
 
     makeDraggable(popup) {
         // Try to find header with different class names
-        const header = popup.querySelector('.ai-popup-header') || 
-                      popup.querySelector('.refine-popup-header') ||
-                      popup.querySelector('.popup-header');
-        
+        const header = popup.querySelector('.ai-popup-header') ||
+            popup.querySelector('.refine-popup-header') ||
+            popup.querySelector('.popup-header');
+
         if (!header) {
             console.warn('No draggable header found for popup');
             return;
         }
-        
+
         let isDragging = false;
         let startX, startY, startLeft, startTop;
 
@@ -3611,7 +4192,7 @@ class DocsEditor {
                     tempDiv.innerHTML = htmlContent;
                     textToInsert = tempDiv.innerHTML; // Keep HTML for rich text insertion
                 }
-                
+
                 this.replaceSelectedText(textToInsert);
                 this.hideRefineResultsPopup();
                 this.showNotification('Text refined and inserted successfully!', 'success');
@@ -3642,10 +4223,10 @@ class DocsEditor {
             item.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const action = item.getAttribute('data-action');
-                
+
                 // Hide dropdown
                 document.getElementById('refine-dropdown-menu').style.display = 'none';
-                
+
                 // Perform refinement
                 if (this.savedSelection) {
                     try {
@@ -3665,13 +4246,13 @@ class DocsEditor {
                 e.preventDefault();
                 const promptInput = e.target;
                 const customPrompt = promptInput.value.trim();
-                
+
                 if (customPrompt && this.savedSelection) {
                     try {
                         this.showNotification('Refining with custom prompt...', 'info');
                         const fullPrompt = `${customPrompt}: "${this.savedSelection.text}"`;
                         const response = await this.api.generateText(fullPrompt);
-                        
+
                         if (response && response.text) {
                             const processedText = this.processAIResponse(response.text);
                             this.showRefineResultsPopup(processedText, 'Custom');
@@ -3689,12 +4270,12 @@ class DocsEditor {
         document.addEventListener('click', (e) => {
             const refinePopup = document.getElementById('refine-results-popup');
             const dropdown = document.getElementById('refine-dropdown-menu');
-            
+
             // Close dropdown if clicking outside
             if (!e.target.closest('.refine-dropdown')) {
                 dropdown.style.display = 'none';
             }
-            
+
             // Close popup if clicking outside
             if (!refinePopup.contains(e.target) && !e.target.closest('#custom-context-menu')) {
                 if (refinePopup.style.display === 'block') {
