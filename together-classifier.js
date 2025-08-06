@@ -1,7 +1,7 @@
 const Together = require('together-ai');
 
 class TogetherClassifier {
-    constructor(apiKey, model = 'deepseek-ai/DeepSeek-R1-0528') {
+    constructor(apiKey, model = 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free') {
         this.client = new Together({
             apiKey: apiKey
         });
