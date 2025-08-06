@@ -995,7 +995,8 @@ app.get('/api/documents/:id/versions/:versionId/changes', authenticateToken, asy
     try {
         const { id, versionId } = req.params;
 
-        const changes = getVersionChanges(id, parseInt(versionId), req.user.id);
+        const adapter = getAdapter();
+        const changes = await adapter.getVersionChanges(id, parseInt(versionId), req.user.id);
 
         res.json(changes);
     } catch (error) {

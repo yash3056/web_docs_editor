@@ -497,8 +497,260 @@ class PostgreSQLAdapter extends BaseAdapter {
     }
 
     async getVersionChanges(documentId, versionId, userId) {
-        // Implementation similar to SQLite version but with PostgreSQL syntax
-        throw new Error('getVersionChanges not yet implemented for PostgreSQL');
+        try {
+            // Verify user has access to this document
+            const docResult = await this.query(`
+                SELECT * FROM documents WHERE id = $1 AND user_id = $2
+            `, [documentId, userId]);
+
+            if (docResult.rows.length === 0) {
+                throw new Error('Document not found or access denied');
+            }
+
+            const currentVersionResult = await this.query(`
+                SELECT * FROM document_versions WHERE id = $1 AND document_id = $2
+            `, [versionId, documentId]);
+
+            if (currentVersionResult.rows.length === 0) {
+                throw new Error('Version not found');
+            }
+
+            const currentVersion = currentVersionResult.rows[0];
+
+            // Get the previous version
+            const previousVersionResult = await this.query(`
+                SELECT * FROM document_versions 
+                WHERE document_id = $1 AND version_number = $2
+                ORDER BY version_number DESC
+                LIMIT 1
+            `, [documentId, currentVersion.version_number - 1]);
+
+            if (previousVersionResult.rows.length === 0) {
+                // This is the first version, show the entire content as additions
+                const doc = JSON.parse(currentVersion.content);
+                const text = this.extractTextContent(doc.content);
+
+                return {
+                    version: {
+                        id: currentVersion.id,
+                        number: currentVersion.version_number,
+                        title: currentVersion.title,
+                        createdAt: currentVersion.created_at,
+                        commitMessage: currentVersion.commit_message
+                    },
+                    changes: {
+                        type: 'initial',
+                        added: text.split('\n').length,
+                        removed: 0,
+                        modified: 0
+                    },
+                    diff: {
+                        lines: [{ added: true, value: text }]
+                    }
+                };
+            }
+
+            const previousVersion = previousVersionResult.rows[0];
+
+            // Compare with previous version
+            const prevDoc = JSON.parse(previousVersion.content);
+            const currDoc = JSON.parse(currentVersion.content);
+
+            const prevText = this.extractTextContent(prevDoc.content);
+            const currText = this.extractTextContent(currDoc.content);
+
+            // Special case: if current text starts with previous text, it's likely just an append
+            if (currText.startsWith(prevText)) {
+                const appendedText = currText.substring(prevText.length);
+                if (appendedText.trim()) {
+                    const processedDiff = [];
+
+                    // Show context if previous text is not too long
+                    if (prevText.length < 100) {
+                        processedDiff.push({ value: prevText, added: false, removed: false });
+                    } else {
+                        // Show end of previous text as context
+                        const words = prevText.split(' ');
+                        const contextText = '... ' + words.slice(-10).join(' ');
+                        processedDiff.push({ value: contextText, added: false, removed: false });
+                    }
+
+                    // Show the appended text
+                    processedDiff.push({ value: appendedText, added: true, removed: false });
+
+                    return {
+                        version: {
+                            id: currentVersion.id,
+                            number: currentVersion.version_number,
+                            title: currentVersion.title,
+                            createdAt: currentVersion.created_at,
+                            commitMessage: currentVersion.commit_message
+                        },
+                        previousVersion: {
+                            id: previousVersion.id,
+                            number: previousVersion.version_number,
+                            title: previousVersion.title
+                        },
+                        changes: {
+                            type: 'append',
+                            added: (appendedText.match(/\S+/g) || []).length,
+                            removed: 0,
+                            modified: 0
+                        },
+                        diff: {
+                            lines: processedDiff,
+                            words: [
+                                { value: prevText, added: false, removed: false },
+                                { value: appendedText, added: true, removed: false }
+                            ]
+                        }
+                    };
+                }
+            }
+
+            // Special case: if previous text starts with current text, it's likely a deletion
+            if (prevText.startsWith(currText)) {
+                const deletedText = prevText.substring(currText.length);
+                if (deletedText.trim()) {
+                    const processedDiff = [];
+
+                    // Show context if current text is not too long
+                    if (currText.length < 100) {
+                        processedDiff.push({ value: currText, added: false, removed: false });
+                    } else {
+                        // Show end of current text as context
+                        const words = currText.split(' ');
+                        const contextText = '... ' + words.slice(-10).join(' ');
+                        processedDiff.push({ value: contextText, added: false, removed: false });
+                    }
+
+                    // Show the deleted text
+                    processedDiff.push({ value: deletedText, added: false, removed: true });
+
+                    return {
+                        version: {
+                            id: currentVersion.id,
+                            number: currentVersion.version_number,
+                            title: currentVersion.title,
+                            createdAt: currentVersion.created_at,
+                            commitMessage: currentVersion.commit_message
+                        },
+                        previousVersion: {
+                            id: previousVersion.id,
+                            number: previousVersion.version_number,
+                            title: previousVersion.title
+                        },
+                        changes: {
+                            type: 'deletion',
+                            added: 0,
+                            removed: (deletedText.match(/\S+/g) || []).length,
+                            modified: 0
+                        },
+                        diff: {
+                            lines: processedDiff,
+                            words: [
+                                { value: currText, added: false, removed: false },
+                                { value: deletedText, added: false, removed: true }
+                            ]
+                        }
+                    };
+                }
+            }
+
+            // General case: use diff library for complex changes
+            const lineDiff = diff.diffLines(prevText, currText);
+            const wordDiff = diff.diffWords(prevText, currText);
+
+            let added = 0, removed = 0, modified = 0;
+            lineDiff.forEach(part => {
+                if (part.added) added += part.count || 1;
+                else if (part.removed) removed += part.count || 1;
+                else modified += part.count || 1;
+            });
+
+            return {
+                version: {
+                    id: currentVersion.id,
+                    number: currentVersion.version_number,
+                    title: currentVersion.title,
+                    createdAt: currentVersion.created_at,
+                    commitMessage: currentVersion.commit_message
+                },
+                previousVersion: {
+                    id: previousVersion.id,
+                    number: previousVersion.version_number,
+                    title: previousVersion.title
+                },
+                changes: {
+                    type: 'modification',
+                    added,
+                    removed,
+                    modified
+                },
+                diff: {
+                    lines: lineDiff,
+                    words: wordDiff
+                }
+            };
+
+        } catch (error) {
+            throw ErrorHandler.createError(error, 'get version changes');
+        }
+    }
+
+    // Helper function to extract text content from document structure
+    extractTextContent(content) {
+        if (!content) return '';
+
+        // Function to clean text by removing HTML tags and decoding entities
+        function cleanText(text) {
+            if (!text) return '';
+
+            // Remove HTML tags
+            let cleaned = text.replace(/<[^>]*>/g, '');
+
+            // Decode common HTML entities
+            cleaned = cleaned
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'");
+
+            return cleaned;
+        }
+
+        // If content is an array (blocks), extract text from each block
+        if (Array.isArray(content)) {
+            return content.map(block => {
+                if (typeof block === 'string') {
+                    return cleanText(block);
+                }
+                if (block.text) {
+                    return cleanText(block.text);
+                }
+                if (block.content) {
+                    return cleanText(block.content);
+                }
+                return '';
+            }).filter(text => text.trim()).join('\n');
+        }
+
+        // If content is a string, return it cleaned
+        if (typeof content === 'string') {
+            return cleanText(content);
+        }
+
+        // If content is an object with text property
+        if (content.text) {
+            return cleanText(content.text);
+        }
+        if (content.content) {
+            return cleanText(content.content);
+        }
+
+        return '';
     }
 }
 
