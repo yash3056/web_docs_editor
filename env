@@ -1,0 +1,37 @@
+# Together AI Configuration
+TOGETHER_API_KEY=tgp_v1_NVTN7x4Kcs1vtb9VjMDDwwmsLfJmmIIvzZapgehIe08
+
+# Classification API Configuration
+CLASSIFICATION_PROVIDER=together
+TOGETHER_MODEL=deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# # Database Configuration
+# # Set DB_TYPE to 'postgresql' to use PostgreSQL, or 'sqlite' to force SQLite
+DB_TYPE=sqlite
+
+# # PostgreSQL Configuration
+# # Local PostgreSQL (for development)
+# POSTGRES_HOST=localhost
+# POSTGRES_PORT=5432
+# POSTGRES_DB=webdocseditor
+# POSTGRES_USER=webdocseditor
+# POSTGRES_PASSWORD=webdocs123
+# POSTGRES_SSL=false
+
+# Render PostgreSQL Database (for production)
+# Use Render's External Database URL (recommended - copy from Render dashboard)
+# DATABASE_URL=postgresql://root:svcCOuX3I5HU9FtzFSwUtlSQF5LhfuJ7@dpg-d23lm5qdbo4c738cfrh0-a.singapore-postgres.render.com/webdocseditor
+
+# # PostgreSQL Connection Pool Settings
+# POSTGRES_POOL_MIN=2
+# POSTGRES_POOL_MAX=10
+# POSTGRES_IDLE_TIMEOUT=30000
+# POSTGRES_CONNECTION_TIMEOUT=2000
+# POSTGRES_STATEMENT_TIMEOUT=30000
+
+# # SQLite Configuration (automatically used as fallback)
+# # SQLite will use existing configuration from database.js

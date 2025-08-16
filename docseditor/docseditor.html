@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Web Docs Editor</title>
-    <link rel="stylesheet" href="docseditor.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="docseditor.css" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
 
-    <link rel="icon" href="images/icon.ico" type="image/png">
+    <link rel="icon" href="images/icon.ico" type="image/png" />
     <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <!-- Libraries for document export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -19,682 +24,841 @@
     <!-- Showdown.js for markdown to HTML conversion -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <script>
-        // Check authentication before loading the page
-        const authToken = localStorage.getItem('authToken');
-        const user = localStorage.getItem('user');
-        if (!authToken || !user) {
-            window.location.href = '../auth/login.html';
-        }
+      // Check authentication before loading the page
+      const authToken = localStorage.getItem("authToken");
+      const user = localStorage.getItem("user");
+      if (!authToken || !user) {
+        window.location.href = "../auth/login.html";
+      }
     </script>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-left">
-                <h1 class="app-title">
-                    <i class="fas fa-file-alt"></i>
-                    Web Docs Editor
-                </h1>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <h1 class="app-title">
+            <i class="fas fa-file-alt"></i>
+            Web Docs Editor
+          </h1>
+        </div>
+        <div class="header-center">
+          <input
+            type="text"
+            id="document-title"
+            class="document-title"
+            placeholder="Untitled Document"
+            value="Untitled Document"
+          />
+        </div>
+        <div class="header-right">
+          <button class="btn btn-info" id="dashboard-btn">
+            <i class="fas fa-th-large"></i>
+            Dashboard
+          </button>
+          <button class="btn btn-primary" id="save-btn">
+            <i class="fas fa-save"></i>
+            Save
+          </button>
+          <div class="export-dropdown">
+            <button class="btn btn-secondary" id="export-btn">
+              <i class="fas fa-download"></i>
+              Export
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="export-menu" id="export-menu">
+              <button class="export-option" id="export-html">
+                <i class="fas fa-code"></i>
+                HTML
+              </button>
+              <button class="export-option" id="export-pdf">
+                <i class="fas fa-file-pdf"></i>
+                PDF
+              </button>
+              <button class="export-option" id="export-docx">
+                <i class="fas fa-file-word"></i>
+                DOCX
+              </button>
             </div>
-            <div class="header-center">
-                <input type="text" id="document-title" class="document-title" placeholder="Untitled Document"
-                    value="Untitled Document">
-            </div>
-            <div class="header-right">
-                <button class="btn btn-info" id="dashboard-btn">
-                    <i class="fas fa-th-large"></i>
-                    Dashboard
-                </button>
-                <button class="btn btn-primary" id="save-btn">
-                    <i class="fas fa-save"></i>
-                    Save
-                </button>
-                <div class="export-dropdown">
-                    <button class="btn btn-secondary" id="export-btn">
-                        <i class="fas fa-download"></i>
-                        Export
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="export-menu" id="export-menu">
-                        <button class="export-option" id="export-html">
-                            <i class="fas fa-code"></i>
-                            HTML
-                        </button>
-                        <button class="export-option" id="export-pdf">
-                            <i class="fas fa-file-pdf"></i>
-                            PDF
-                        </button>
-                        <button class="export-option" id="export-docx">
-                            <i class="fas fa-file-word"></i>
-                            DOCX
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
+          </div>
+        </div>
+      </header>
 
-        <!-- Toolbar -->
-        <div class="toolbar">
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="undo-btn" title="Undo">
-                    <i class="fas fa-undo"></i>
-                </button>
-                <button class="toolbar-btn" id="redo-btn" title="Redo">
-                    <i class="fas fa-redo"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <select class="font-family-select" id="font-family">
-                    <option value="Arial">Arial</option>
-                    <option value="Times New Roman">Times New Roman</option>
-                    <option value="Helvetica">Helvetica</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="Verdana">Verdana</option>
-                </select>
-                <select class="font-size-select" id="font-size">
-                    <option value="12">12</option>
-                    <option value="14" selected>14</option>
-                    <option value="16">16</option>
-                    <option value="18">18</option>
-                    <option value="20">20</option>
-                    <option value="24">24</option>
-                    <option value="28">28</option>
-                    <option value="32">32</option>
-                </select>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="bold-btn" title="Bold">
-                    <i class="fas fa-bold"></i>
-                </button>
-                <button class="toolbar-btn" id="italic-btn" title="Italic">
-                    <i class="fas fa-italic"></i>
-                </button>
-                <button class="toolbar-btn" id="underline-btn" title="Underline">
-                    <i class="fas fa-underline"></i>
-                </button>
-                <button class="toolbar-btn" id="strikethrough-btn" title="Strikethrough">
-                    <i class="fas fa-strikethrough"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="align-left-btn" title="Align Left">
-                    <i class="fas fa-align-left"></i>
-                </button>
-                <button class="toolbar-btn" id="align-center-btn" title="Align Center">
-                    <i class="fas fa-align-center"></i>
-                </button>
-                <button class="toolbar-btn" id="align-right-btn" title="Align Right">
-                    <i class="fas fa-align-right"></i>
-                </button>
-                <button class="toolbar-btn" id="align-justify-btn" title="Justify">
-                    <i class="fas fa-align-justify"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <div class="line-spacing-dropdown">
-                    <button class="toolbar-btn line-spacing-btn" id="line-spacing-btn"
-                        title="Line and Paragraph Spacing">
-                        <i class="fas fa-align-justify"></i>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="line-spacing-menu" id="line-spacing-menu">
-                        <div class="spacing-option" data-spacing="1.0">
-                            <span>1.0</span>
-                        </div>
-                        <div class="spacing-option" data-spacing="1.15">
-                            <span>1.15</span>
-                        </div>
-                        <div class="spacing-option" data-spacing="1.5">
-                            <span>1.5</span>
-                        </div>
-                        <div class="spacing-option" data-spacing="2.0">
-                            <span>2.0</span>
-                        </div>
-                        <div class="spacing-option" data-spacing="2.5">
-                            <span>2.5</span>
-                        </div>
-                        <div class="spacing-option" data-spacing="3.0">
-                            <span>3.0</span>
-                        </div>
-                        <div class="spacing-separator"></div>
-                        <div class="spacing-option" id="line-spacing-options">
-                            <i class="fas fa-cog"></i>
-                            <span>Line Spacing Options...</span>
-                        </div>
-                        <div class="spacing-separator"></div>
-                        <div class="spacing-option" id="add-space-before">
-                            <span>Add Space Before Paragraph</span>
-                        </div>
-                        <div class="spacing-option" id="remove-space-before">
-                            <span>Remove Space Before Paragraph</span>
-                        </div>
-                        <div class="spacing-option" id="add-space-after">
-                            <span>Add Space After Paragraph</span>
-                        </div>
-                        <div class="spacing-option" id="remove-space-after">
-                            <span>Remove Space After Paragraph</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="bullet-list-btn" title="Bullet List">
-                    <i class="fas fa-list-ul"></i>
-                </button>
-                <button class="toolbar-btn" id="number-list-btn" title="Numbered List">
-                    <i class="fas fa-list-ol"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <input type="color" id="text-color" class="color-picker" title="Text Color">
-                <input type="color" id="bg-color" class="color-picker" title="Background Color">
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="link-btn" title="Insert Link">
-                    <i class="fas fa-link"></i>
-                </button>
-                <button class="toolbar-btn" id="image-btn" title="Insert Image">
-                    <i class="fas fa-image"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="watermark-btn" title="Add Watermark">
-                    <i class="fas fa-tint"></i>
-                </button>
-                <!-- Single toggle button handles add/remove watermark -->
-            </div>
-
-            <div class="toolbar-separator"></div>
-
-            <div class="toolbar-group">
-                <button class="toolbar-btn" id="version-control-btn" title="Version Control">
-                    <i class="fas fa-code-branch"></i>
-                </button>
-            </div>
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="undo-btn" title="Undo">
+            <i class="fas fa-undo"></i>
+          </button>
+          <button class="toolbar-btn" id="redo-btn" title="Redo">
+            <i class="fas fa-redo"></i>
+          </button>
         </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="document-area">
-                <div class="document-container" id="document-container">
-                    <div class="editor" id="editor" contenteditable="true" spellcheck="true">
-                        <p>Start typing your document here...</p>
-                    </div>
-                    <div class="page-indicators" id="page-indicators">
-                        <!-- Visual page indicators will be added here -->
-                    </div>
-                </div>
-            </div>
-        </main>
+        <div class="toolbar-separator"></div>
 
-        <!-- Status Bar -->
-        <footer class="status-bar">
-            <div class="status-left">
-                <span id="word-count">Words: 0</span>
-                <span id="char-count">Characters: 0</span>
-                <span id="page-info">Page 1 of 1</span>
+        <div class="toolbar-group">
+          <select class="font-family-select" id="font-family">
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Verdana">Verdana</option>
+          </select>
+          <select class="font-size-select" id="font-size">
+            <option value="12">12</option>
+            <option value="14" selected>14</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+            <option value="24">24</option>
+            <option value="28">28</option>
+            <option value="32">32</option>
+          </select>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="bold-btn" title="Bold">
+            <i class="fas fa-bold"></i>
+          </button>
+          <button class="toolbar-btn" id="italic-btn" title="Italic">
+            <i class="fas fa-italic"></i>
+          </button>
+          <button class="toolbar-btn" id="underline-btn" title="Underline">
+            <i class="fas fa-underline"></i>
+          </button>
+          <button
+            class="toolbar-btn"
+            id="strikethrough-btn"
+            title="Strikethrough"
+          >
+            <i class="fas fa-strikethrough"></i>
+          </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="align-left-btn" title="Align Left">
+            <i class="fas fa-align-left"></i>
+          </button>
+          <button
+            class="toolbar-btn"
+            id="align-center-btn"
+            title="Align Center"
+          >
+            <i class="fas fa-align-center"></i>
+          </button>
+          <button class="toolbar-btn" id="align-right-btn" title="Align Right">
+            <i class="fas fa-align-right"></i>
+          </button>
+          <button class="toolbar-btn" id="align-justify-btn" title="Justify">
+            <i class="fas fa-align-justify"></i>
+          </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <div class="line-spacing-dropdown">
+            <button
+              class="toolbar-btn line-spacing-btn"
+              id="line-spacing-btn"
+              title="Line and Paragraph Spacing"
+            >
+              <i class="fas fa-align-justify"></i>
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="line-spacing-menu" id="line-spacing-menu">
+              <div class="spacing-option" data-spacing="1.0">
+                <span>1.0</span>
+              </div>
+              <div class="spacing-option" data-spacing="1.15">
+                <span>1.15</span>
+              </div>
+              <div class="spacing-option" data-spacing="1.5">
+                <span>1.5</span>
+              </div>
+              <div class="spacing-option" data-spacing="2.0">
+                <span>2.0</span>
+              </div>
+              <div class="spacing-option" data-spacing="2.5">
+                <span>2.5</span>
+              </div>
+              <div class="spacing-option" data-spacing="3.0">
+                <span>3.0</span>
+              </div>
+              <div class="spacing-separator"></div>
+              <div class="spacing-option" id="line-spacing-options">
+                <i class="fas fa-cog"></i>
+                <span>Line Spacing Options...</span>
+              </div>
+              <div class="spacing-separator"></div>
+              <div class="spacing-option" id="add-space-before">
+                <span>Add Space Before Paragraph</span>
+              </div>
+              <div class="spacing-option" id="remove-space-before">
+                <span>Remove Space Before Paragraph</span>
+              </div>
+              <div class="spacing-option" id="add-space-after">
+                <span>Add Space After Paragraph</span>
+              </div>
+              <div class="spacing-option" id="remove-space-after">
+                <span>Remove Space After Paragraph</span>
+              </div>
             </div>
-            <div class="status-right">
-                <span id="last-saved">Never saved</span>
+          </div>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="bullet-list-btn" title="Bullet List">
+            <i class="fas fa-list-ul"></i>
+          </button>
+          <button
+            class="toolbar-btn"
+            id="number-list-btn"
+            title="Numbered List"
+          >
+            <i class="fas fa-list-ol"></i>
+          </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <input
+            type="color"
+            id="text-color"
+            class="color-picker"
+            title="Text Color"
+          />
+          <input
+            type="color"
+            id="bg-color"
+            class="color-picker"
+            title="Background Color"
+          />
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="link-btn" title="Insert Link">
+            <i class="fas fa-link"></i>
+          </button>
+          <button class="toolbar-btn" id="image-btn" title="Insert Image">
+            <i class="fas fa-image"></i>
+          </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="watermark-btn" title="Add Watermark">
+            <i class="fas fa-tint"></i>
+          </button>
+          <!-- Single toggle button handles add/remove watermark -->
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <div class="toolbar-group">
+          <button
+            class="toolbar-btn"
+            id="version-control-btn"
+            title="Version Control"
+          >
+            <i class="fas fa-code-branch"></i>
+          </button>
+        </div>
+        <div class="toolbar-separator"></div>
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="page-break-btn" title="Page Break" onclick="DocsEditor.togglePaginationMode()">
+            <i class="fa-solid fa-file-invoice"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="document-area">
+          <div class="document-container" id="document-container">
+            <div
+              class="editor"
+              id="editor"
+              contenteditable="true"
+              spellcheck="true"
+            >
+              <p>Start typing your document here...</p>
             </div>
-        </footer>
+            <div class="page-indicators" id="page-indicators">
+              <!-- Visual page indicators will be added here -->
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Status Bar -->
+      <footer class="status-bar">
+        <div class="status-left">
+          <span id="word-count">Words: 0</span>
+          <span id="char-count">Characters: 0</span>
+          <span id="page-info">Page 1 of 1</span>
+        </div>
+        <div class="status-right">
+          <span id="last-saved">Never saved</span>
+        </div>
+      </footer>
     </div>
 
     <!-- Modals -->
     <div id="link-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Insert Link</h3>
-            <input type="text" id="link-text" placeholder="Link text">
-            <input type="url" id="link-url" placeholder="https://example.com">
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="insert-link-btn">Insert</button>
-                <button class="btn btn-secondary" id="cancel-link-btn">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Insert Link</h3>
+        <input type="text" id="link-text" placeholder="Link text" />
+        <input type="url" id="link-url" placeholder="https://example.com" />
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="insert-link-btn">Insert</button>
+          <button class="btn btn-secondary" id="cancel-link-btn">Cancel</button>
         </div>
+      </div>
     </div>
 
     <div id="image-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Insert Image</h3>
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Insert Image</h3>
 
-            <div class="modal-body">
-                <!-- Image Source Tabs -->
-                <div class="image-tabs">
-                    <button class="tab-btn active" id="url-tab">From URL</button>
-                    <button class="tab-btn" id="upload-tab">Upload File</button>
-                </div>
+        <div class="modal-body">
+          <!-- Image Source Tabs -->
+          <div class="image-tabs">
+            <button class="tab-btn active" id="url-tab">From URL</button>
+            <button class="tab-btn" id="upload-tab">Upload File</button>
+          </div>
 
-                <!-- URL Tab Content -->
-                <div class="tab-content active" id="url-content">
-                    <div class="form-group">
-                        <label for="image-url">Image URL:</label>
-                        <input type="url" id="image-url" placeholder="https://example.com/image.jpg">
-                    </div>
-                </div>
+          <!-- URL Tab Content -->
+          <div class="tab-content active" id="url-content">
+            <div class="form-group">
+              <label for="image-url">Image URL:</label>
+              <input
+                type="url"
+                id="image-url"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+          </div>
 
-                <!-- Upload Tab Content -->
-                <div class="tab-content" id="upload-content">
-                    <div class="form-group">
-                        <label for="image-file">Choose Image File:</label>
-                        <input type="file" id="image-file" accept="image/*" class="file-input">
-                        <div class="file-drop-zone" id="file-drop-zone">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Drag & drop an image here or click to browse</p>
-                            <p class="file-info">Supports: JPG, PNG, GIF, WebP</p>
-                        </div>
-                    </div>
-
-                    <!-- Image Preview -->
-                    <div class="image-preview" id="image-preview" style="display: none;">
-                        <img id="preview-img" src="" alt="Preview">
-                        <div class="preview-info">
-                            <span id="file-name"></span>
-                            <span id="file-size"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Common Fields -->
-                <div class="form-group">
-                    <label for="image-alt">Alt Text (Description):</label>
-                    <input type="text" id="image-alt" placeholder="Describe the image for accessibility">
-                </div>
-
-                <div class="form-group">
-                    <label for="image-width">Width (optional):</label>
-                    <input type="number" id="image-width" placeholder="Auto" min="50" max="1000">
-                </div>
+          <!-- Upload Tab Content -->
+          <div class="tab-content" id="upload-content">
+            <div class="form-group">
+              <label for="image-file">Choose Image File:</label>
+              <input
+                type="file"
+                id="image-file"
+                accept="image/*"
+                class="file-input"
+              />
+              <div class="file-drop-zone" id="file-drop-zone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Drag & drop an image here or click to browse</p>
+                <p class="file-info">Supports: JPG, PNG, GIF, WebP</p>
+              </div>
             </div>
 
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="insert-image-btn">Insert</button>
-                <button class="btn btn-secondary" id="cancel-image-btn">Cancel</button>
+            <!-- Image Preview -->
+            <div class="image-preview" id="image-preview" style="display: none">
+              <img id="preview-img" src="" alt="Preview" />
+              <div class="preview-info">
+                <span id="file-name"></span>
+                <span id="file-size"></span>
+              </div>
             </div>
+          </div>
+
+          <!-- Common Fields -->
+          <div class="form-group">
+            <label for="image-alt">Alt Text (Description):</label>
+            <input
+              type="text"
+              id="image-alt"
+              placeholder="Describe the image for accessibility"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="image-width">Width (optional):</label>
+            <input
+              type="number"
+              id="image-width"
+              placeholder="Auto"
+              min="50"
+              max="1000"
+            />
+          </div>
         </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="insert-image-btn">Insert</button>
+          <button class="btn btn-secondary" id="cancel-image-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <div id="watermark-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Add Watermark</h3>
-            <input type="text" id="watermark-text" placeholder="Enter watermark text">
-            <div class="form-group">
-                <label for="watermark-opacity">Opacity:</label>
-                <input type="range" id="watermark-opacity" min="0.1" max="0.5" step="0.05" value="0.2">
-                <span id="opacity-value">0.2</span>
-            </div>
-            <div class="form-group">
-                <label for="watermark-size">Size:</label>
-                <select id="watermark-size">
-                    <option value="small">Small</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="large">Large</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="watermark-color">Color:</label>
-                <input type="color" id="watermark-color" value="#cccccc">
-            </div>
-            <div class="form-group">
-                <label for="watermark-angle">Angle:</label>
-                <input type="range" id="watermark-angle" min="-45" max="45" step="5" value="-30">
-                <span id="angle-value">-30°</span>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="apply-watermark-btn">Apply</button>
-                <button class="btn btn-secondary" id="remove-watermark-btn">Remove</button>
-                <button class="btn btn-secondary" id="cancel-watermark-btn">Cancel</button>
-            </div>
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Add Watermark</h3>
+        <input
+          type="text"
+          id="watermark-text"
+          placeholder="Enter watermark text"
+        />
+        <div class="form-group">
+          <label for="watermark-opacity">Opacity:</label>
+          <input
+            type="range"
+            id="watermark-opacity"
+            min="0.1"
+            max="0.5"
+            step="0.05"
+            value="0.2"
+          />
+          <span id="opacity-value">0.2</span>
         </div>
+        <div class="form-group">
+          <label for="watermark-size">Size:</label>
+          <select id="watermark-size">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="watermark-color">Color:</label>
+          <input type="color" id="watermark-color" value="#cccccc" />
+        </div>
+        <div class="form-group">
+          <label for="watermark-angle">Angle:</label>
+          <input
+            type="range"
+            id="watermark-angle"
+            min="-45"
+            max="45"
+            step="5"
+            value="-30"
+          />
+          <span id="angle-value">-30°</span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="apply-watermark-btn">
+            Apply
+          </button>
+          <button class="btn btn-secondary" id="remove-watermark-btn">
+            Remove
+          </button>
+          <button class="btn btn-secondary" id="cancel-watermark-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Line Spacing Options Modal -->
     <div id="line-spacing-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Line and Paragraph Spacing</h3>
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Line and Paragraph Spacing</h3>
 
-            <div class="spacing-sections">
-                <div class="spacing-section">
-                    <h4>Line Spacing</h4>
-                    <div class="form-group">
-                        <label for="line-spacing-type">Type:</label>
-                        <select id="line-spacing-type">
-                            <option value="single">Single</option>
-                            <option value="1.5">1.5 lines</option>
-                            <option value="double">Double</option>
-                            <option value="multiple">Multiple</option>
-                            <option value="at-least">At least</option>
-                            <option value="exactly">Exactly</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="line-spacing-value">At:</label>
-                        <input type="number" id="line-spacing-value" min="0.1" step="0.1" value="1.0">
-                        <span id="line-spacing-unit">lines</span>
-                    </div>
-                </div>
-
-                <div class="spacing-section">
-                    <h4>Paragraph Spacing</h4>
-                    <div class="form-group">
-                        <label for="space-before">Before:</label>
-                        <input type="number" id="space-before" min="0" step="1" value="0">
-                        <span>pt</span>
-                    </div>
-                    <div class="form-group">
-                        <label for="space-after">After:</label>
-                        <input type="number" id="space-after" min="0" step="1" value="0">
-                        <span>pt</span>
-                    </div>
-                </div>
-
-                <div class="spacing-section">
-                    <h4>Options</h4>
-                    <div class="form-group checkbox-group">
-                        <label>
-                            <input type="checkbox" id="dont-add-space">
-                            Don't add space between paragraphs of the same style
-                        </label>
-                    </div>
-                </div>
-
-                <div class="spacing-preview">
-                    <h4>Preview</h4>
-                    <div class="preview-content" id="spacing-preview">
-                        <p>This is a sample paragraph to show how the spacing will look.</p>
-                        <p>This is another paragraph to demonstrate the spacing between paragraphs.</p>
-                        <p>You can see how the line spacing and paragraph spacing affect the text layout.</p>
-                    </div>
-                </div>
+        <div class="spacing-sections">
+          <div class="spacing-section">
+            <h4>Line Spacing</h4>
+            <div class="form-group">
+              <label for="line-spacing-type">Type:</label>
+              <select id="line-spacing-type">
+                <option value="single">Single</option>
+                <option value="1.5">1.5 lines</option>
+                <option value="double">Double</option>
+                <option value="multiple">Multiple</option>
+                <option value="at-least">At least</option>
+                <option value="exactly">Exactly</option>
+              </select>
             </div>
-
-            <div class="modal-actions">
-                <button class="btn btn-primary" id="apply-spacing-btn">OK</button>
-                <button class="btn btn-secondary" id="cancel-spacing-btn">Cancel</button>
+            <div class="form-group">
+              <label for="line-spacing-value">At:</label>
+              <input
+                type="number"
+                id="line-spacing-value"
+                min="0.1"
+                step="0.1"
+                value="1.0"
+              />
+              <span id="line-spacing-unit">lines</span>
             </div>
+          </div>
+
+          <div class="spacing-section">
+            <h4>Paragraph Spacing</h4>
+            <div class="form-group">
+              <label for="space-before">Before:</label>
+              <input
+                type="number"
+                id="space-before"
+                min="0"
+                step="1"
+                value="0"
+              />
+              <span>pt</span>
+            </div>
+            <div class="form-group">
+              <label for="space-after">After:</label>
+              <input
+                type="number"
+                id="space-after"
+                min="0"
+                step="1"
+                value="0"
+              />
+              <span>pt</span>
+            </div>
+          </div>
+
+          <div class="spacing-section">
+            <h4>Options</h4>
+            <div class="form-group checkbox-group">
+              <label>
+                <input type="checkbox" id="dont-add-space" />
+                Don't add space between paragraphs of the same style
+              </label>
+            </div>
+          </div>
+
+          <div class="spacing-preview">
+            <h4>Preview</h4>
+            <div class="preview-content" id="spacing-preview">
+              <p>
+                This is a sample paragraph to show how the spacing will look.
+              </p>
+              <p>
+                This is another paragraph to demonstrate the spacing between
+                paragraphs.
+              </p>
+              <p>
+                You can see how the line spacing and paragraph spacing affect
+                the text layout.
+              </p>
+            </div>
+          </div>
         </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="apply-spacing-btn">OK</button>
+          <button class="btn btn-secondary" id="cancel-spacing-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Custom Context Menu -->
     <div id="custom-context-menu" class="custom-context-menu">
-        <div class="context-menu-item" id="context-cut">
-            <i class="fas fa-cut"></i>
-            <span>Cut</span>
+      <div class="context-menu-item" id="context-cut">
+        <i class="fas fa-cut"></i>
+        <span>Cut</span>
+      </div>
+      <div class="context-menu-item" id="context-copy">
+        <i class="fas fa-copy"></i>
+        <span>Copy</span>
+      </div>
+      <div class="context-menu-item" id="context-paste">
+        <i class="fas fa-paste"></i>
+        <span>Paste</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="context-select-all">
+        <i class="fas fa-check-square"></i>
+        <span>Select All</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="context-ai-writing">
+        <i class="fas fa-magic"></i>
+        <span>AI Writing</span>
+      </div>
+      <div
+        class="context-menu-item has-submenu"
+        id="context-refine-text"
+        style="display: none"
+      >
+        <i class="fas fa-magic"></i>
+        <span>Refine the selected text</span>
+        <span class="new-badge">New</span>
+        <i class="fas fa-chevron-right submenu-arrow"></i>
+        <div class="context-submenu" id="refine-submenu">
+          <div class="context-menu-item" data-action="rephrase">
+            <i class="fas fa-sync-alt"></i>
+            <span>Rephrase</span>
+          </div>
+          <div class="context-menu-item" data-action="shorten">
+            <i class="fas fa-compress-alt"></i>
+            <span>Shorten</span>
+          </div>
+          <div class="context-menu-item" data-action="formal">
+            <i class="fas fa-user-tie"></i>
+            <span>More formal</span>
+          </div>
+          <div class="context-menu-item" data-action="casual">
+            <i class="fas fa-comments"></i>
+            <span>More casual</span>
+          </div>
+          <div class="context-menu-item" data-action="bulletize">
+            <i class="fas fa-list-ul"></i>
+            <span>Bulletize</span>
+          </div>
+          <div class="context-menu-item" data-action="summarize">
+            <i class="fas fa-compress"></i>
+            <span>Summarize</span>
+          </div>
         </div>
-        <div class="context-menu-item" id="context-copy">
-            <i class="fas fa-copy"></i>
-            <span>Copy</span>
-        </div>
-        <div class="context-menu-item" id="context-paste">
-            <i class="fas fa-paste"></i>
-            <span>Paste</span>
-        </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" id="context-select-all">
-            <i class="fas fa-check-square"></i>
-            <span>Select All</span>
-        </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" id="context-ai-writing">
-            <i class="fas fa-magic"></i>
-            <span>AI Writing</span>
-        </div>
-        <div class="context-menu-item has-submenu" id="context-refine-text" style="display: none;">
-            <i class="fas fa-magic"></i>
-            <span>Refine the selected text</span>
-            <span class="new-badge">New</span>
-            <i class="fas fa-chevron-right submenu-arrow"></i>
-            <div class="context-submenu" id="refine-submenu">
-                <div class="context-menu-item" data-action="rephrase">
-                    <i class="fas fa-sync-alt"></i>
-                    <span>Rephrase</span>
-                </div>
-                <div class="context-menu-item" data-action="shorten">
-                    <i class="fas fa-compress-alt"></i>
-                    <span>Shorten</span>
-                </div>
-                <div class="context-menu-item" data-action="formal">
-                    <i class="fas fa-user-tie"></i>
-                    <span>More formal</span>
-                </div>
-                <div class="context-menu-item" data-action="casual">
-                    <i class="fas fa-comments"></i>
-                    <span>More casual</span>
-                </div>
-                <div class="context-menu-item" data-action="bulletize">
-                    <i class="fas fa-list-ul"></i>
-                    <span>Bulletize</span>
-                </div>
-                <div class="context-menu-item" data-action="summarize">
-                    <i class="fas fa-compress"></i>
-                    <span>Summarize</span>
-                </div>
-            </div>
-        </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" id="context-bold">
-            <i class="fas fa-bold"></i>
-            <span>Bold</span>
-        </div>
-        <div class="context-menu-item" id="context-italic">
-            <i class="fas fa-italic"></i>
-            <span>Italic</span>
-        </div>
-        <div class="context-menu-item" id="context-underline">
-            <i class="fas fa-underline"></i>
-            <span>Underline</span>
-        </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" id="context-insert-link">
-            <i class="fas fa-link"></i>
-            <span>Insert Link</span>
-        </div>
-        <div class="context-menu-item" id="context-insert-image">
-            <i class="fas fa-image"></i>
-            <span>Insert Image</span>
-        </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" id="context-word-count">
-            <i class="fas fa-calculator"></i>
-            <span>Word Count</span>
-        </div>
-        <div class="context-menu-item" id="context-save">
-            <i class="fas fa-save"></i>
-            <span>Save Document</span>
-        </div>
-        <div class="context-menu-separator"></div>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="context-bold">
+        <i class="fas fa-bold"></i>
+        <span>Bold</span>
+      </div>
+      <div class="context-menu-item" id="context-italic">
+        <i class="fas fa-italic"></i>
+        <span>Italic</span>
+      </div>
+      <div class="context-menu-item" id="context-underline">
+        <i class="fas fa-underline"></i>
+        <span>Underline</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="context-insert-link">
+        <i class="fas fa-link"></i>
+        <span>Insert Link</span>
+      </div>
+      <div class="context-menu-item" id="context-insert-image">
+        <i class="fas fa-image"></i>
+        <span>Insert Image</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="context-word-count">
+        <i class="fas fa-calculator"></i>
+        <span>Word Count</span>
+      </div>
+      <div class="context-menu-item" id="context-save">
+        <i class="fas fa-save"></i>
+        <span>Save Document</span>
+      </div>
+      <div class="context-menu-separator"></div>
     </div>
 
     <!-- AI Writing Assistant Popup -->
-    <div class="ai-writing-popup" id="ai-writing-popup" style="display: none;">
-        <div class="ai-popup-header">
-            <div class="ai-icon">
-                <i class="fas fa-magic"></i>
-            </div>
-            <span class="ai-title">Help me write</span>
-            <button class="ai-close-btn" id="ai-close-btn">
-                <i class="fas fa-times"></i>
-            </button>
+    <div class="ai-writing-popup" id="ai-writing-popup" style="display: none">
+      <div class="ai-popup-header">
+        <div class="ai-icon">
+          <i class="fas fa-magic"></i>
         </div>
-        <div class="ai-popup-body">
-            <textarea class="ai-input" id="ai-input" placeholder="What would you like help writing about?"></textarea>
-            <button class="ai-create-btn" id="ai-create-btn">Create</button>
-        </div>
+        <span class="ai-title">Help me write</span>
+        <button class="ai-close-btn" id="ai-close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="ai-popup-body">
+        <textarea
+          class="ai-input"
+          id="ai-input"
+          placeholder="What would you like help writing about?"
+        ></textarea>
+        <button class="ai-create-btn" id="ai-create-btn">Create</button>
+      </div>
     </div>
 
     <!-- AI Writing Results Popup -->
-    <div class="ai-results-popup" id="ai-results-popup" style="display: none;">
-        <div class="ai-popup-header">
-            <div class="ai-icon">
-                <i class="fas fa-magic"></i>
-            </div>
-            <span class="ai-title">AI Generated Content</span>
-            <button class="ai-close-btn" id="ai-results-close-btn">
-                <i class="fas fa-times"></i>
+    <div class="ai-results-popup" id="ai-results-popup" style="display: none">
+      <div class="ai-popup-header">
+        <div class="ai-icon">
+          <i class="fas fa-magic"></i>
+        </div>
+        <span class="ai-title">AI Generated Content</span>
+        <button class="ai-close-btn" id="ai-results-close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="ai-popup-body">
+        <div class="ai-generated-content" id="ai-generated-content">
+          <!-- Generated content will be inserted here -->
+        </div>
+        <div class="ai-disclaimer">
+          <i class="fas fa-info-circle"></i>
+          This is a creative writing aid, and is not intended to be factual.
+          <a href="#" class="learn-more-link">Learn more</a>
+        </div>
+        <div class="ai-actions">
+          <div class="ai-feedback">
+            <button
+              class="ai-feedback-btn"
+              id="ai-thumbs-up"
+              title="Good response"
+            >
+              <i class="fas fa-thumbs-up"></i>
             </button>
+            <button
+              class="ai-feedback-btn"
+              id="ai-thumbs-down"
+              title="Poor response"
+            >
+              <i class="fas fa-thumbs-down"></i>
+            </button>
+          </div>
+          <div class="ai-refinement">
+            <button class="ai-refine-btn" id="ai-refine-btn">
+              Refine with a prompt
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <div
+              class="ai-refine-options"
+              id="ai-refine-options"
+              style="display: none"
+            >
+              <div class="refine-option" data-action="shorten">
+                <i class="fas fa-compress-alt"></i>
+                <span>Shorten</span>
+              </div>
+              <div class="refine-option" data-action="elaborate">
+                <i class="fas fa-expand-alt"></i>
+                <span>Elaborate</span>
+              </div>
+              <div class="refine-option" data-action="formal">
+                <i class="fas fa-user-tie"></i>
+                <span>More formal</span>
+              </div>
+              <div class="refine-option" data-action="casual">
+                <i class="fas fa-comments"></i>
+                <span>More casual</span>
+              </div>
+              <div class="refine-option" data-action="bulletize">
+                <i class="fas fa-list-ul"></i>
+                <span>Bulletize</span>
+              </div>
+              <div class="refine-option" data-action="summarize">
+                <i class="fas fa-compress"></i>
+                <span>Summarize</span>
+              </div>
+              <div class="refine-option" data-action="retry">
+                <i class="fas fa-redo"></i>
+                <span>Retry</span>
+              </div>
+            </div>
+          </div>
+          <button class="ai-insert-btn" id="ai-insert-btn">Insert</button>
         </div>
-        <div class="ai-popup-body">
-            <div class="ai-generated-content" id="ai-generated-content">
-                <!-- Generated content will be inserted here -->
-            </div>
-            <div class="ai-disclaimer">
-                <i class="fas fa-info-circle"></i>
-                This is a creative writing aid, and is not intended to be factual. <a href="#"
-                    class="learn-more-link">Learn more</a>
-            </div>
-            <div class="ai-actions">
-                <div class="ai-feedback">
-                    <button class="ai-feedback-btn" id="ai-thumbs-up" title="Good response">
-                        <i class="fas fa-thumbs-up"></i>
-                    </button>
-                    <button class="ai-feedback-btn" id="ai-thumbs-down" title="Poor response">
-                        <i class="fas fa-thumbs-down"></i>
-                    </button>
-                </div>
-                <div class="ai-refinement">
-                    <button class="ai-refine-btn" id="ai-refine-btn">
-                        Refine with a prompt
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="ai-refine-options" id="ai-refine-options" style="display: none;">
-                        <div class="refine-option" data-action="shorten">
-                            <i class="fas fa-compress-alt"></i>
-                            <span>Shorten</span>
-                        </div>
-                        <div class="refine-option" data-action="elaborate">
-                            <i class="fas fa-expand-alt"></i>
-                            <span>Elaborate</span>
-                        </div>
-                        <div class="refine-option" data-action="formal">
-                            <i class="fas fa-user-tie"></i>
-                            <span>More formal</span>
-                        </div>
-                        <div class="refine-option" data-action="casual">
-                            <i class="fas fa-comments"></i>
-                            <span>More casual</span>
-                        </div>
-                        <div class="refine-option" data-action="bulletize">
-                            <i class="fas fa-list-ul"></i>
-                            <span>Bulletize</span>
-                        </div>
-                        <div class="refine-option" data-action="summarize">
-                            <i class="fas fa-compress"></i>
-                            <span>Summarize</span>
-                        </div>
-                        <div class="refine-option" data-action="retry">
-                            <i class="fas fa-redo"></i>
-                            <span>Retry</span>
-                        </div>
-                    </div>
-                </div>
-                <button class="ai-insert-btn" id="ai-insert-btn">Insert</button>
-            </div>
-        </div>
+      </div>
     </div>
 
     <!-- Refine Text Results Popup -->
-    <div class="refine-results-popup" id="refine-results-popup" style="display: none;">
-        <div class="refine-popup-header">
-            <div class="refine-icon">
-                <i class="fas fa-magic"></i>
-            </div>
-            <span class="refine-title" id="refine-title">Formal</span>
-            <button class="refine-close-btn" id="refine-close-btn">
-                <i class="fas fa-times"></i>
+    <div
+      class="refine-results-popup"
+      id="refine-results-popup"
+      style="display: none"
+    >
+      <div class="refine-popup-header">
+        <div class="refine-icon">
+          <i class="fas fa-magic"></i>
+        </div>
+        <span class="refine-title" id="refine-title">Formal</span>
+        <button class="refine-close-btn" id="refine-close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="refine-popup-body">
+        <div class="refine-content" id="refine-content">
+          <!-- Refined content will be inserted here -->
+        </div>
+        <div class="refine-disclaimer">
+          <i class="fas fa-info-circle"></i>
+          This is a creative writing aid, and is not intended to be factual.
+          <a href="#" class="learn-more-link">Learn more</a>
+        </div>
+        <div class="refine-actions">
+          <div class="refine-feedback">
+            <button
+              class="refine-feedback-btn"
+              id="refine-thumbs-up"
+              title="Good response"
+            >
+              <i class="fas fa-thumbs-up"></i>
             </button>
+            <button
+              class="refine-feedback-btn"
+              id="refine-thumbs-down"
+              title="Poor response"
+            >
+              <i class="fas fa-thumbs-down"></i>
+            </button>
+          </div>
+          <div class="refine-input-container">
+            <input
+              type="text"
+              class="refine-prompt-input"
+              id="refine-prompt-input"
+              placeholder="Refine with a prompt"
+            />
+          </div>
+          <div class="refine-buttons">
+            <div class="refine-dropdown">
+              <button class="refine-action-btn" id="refine-action-btn">
+                Refine
+                <i class="fas fa-chevron-down"></i>
+              </button>
+              <div
+                class="refine-dropdown-menu"
+                id="refine-dropdown-menu"
+                style="display: none"
+              >
+                <div class="refine-dropdown-item" data-action="rephrase">
+                  <i class="fas fa-sync-alt"></i>
+                  <span>Rephrase</span>
+                </div>
+                <div class="refine-dropdown-item" data-action="shorten">
+                  <i class="fas fa-compress-alt"></i>
+                  <span>Shorten</span>
+                </div>
+                <div class="refine-dropdown-item" data-action="formal">
+                  <i class="fas fa-user-tie"></i>
+                  <span>More formal</span>
+                </div>
+                <div class="refine-dropdown-item" data-action="casual">
+                  <i class="fas fa-comments"></i>
+                  <span>More casual</span>
+                </div>
+                <div class="refine-dropdown-item" data-action="bulletize">
+                  <i class="fas fa-list-ul"></i>
+                  <span>Bulletize</span>
+                </div>
+                <div class="refine-dropdown-item" data-action="summarize">
+                  <i class="fas fa-compress"></i>
+                  <span>Summarize</span>
+                </div>
+              </div>
+            </div>
+            <button class="refine-insert-btn" id="refine-insert-btn">
+              Insert
+            </button>
+          </div>
         </div>
-        <div class="refine-popup-body">
-            <div class="refine-content" id="refine-content">
-                <!-- Refined content will be inserted here -->
-            </div>
-            <div class="refine-disclaimer">
-                <i class="fas fa-info-circle"></i>
-                This is a creative writing aid, and is not intended to be factual. <a href="#"
-                    class="learn-more-link">Learn more</a>
-            </div>
-            <div class="refine-actions">
-                <div class="refine-feedback">
-                    <button class="refine-feedback-btn" id="refine-thumbs-up" title="Good response">
-                        <i class="fas fa-thumbs-up"></i>
-                    </button>
-                    <button class="refine-feedback-btn" id="refine-thumbs-down" title="Poor response">
-                        <i class="fas fa-thumbs-down"></i>
-                    </button>
-                </div>
-                <div class="refine-input-container">
-                    <input type="text" class="refine-prompt-input" id="refine-prompt-input"
-                        placeholder="Refine with a prompt">
-                </div>
-                <div class="refine-buttons">
-                    <div class="refine-dropdown">
-                        <button class="refine-action-btn" id="refine-action-btn">
-                            Refine
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                        <div class="refine-dropdown-menu" id="refine-dropdown-menu" style="display: none;">
-                            <div class="refine-dropdown-item" data-action="rephrase">
-                                <i class="fas fa-sync-alt"></i>
-                                <span>Rephrase</span>
-                            </div>
-                            <div class="refine-dropdown-item" data-action="shorten">
-                                <i class="fas fa-compress-alt"></i>
-                                <span>Shorten</span>
-                            </div>
-                            <div class="refine-dropdown-item" data-action="formal">
-                                <i class="fas fa-user-tie"></i>
-                                <span>More formal</span>
-                            </div>
-                            <div class="refine-dropdown-item" data-action="casual">
-                                <i class="fas fa-comments"></i>
-                                <span>More casual</span>
-                            </div>
-                            <div class="refine-dropdown-item" data-action="bulletize">
-                                <i class="fas fa-list-ul"></i>
-                                <span>Bulletize</span>
-                            </div>
-                            <div class="refine-dropdown-item" data-action="summarize">
-                                <i class="fas fa-compress"></i>
-                                <span>Summarize</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="refine-insert-btn" id="refine-insert-btn">Insert</button>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
     <script src="../shared/api-client.js"></script>
     <script src="docseditor.js"></script>
-</body>
-
+  </body>
 </html>
