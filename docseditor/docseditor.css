@@ -406,7 +406,7 @@ body {
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 8.5in;
+    width: 9in;
     pointer-events: none;
     z-index: 1;
 }
