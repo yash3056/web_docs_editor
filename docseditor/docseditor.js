@@ -1,3 +1,10 @@
+// TODO: pushElementToNextPage() pushes the entire element i.e the entire paragraph to the next page
+// FIXED: Every successive paragaph after the page break holds a large margin-top.
+// FIXED: For the current design choice, the spacers set() gets wiped off memory during reloads or on a new session.
+// FIXME: Page count doesn't update on deletion of content.
+// HACK: Temporary page-break alignment fix.
+// For a permanent fix, please look into the misaligned "document-container" element
+
 class DocsEditor {
   constructor() {
     console.log("🚀 DocsEditor constructor starting...");
@@ -32,9 +39,7 @@ class DocsEditor {
     this.pageBreaksOverlay = null; // Container for visual page breaks
     this.originalMargins = new Map(); // Store original margins for toggle off
 
-    
-
-    this.spacers = new Set();
+    // this.spacers = new Set();
     // Check authentication
     this.authToken = localStorage.getItem("authToken");
     this.user = JSON.parse(localStorage.getItem("user") || "null");
@@ -50,6 +55,7 @@ class DocsEditor {
     console.log("📝 Editor element found:", !!this.editor);
     console.log("📄 Document title element found:", !!this.documentTitle);
 
+    // this.initializeSpacers();
     this.initializeEditor();
     this.initializeEventListeners();
     this.updateWordCount();
@@ -67,7 +73,6 @@ class DocsEditor {
     this.setupCustomContextMenu();
     this.setupAIWritingEventListeners();
     this.setupRefinePopupEventListeners();
-
 
     // Add cleanup on page unload
     window.addEventListener("beforeunload", () => {
@@ -390,6 +395,7 @@ class DocsEditor {
           }
 
           console.log("✅ Document loaded successfully from server");
+          this.initializeSpacers()
           return;
         }
       } catch (error) {
@@ -515,7 +521,7 @@ class DocsEditor {
         } else {
           this.updateWatermarkButtonState();
         }
-
+        this.initializeSpacers();
         return;
       }
     }
@@ -565,6 +571,7 @@ class DocsEditor {
       } else {
         this.updateWatermarkButtonState();
       }
+      this.initializeSpacers()
     } else {
       // No document found, clear any default content and reset state
       console.log("📄 No document found, creating new document");
@@ -578,6 +585,7 @@ class DocsEditor {
       console.log(
         "🗑️ Cleared currentDocumentId - will create new document on save"
       );
+      this.initializeSpacers()
     }
 
     // Final check and logging
@@ -627,8 +635,8 @@ class DocsEditor {
         (this.editor.textContent || "").substring(0, 200) + "..."
       );
     }, 3000);
+    
   }
-
 
   updatePageLayout() {
     // Get the current content height
@@ -1565,9 +1573,6 @@ class DocsEditor {
     });
   }
 
-  // BUG 1: Entire element i.e paragraph would move over to the next page
-  // (FIXED) BUG 2: Every successive paragaph after the page break holds a large margin-top
-
   checkElementForPageCrossing(element) {
     // Get element position relative to editor
     const elementRect = element.getBoundingClientRect();
@@ -1588,6 +1593,17 @@ class DocsEditor {
     if (elementBottom > pageBreakZoneStart && relativeTop < pageEndY) {
       // Element crosses page boundary - push it to next page
       this.pushElementToNextPage(element, relativeTop, pageEndY);
+    }
+  }
+
+  initializeSpacers() {
+    const existingSpacers = document.querySelectorAll(".page-spacer");
+    console.log("Current Spacers: " + existingSpacers.length);
+    this.spacers = new Set(existingSpacers);
+    // console.log("Current spacers: " + this.spacers.size);
+    if (!this.paginationMode) {
+      existingSpacers.forEach((spacer) => spacer.remove());
+      this.spacers.clear();
     }
   }
 
