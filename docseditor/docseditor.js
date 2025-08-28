@@ -1,6 +1,4 @@
-// TODO: pushElementToNextPage() pushes the entire element i.e the entire paragraph to the next page
-// FIXED: Every successive paragaph after the page break holds a large margin-top.
-// FIXED: For the current design choice, the spacers set() gets wiped off memory during reloads or on a new session.
+
 // FIXME: Page count doesn't update on deletion of content.
 // HACK: Temporary page-break alignment fix.
 // For a permanent fix, please look into the misaligned "document-container" element
@@ -13,6 +11,7 @@ class DocsEditor {
     this.editor = document.getElementById("editor");
     this.pages = document.getElementById("pages");
     this.documentContainer = document.getElementById("document-container");
+    this.isUpdatingLayout = false;
     // this.pageIndicators = document.getElementById("page-indicators");
     this.documentTitle = document.getElementById("document-title");
     this.watermarkSettings = null;
@@ -34,7 +33,7 @@ class DocsEditor {
     this.paginationMode = false;
     this.paginationTimeout = null;
     this.PAGE_BREAK_HEIGHT = 20; // Height of visual page break
-    this.PAGE_BREAK_MARGIN = 20; // Spacing around page breaks
+    this.PAGE_BREAK_MARGIN = 40; // Spacing around page breaks
     this.pageBreaksOverlay = null; // Container for visual page breaks
     this.originalMargins = new Map(); // Store original margins for toggle off
 
@@ -634,105 +633,79 @@ class DocsEditor {
     }, 3000);
   }
 
-  // updatePageLayout() {
-  //   // Get the current content height
-  //   const contentHeight = this.editor.scrollHeight;
-  //   const pageHeight = 11 * 96; // 11 inches at 96 DPI
-  //   const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
+  togglePaginationMode() {
+    console.log(
+      "Toggling pagination mode from",
+      this.paginationMode,
+      "to",
+      !this.paginationMode
+    );
 
-  //   // Store total pages for use in updateCurrentPage
-  //   this.totalPages = requiredPages;
-
-  //   // Update the combined page info (will be updated with current page by updateCurrentPage)
-  //   this.updatePageInfo();
-
-  //   // Create visual page indicators
-  //   // this.updatePageIndicators(requiredPages);
-
-  //   // Ensure editor is tall enough for content
-  //   const minHeight = requiredPages * pageHeight;
-  //   if (this.editor.style.minHeight !== minHeight + "px") {
-  //     this.editor.style.minHeight = minHeight + "px";
-  //   }
-  // }
-  updatePageLayout() {
-    const contentHeight = this.editor.scrollHeight;
-    const pageHeight = this.pageHeight; // 11 * 96 = 1056px
-    const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
-
-    this.totalPages = requiredPages;
-    this.updatePageInfo();
-
-    // Ensure editor container fits the pages
-    const minHeight = requiredPages * pageHeight;
-    if (this.editor.style.minHeight !== minHeight + "px") {
-      this.editor.style.minHeight = minHeight + "px";
+    this.paginationMode = !this.paginationMode; // continuous to paginated and vice versa
+    this.updatePageLayout();
+    if (this.paginationMode) {
+      this.showNotification("Pagination mode enabled", "success");
+    } else {
+      this.showNotification("Continuous mode enabled", "success");
     }
+  }
 
-    // Adjust DOM
-    this.adjustNumberOfPages(requiredPages, this.paginationMode);
+  updatePageLayout() {
+    if (this.isUpdatingLayout) {
+      return;
+    }
+    this.isUpdatingLayout = true;
+    requestAnimationFrame(() => {
+      const contentHeight = this.editor.scrollHeight;
+      const pageHeight = this.pageHeight; // 11 * 96 = 1056px
+      const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
+
+      this.totalPages = requiredPages;
+      this.updatePageInfo();
+
+      // Ensure editor container fits the pages
+      const minHeight = requiredPages * pageHeight;
+      if (this.editor.style.minHeight !== minHeight + "px") {
+        this.editor.style.minHeight = minHeight + "px";
+      }
+
+      // if (this.paginationMode) {
+      this.adjustNumberOfPages(requiredPages, this.paginationMode);
+      // Reset the flag so that a new update can be scheduled.
+      this.isUpdatingLayout = false;
+    });
   }
 
   adjustNumberOfPages(requiredPages, paginationMode) {
     const pagesContainer = document.querySelector(".pages");
     if (!pagesContainer) return;
 
-    // Count actual pages
-    // const currentPages = pagesContainer.querySelectorAll(".page").length;
-    const breakers = pagesContainer.querySelectorAll(".breaker").length;
-    const currentPages = breakers + 1;
-    // Add pages if needed
-    if (requiredPages > currentPages) {
-      for (let i = currentPages; i < requiredPages; i++) {
-        const breaker = document.createElement("div");
-        const page = document.createElement("div");
-        breaker.classList.add("breaker");
-        page.classList.add("page");
-        page.style.marginTop = `${
-          this.pageHeight + this.PAGE_BREAK_MARGIN + this.PAGE_BREAK_HEIGHT / 2
-        }px`;
-        // page.style.marginTop = "100px";
-        pagesContainer.appendChild(page);
-        pagesContainer.appendChild(breaker);
+    pagesContainer.innerHTML = "";
 
-        // if (paginationMode && i < requiredPages - 1) {
-        //   const breaker = document.createElement("div");
-        //   breaker.classList.add("breaker");
-        //   pagesContainer.appendChild(breaker);
-        // }
+    if (!paginationMode) {
+      return;
+    }
+
+    for (let i = 0; i < requiredPages; i++) {
+      const page = document.createElement("div");
+      page.classList.add("page");
+
+      page.style.marginTop = `${this.pageHeight - this.PAGE_BREAK_MARGIN}px`;
+
+      pagesContainer.appendChild(page);
+
+      if (i < requiredPages - 1) {
+        const breaker = document.createElement("div");
+        breaker.classList.add("breaker");
+
+        breaker.style.marginTop = `${this.PAGE_BREAK_MARGIN}px`;
+        breaker.style.marginBottom = `${this.PAGE_BREAK_MARGIN}px`;
+        breaker.style.height = `${this.PAGE_BREAK_HEIGHT}px`;
+
+        pagesContainer.appendChild(breaker);
       }
     }
-    // Remove extra pages/breakers if content shrinks
-    // else if (requiredPages < currentPages) {
-    //   for (let i = currentPages - 1; i >= requiredPages; i--) {
-    //     const lastPage = pagesContainer.querySelector(".page:last-of-type");
-    //     if (lastPage) lastPage.remove();
-
-    //     if (paginationMode) {
-    //       const lastBreaker = pagesContainer.querySelector(
-    //         ".breaker:last-of-type"
-    //       );
-    //       if (lastBreaker) lastBreaker.remove();
-    //     }
-    //   }
-    // }
   }
-
-  // updatePageIndicators(pageCount) {
-  //   if (!this.pageIndicators) return;
-
-  //   // Clear existing indicators
-  //   this.pageIndicators.innerHTML = "";
-
-  //   // Add page indicators at page boundaries (like Word)
-  //   for (let i = 1; i < pageCount; i++) {
-  //     const indicator = document.createElement("div");
-  //     indicator.className = "page-indicator";
-  //     indicator.style.top = i * 11 * 96 + "px"; // Position at page boundary
-  //     indicator.setAttribute("data-page", i + 1);
-  //     this.pageIndicators.appendChild(indicator);
-  //   }
-  // }
 
   updateCurrentPage() {
     try {
@@ -809,9 +782,6 @@ class DocsEditor {
     document.execCommand(command, false, value);
     this.updateToolbarState();
     this.saveState();
-    if (this.paginationMode) {
-      this.checkPageOverflow();
-    }
   }
   undo() {
     if (this.historyIndex > 0) {
@@ -822,9 +792,6 @@ class DocsEditor {
       this.updateWordCount();
       this.updatePageLayout();
       this.updateCurrentPage();
-      if (this.paginationMode) {
-        this.checkPageOverflow();
-      }
     }
   }
 
@@ -837,9 +804,6 @@ class DocsEditor {
       this.updateWordCount();
       this.updatePageLayout();
       this.updateCurrentPage();
-      if (this.paginationMode) {
-        this.checkPageOverflow();
-      }
     }
   }
 
@@ -948,9 +912,6 @@ class DocsEditor {
     this.saveState();
     this.updatePageLayout();
     this.updateCurrentPage();
-    if (this.paginationMode) {
-      this.checkPageOverflow();
-    }
   }
   // #endregion
 
@@ -1431,258 +1392,7 @@ class DocsEditor {
     document.getElementById(
       "char-count"
     ).textContent = `Characters: ${characters}`;
-
-    // Update page count will be called by updatePageBreaks
   }
-  // #endregion
-
-  togglePaginationMode() {
-    console.log(
-      "Toggling pagination mode from",
-      this.paginationMode,
-      "to",
-      !this.paginationMode
-    );
-
-    this.paginationMode = !this.paginationMode; // continuous to paginated and vice versa
-
-    if (this.paginationMode) {
-      this.updatePageLayout();
-      this.showNotification("Pagination mode enabled", "success");
-    } else {
-      this.updatePageLayout();
-      this.showNotification("Continuous mode enabled", "success");
-    }
-    // this.updatePaginationButtonState();
-  }
-  // updatePagination() {
-  //   let cumulativeHeight = 0;
-  //   let currentPage = 1;
-
-  //   const children = Array.from(this.editor.childNodes);
-
-  //   for (let i = 0; i < children.length; i++) {
-  //     const el = children[i];
-  //     const rect = el.getBoundingClientRect();
-  //     const elHeight = rect.height;
-
-  //     cumulativeHeight += elHeight;
-
-  //     if (cumulativeHeight >= pageHeight * currentPage) {
-  //       // Insert page break BEFORE this node
-  //       const pageBreak = document.createElement("div");
-  //       pageBreak.className = "page-break";
-  //       pageBreak.contentEditable = "false";
-  //       pageBreak.innerText = `--- Page ${currentPage} Break ---`;
-
-  //       editor.insertBefore(pageBreak, el);
-
-  //       currentPage++;
-  //     }
-  //   }
-  // }
-
-  // =============================================================================
-  //                       CURSOR POSITION FUNCTIONS
-  // =============================================================================
-
-  getCursorYPosition() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return 0;
-
-    try {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const editorRect = this.editor.getBoundingClientRect();
-
-      // Calculate Y position relative to editor top, including scroll
-      const relativeY = rect.top - editorRect.top + this.editor.scrollTop;
-
-      return Math.max(0, relativeY);
-    } catch (error) {
-      console.warn("Error getting cursor Y position:", error);
-      return 0;
-    }
-  }
-
-  setCursorToYPosition(targetY) {
-    try {
-      const range = document.createRange();
-
-      // Find the element at this Y position
-      const targetElement = this.findElementAtYPosition(targetY);
-
-      if (targetElement) {
-        // Set cursor at the beginning of the target element
-        range.setStart(targetElement, 0);
-        range.collapse(true);
-
-        // Apply the selection
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        this.editor.focus();
-
-        return true;
-      }
-    } catch (error) {
-      console.warn("Error setting cursor to Y position:", error);
-    }
-
-    return false;
-  }
-
-  findElementAtYPosition(targetY) {
-    // Get all text nodes and elements in the editor
-    const walker = document.createTreeWalker(
-      this.editor,
-      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-
-    let closestElement = null;
-    let closestDistance = Infinity;
-
-    let node;
-
-    // Traverse over all elements
-    // Calculate their positions and find the closest match
-    while ((node = walker.nextNode())) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        if (node.textContent.trim().length === 0) continue;
-        node = node.parentElement;
-      }
-
-      if (node === this.editor) continue;
-
-      const rect = node.getBoundingClientRect();
-      const editorRect = this.editor.getBoundingClientRect();
-      const nodeY = rect.top - editorRect.top + this.editor.scrollTop;
-
-      const distance = Math.abs(nodeY - targetY);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestElement = node;
-      }
-    }
-
-    return closestElement || this.editor;
-  }
-
-  // Handle clicks on page break margins
-  findNearestEditablePosition(clickY) {
-    const targetElement = this.findElementAtYPosition(clickY);
-
-    if (targetElement && targetElement !== this.editor) {
-      const rect = targetElement.getBoundingClientRect();
-      const editorRect = this.editor.getBoundingClientRect();
-      return rect.top - editorRect.top + this.editor.scrollTop;
-    }
-
-    return clickY;
-  }
-
-  // =============================================================================
-  //                            NAVIGATION FUNCTIONS
-  // =============================================================================
-
-  setupCursorNavigation() {
-    // Store reference for cleanup
-    this.cursorNavigationHandler = (e) => this.handleCursorNavigation(e);
-
-    // Add keyboard event listener
-    this.editor.addEventListener("keydown", this.cursorNavigationHandler);
-  }
-
-  removeCursorNavigation() {
-    if (this.cursorNavigationHandler) {
-      this.editor.removeEventListener("keydown", this.cursorNavigationHandler);
-      this.cursorNavigationHandler = null;
-    }
-  }
-
-  handleCursorNavigation(event) {
-    if (!this.paginationMode) return;
-
-    const cursorY = this.getCursorYPosition();
-    const currentPage = Math.floor(cursorY / this.pageHeight) + 1;
-
-    if (event.key === "ArrowDown") {
-      const pageEndY = currentPage * this.pageHeight;
-      const bottomTriggerY = pageEndY - this.BOTTOM_BUFFER_ZONE;
-
-      if (cursorY >= bottomTriggerY) {
-        event.preventDefault();
-        this.moveCursorToNextPage(cursorY, currentPage);
-      }
-    }
-
-    if (event.key === "ArrowUp") {
-      const pageStartY = (currentPage - 1) * this.pageHeight;
-      const topTriggerY = pageStartY + this.TOP_BUFFER_ZONE;
-
-      if (cursorY <= topTriggerY && currentPage > 1) {
-        event.preventDefault();
-        this.moveCursorToPrevPage(cursorY, currentPage);
-      }
-    }
-  }
-
-  moveCursorToNextPage(currentY, currentPage) {
-    // Calculate target position on next page
-    const nextPageStartY =
-      currentPage * this.pageHeight +
-      this.PAGE_BREAK_MARGIN * 2 +
-      this.PAGE_BREAK_HEIGHT;
-    // const targetY = nextPageStartY + this.TOP_BUFFER_ZONE;
-    const targetY = nextPageStartY;
-
-    console.log(
-      `Moving cursor from page ${currentPage} to page ${currentPage + 1}`
-    );
-    this.setCursorToYPosition(targetY);
-  }
-
-  moveCursorToPrevPage(currentY, currentPage) {
-    // Calculate target position on previous page
-    const prevPageEndY =
-      (currentPage - 1) * this.pageHeight - this.BOTTOM_BUFFER_ZONE;
-    const targetY = Math.max(0, prevPageEndY);
-
-    console.log(
-      `Moving cursor from page ${currentPage} to page ${currentPage - 1}`
-    );
-    this.setCursorToYPosition(targetY);
-  }
-
-  // =============================================================================
-  //                  CLICK HANDLING FUNCTIONS
-  // =============================================================================
-
-  handlePageBreakClick(event, breakY) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    console.log("Page break clicked at Y:", breakY);
-
-    // Redirect click to start of next page
-    const nextPageY = breakY + this.PAGE_BREAK_HEIGHT + this.PAGE_BREAK_MARGIN;
-    const editableY = this.findNearestEditablePosition(nextPageY);
-
-    this.setCursorToYPosition(editableY);
-  }
-
-  // updatePaginationButtonState() {
-  //   // Updating pagination button's state
-  //   const paginationBtn = document.getElementById("pagination-toggle-btn");
-  //   if (paginationBtn) {
-  //     paginationBtn.textContent = this.paginationMode
-  //       ? "Continuous View"
-  //       : "Page View";
-  //     paginationBtn.classList.toggle("active", this.paginationMode);
-  //   }
-  // }
 
   initializeEventListeners() {
     // Dashboard navigation
