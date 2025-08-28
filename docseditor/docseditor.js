@@ -11,8 +11,9 @@ class DocsEditor {
 
     this.api = new DocumentAPI();
     this.editor = document.getElementById("editor");
+    this.pages = document.getElementById("pages");
     this.documentContainer = document.getElementById("document-container");
-    this.pageIndicators = document.getElementById("page-indicators");
+    // this.pageIndicators = document.getElementById("page-indicators");
     this.documentTitle = document.getElementById("document-title");
     this.watermarkSettings = null;
     this.selectedImageData = null;
@@ -33,8 +34,6 @@ class DocsEditor {
     this.paginationMode = false;
     this.paginationTimeout = null;
     this.PAGE_BREAK_HEIGHT = 20; // Height of visual page break
-    this.BOTTOM_BUFFER_ZONE = 50; // Trigger zone at bottom of page
-    this.TOP_BUFFER_ZONE = 50; // Trigger zone at top of page2 -- better user experience honestly
     this.PAGE_BREAK_MARGIN = 20; // Spacing around page breaks
     this.pageBreaksOverlay = null; // Container for visual page breaks
     this.originalMargins = new Map(); // Store original margins for toggle off
@@ -55,7 +54,7 @@ class DocsEditor {
     console.log("📝 Editor element found:", !!this.editor);
     console.log("📄 Document title element found:", !!this.documentTitle);
 
-    // this.initializeSpacers();
+    //
     this.initializeEditor();
     this.initializeEventListeners();
     this.updateWordCount();
@@ -203,7 +202,7 @@ class DocsEditor {
         this.updateWordCount();
         this.updatePageLayout();
         this.updateCurrentPage(); // Update cursor page position
-        this.checkPageOverflow();
+        // this.checkPageOverflow();
         this.saveState();
 
         // Auto-save after a short delay to avoid too frequent saves
@@ -395,7 +394,7 @@ class DocsEditor {
           }
 
           console.log("✅ Document loaded successfully from server");
-          this.initializeSpacers()
+
           return;
         }
       } catch (error) {
@@ -521,7 +520,7 @@ class DocsEditor {
         } else {
           this.updateWatermarkButtonState();
         }
-        this.initializeSpacers();
+
         return;
       }
     }
@@ -571,7 +570,6 @@ class DocsEditor {
       } else {
         this.updateWatermarkButtonState();
       }
-      this.initializeSpacers()
     } else {
       // No document found, clear any default content and reset state
       console.log("📄 No document found, creating new document");
@@ -585,7 +583,6 @@ class DocsEditor {
       console.log(
         "🗑️ Cleared currentDocumentId - will create new document on save"
       );
-      this.initializeSpacers()
     }
 
     // Final check and logging
@@ -635,46 +632,107 @@ class DocsEditor {
         (this.editor.textContent || "").substring(0, 200) + "..."
       );
     }, 3000);
-    
   }
 
+  // updatePageLayout() {
+  //   // Get the current content height
+  //   const contentHeight = this.editor.scrollHeight;
+  //   const pageHeight = 11 * 96; // 11 inches at 96 DPI
+  //   const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
+
+  //   // Store total pages for use in updateCurrentPage
+  //   this.totalPages = requiredPages;
+
+  //   // Update the combined page info (will be updated with current page by updateCurrentPage)
+  //   this.updatePageInfo();
+
+  //   // Create visual page indicators
+  //   // this.updatePageIndicators(requiredPages);
+
+  //   // Ensure editor is tall enough for content
+  //   const minHeight = requiredPages * pageHeight;
+  //   if (this.editor.style.minHeight !== minHeight + "px") {
+  //     this.editor.style.minHeight = minHeight + "px";
+  //   }
+  // }
   updatePageLayout() {
-    // Get the current content height
     const contentHeight = this.editor.scrollHeight;
-    const pageHeight = 11 * 96; // 11 inches at 96 DPI
+    const pageHeight = this.pageHeight; // 11 * 96 = 1056px
     const requiredPages = Math.max(1, Math.ceil(contentHeight / pageHeight));
 
-    // Store total pages for use in updateCurrentPage
     this.totalPages = requiredPages;
-
-    // Update the combined page info (will be updated with current page by updateCurrentPage)
     this.updatePageInfo();
 
-    // Create visual page indicators
-    this.updatePageIndicators(requiredPages);
-
-    // Ensure editor is tall enough for content
+    // Ensure editor container fits the pages
     const minHeight = requiredPages * pageHeight;
     if (this.editor.style.minHeight !== minHeight + "px") {
       this.editor.style.minHeight = minHeight + "px";
     }
+
+    // Adjust DOM
+    this.adjustNumberOfPages(requiredPages, this.paginationMode);
   }
 
-  updatePageIndicators(pageCount) {
-    if (!this.pageIndicators) return;
+  adjustNumberOfPages(requiredPages, paginationMode) {
+    const pagesContainer = document.querySelector(".pages");
+    if (!pagesContainer) return;
 
-    // Clear existing indicators
-    this.pageIndicators.innerHTML = "";
+    // Count actual pages
+    // const currentPages = pagesContainer.querySelectorAll(".page").length;
+    const breakers = pagesContainer.querySelectorAll(".breaker").length;
+    const currentPages = breakers + 1;
+    // Add pages if needed
+    if (requiredPages > currentPages) {
+      for (let i = currentPages; i < requiredPages; i++) {
+        const breaker = document.createElement("div");
+        const page = document.createElement("div");
+        breaker.classList.add("breaker");
+        page.classList.add("page");
+        page.style.marginTop = `${
+          this.pageHeight + this.PAGE_BREAK_MARGIN + this.PAGE_BREAK_HEIGHT / 2
+        }px`;
+        // page.style.marginTop = "100px";
+        pagesContainer.appendChild(page);
+        pagesContainer.appendChild(breaker);
 
-    // Add page indicators at page boundaries (like Word)
-    for (let i = 1; i < pageCount; i++) {
-      const indicator = document.createElement("div");
-      indicator.className = "page-indicator";
-      indicator.style.top = i * 11 * 96 + "px"; // Position at page boundary
-      indicator.setAttribute("data-page", i + 1);
-      this.pageIndicators.appendChild(indicator);
+        // if (paginationMode && i < requiredPages - 1) {
+        //   const breaker = document.createElement("div");
+        //   breaker.classList.add("breaker");
+        //   pagesContainer.appendChild(breaker);
+        // }
+      }
     }
+    // Remove extra pages/breakers if content shrinks
+    // else if (requiredPages < currentPages) {
+    //   for (let i = currentPages - 1; i >= requiredPages; i--) {
+    //     const lastPage = pagesContainer.querySelector(".page:last-of-type");
+    //     if (lastPage) lastPage.remove();
+
+    //     if (paginationMode) {
+    //       const lastBreaker = pagesContainer.querySelector(
+    //         ".breaker:last-of-type"
+    //       );
+    //       if (lastBreaker) lastBreaker.remove();
+    //     }
+    //   }
+    // }
   }
+
+  // updatePageIndicators(pageCount) {
+  //   if (!this.pageIndicators) return;
+
+  //   // Clear existing indicators
+  //   this.pageIndicators.innerHTML = "";
+
+  //   // Add page indicators at page boundaries (like Word)
+  //   for (let i = 1; i < pageCount; i++) {
+  //     const indicator = document.createElement("div");
+  //     indicator.className = "page-indicator";
+  //     indicator.style.top = i * 11 * 96 + "px"; // Position at page boundary
+  //     indicator.setAttribute("data-page", i + 1);
+  //     this.pageIndicators.appendChild(indicator);
+  //   }
+  // }
 
   updateCurrentPage() {
     try {
@@ -1389,266 +1447,40 @@ class DocsEditor {
     this.paginationMode = !this.paginationMode; // continuous to paginated and vice versa
 
     if (this.paginationMode) {
-      this.enablePaginationMode();
-      // this.showNotification("Pagination mode enabled", "success");
+      this.updatePageLayout();
+      this.showNotification("Pagination mode enabled", "success");
     } else {
-      this.disablePaginationMode();
-      // this.showNotification("Continuous mode enabled", "success");
+      this.updatePageLayout();
+      this.showNotification("Continuous mode enabled", "success");
     }
     // this.updatePaginationButtonState();
   }
+  // updatePagination() {
+  //   let cumulativeHeight = 0;
+  //   let currentPage = 1;
 
-  enablePaginationMode() {
-    console.log("Enabling pagination mode...");
+  //   const children = Array.from(this.editor.childNodes);
 
-    // Create the visual overlay
-    this.createPageBreaksOverlay();
+  //   for (let i = 0; i < children.length; i++) {
+  //     const el = children[i];
+  //     const rect = el.getBoundingClientRect();
+  //     const elHeight = rect.height;
 
-    // Set up cursor navigation
-    this.setupCursorNavigation();
+  //     cumulativeHeight += elHeight;
 
-    // Initial content analysis and spacing
-    this.checkPageOverflow();
+  //     if (cumulativeHeight >= pageHeight * currentPage) {
+  //       // Insert page break BEFORE this node
+  //       const pageBreak = document.createElement("div");
+  //       pageBreak.className = "page-break";
+  //       pageBreak.contentEditable = "false";
+  //       pageBreak.innerText = `--- Page ${currentPage} Break ---`;
 
-    console.log("Pagination mode enabled successfully");
-  }
+  //       editor.insertBefore(pageBreak, el);
 
-  disablePaginationMode() {
-    console.log("Disabling pagination mode...");
-
-    // Remove visual elements
-    this.removePageBreaksOverlay();
-
-    // Remove content spacing
-    this.removeContentSpacing(); // <---
-
-    // Remove cursor navigation
-    this.removeCursorNavigation();
-
-    console.log("Pagination mode disabled successfully");
-  }
-
-  checkPageOverflow() {
-    if (!this.paginationMode) return;
-
-    // Debounce for performance -- performPaginationCheck is slightly expensive
-    // Waits 100ms after the last call, instead calling for every tiny change.
-    clearTimeout(this.paginationTimeout);
-    this.paginationTimeout = setTimeout(() => {
-      this.performPaginationCheck();
-    }, 100);
-  }
-
-  performPaginationCheck() {
-    console.log("Performing pagination check...");
-
-    // First remove any existing spacing to recalculate
-    this.removeContentSpacing();
-
-    // Recalculate page layout
-    this.updatePageLayout();
-
-    // Inject new spacing based on current content
-    this.injectPageSpacing();
-
-    // After spacing
-    this.updatePageLayout();
-
-    // Update visual page breaks
-    this.updatePageBreakPositions();
-  }
-
-  // =============================================================================
-  //                        VISUAL LAYER FUNCTIONS
-  // =============================================================================
-
-  createPageBreaksOverlay() {
-    // Remove existing overlay if present
-    this.removePageBreaksOverlay();
-
-    // Create overlay container
-    const editorRect = this.editor.getBoundingClientRect();
-    this.pageBreaksOverlay = document.createElement("div");
-    this.pageBreaksOverlay.id = "page-breaks-overlay";
-    this.pageBreaksOverlay.style.cssText = `
-    position: absolute;
-    top: 0;
-    left: 20px;
-    right: 0;
-    pointer-events: none;
-    z-index: 10;
-  `;
-
-    this.pageBreaksOverlay.style.width = editorRect.width + "px";
-
-    // Add to document container
-    this.documentContainer.style.position = "relative";
-    this.documentContainer.appendChild(this.pageBreaksOverlay);
-
-    // Create initial page breaks
-    this.insertVisualPageBreaks();
-  }
-
-  insertVisualPageBreaks() {
-    if (!this.pageBreaksOverlay) return;
-
-    // Clear existing breaks
-    this.pageBreaksOverlay.innerHTML = "";
-
-    // Create page breaks for each page boundary
-    for (let pageNum = 1; pageNum < this.totalPages; pageNum++) {
-      const pageBreak = document.createElement("div");
-      pageBreak.className = "visual-page-break";
-      pageBreak.setAttribute("data-page", pageNum);
-
-      // Calculate position (at end of each page)
-      const breakY = pageNum * this.pageHeight;
-
-      pageBreak.style.cssText = `
-      position: absolute;
-      top: ${breakY}px;
-      left: 0;
-      right: 0;
-      height: ${this.PAGE_BREAK_HEIGHT}px;
-      background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
-      border: 1px solid #dee2e6;
-      border-left: none;
-      border-right: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: #6c757d;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      pointer-events: all;
-      cursor: pointer;
-    `;
-
-      // pageBreak.textContent = `Page ${pageNum + 1}`;
-
-      // Add click handler to redirect clicks to content
-      pageBreak.addEventListener("click", (e) => {
-        this.handlePageBreakClick(e, breakY);
-      });
-
-      this.pageBreaksOverlay.appendChild(pageBreak);
-    }
-
-    console.log(`Created ${this.totalPages - 1} visual page breaks`);
-  }
-
-  updatePageBreakPositions() {
-    if (!this.pageBreaksOverlay || !this.paginationMode) return;
-
-    // Recalculate total pages
-    this.updatePageLayout();
-
-    // Recreate page breaks with new positions
-    this.insertVisualPageBreaks();
-  }
-
-  removePageBreaksOverlay() {
-    if (this.pageBreaksOverlay) {
-      this.pageBreaksOverlay.remove();
-      this.pageBreaksOverlay = null;
-    }
-  }
-
-  // =============================================================================
-  //                       CONTENT SPACING FUNCTIONS
-  // =============================================================================
-
-  injectPageSpacing() {
-    if (!this.paginationMode) return;
-
-    console.log("Injecting page spacing...");
-
-    // Get all block elements that could cross page boundaries
-    const elements = this.editor.querySelectorAll(
-      "p, div, h1, h2, h3, h4, h5, h6, img, ul, ol, li, blockquote"
-    );
-    // Iterate over each element and check for page crossing
-    elements.forEach((element) => {
-      this.checkElementForPageCrossing(element);
-    });
-  }
-
-  checkElementForPageCrossing(element) {
-    // Get element position relative to editor
-    const elementRect = element.getBoundingClientRect();
-    const editorRect = this.editor.getBoundingClientRect();
-
-    if (elementRect.height === 0) return; // Skip hidden elements
-
-    const relativeTop =
-      elementRect.top - editorRect.top + this.editor.scrollTop;
-    const elementBottom = relativeTop + elementRect.height;
-
-    const startPage = Math.floor(relativeTop / this.pageHeight) + 1;
-    const pageEndY = startPage * this.pageHeight;
-
-    // Check if element would cross into page break zone
-    const pageBreakZoneStart = pageEndY - this.BOTTOM_BUFFER_ZONE;
-
-    if (elementBottom > pageBreakZoneStart && relativeTop < pageEndY) {
-      // Element crosses page boundary - push it to next page
-      this.pushElementToNextPage(element, relativeTop, pageEndY);
-    }
-  }
-
-  initializeSpacers() {
-    const existingSpacers = document.querySelectorAll(".page-spacer");
-    console.log("Current Spacers: " + existingSpacers.length);
-    this.spacers = new Set(existingSpacers);
-    // console.log("Current spacers: " + this.spacers.size);
-    if (!this.paginationMode) {
-      existingSpacers.forEach((spacer) => spacer.remove());
-      this.spacers.clear();
-    }
-  }
-
-  pushElementToNextPage(element, elementTop, pageEndY) {
-    // // Store original margin for toggle off
-    // if (!this.originalMargins.has(element)) {
-    //   const computedStyle = window.getComputedStyle(element);
-    //   this.originalMargins.set(element, computedStyle.marginTop);
-    // }
-    const distanceToPageEnd = pageEndY - elementTop;
-
-    const totalPushDistance =
-      distanceToPageEnd + this.PAGE_BREAK_MARGIN * 2 + this.PAGE_BREAK_HEIGHT;
-    // Create a page spacer if not already created
-    if (
-      !element.previousSibling ||
-      !element.previousSibling.classList ||
-      !element.previousSibling.classList.contains("page-spacer")
-    ) {
-      // Creating a spacer element
-      const spacer = document.createElement("div");
-      spacer.classList.add("page-spacer");
-      spacer.style.height = totalPushDistance + "px";
-      spacer.setAttribute("contenteditable", "false");
-      element.parentNode.insertBefore(spacer, element);
-
-      this.spacers.add(spacer);
-    } else {
-      element.previousSibling.style.height = totalPushDistance + "px";
-    }
-    console.log(`Inserted spacer of ${totalPushDistance}px before element`);
-  }
-
-  removeContentSpacing() {
-    // Remove all spacers
-    // An alternate way was to query the DOM for all spacers and then remove them
-    // However imo set() would provide more control and should be slightly more efficient instead of querying the DOM everytime
-    this.spacers.forEach((spacer) => {
-      if (spacer.parentNode) {
-        spacer.parentNode.removeChild(spacer);
-      }
-    });
-    this.spacers.clear();
-    console.log("Spacers after cleanup:", this.spacers.size);
-  }
+  //       currentPage++;
+  //     }
+  //   }
+  // }
 
   // =============================================================================
   //                       CURSOR POSITION FUNCTIONS
@@ -1945,9 +1777,9 @@ class DocsEditor {
       .addEventListener("click", () => this.openVersionControl());
 
     // Page break
-    document
-      .getElementById("page-break-btn")
-      .addEventListener("click", () => this.insertPageBreak());
+    // document
+    //   .getElementById("page-break-btn")
+    //   .addEventListener("click", () => this.insertPageBreak());
 
     // Line spacing controls
     document
