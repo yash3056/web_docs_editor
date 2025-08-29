@@ -42,22 +42,35 @@ function generateEncryptionKey() {
 }
 
 // Store encryption key in encrypted file
+// const crypto = require('crypto');
+// const fs = require('fs');
+
 async function storeEncryptionKey(key) {
     try {
         const keyPath = getKeyFilePath();
         const algorithm = 'aes-256-cbc';
         const password = 'WebDocsEditor_Key_Salt_v2';
+
+        // Generate a random salt for PBKDF2
         const salt = crypto.randomBytes(16);
+
+        // Derive a 32-byte key (AES-256) from password + salt
         const derivedKey = crypto.pbkdf2Sync(password, salt, 10000, 32, 'sha256');
+
+        // Generate a random 16-byte IV (AES block size)
         const iv = crypto.randomBytes(16);
-        
+
+        // Create cipher with derived key + iv
         const cipher = crypto.createCipheriv(algorithm, derivedKey, iv);
+
+        // Encrypt the provided `key`
         let encrypted = cipher.update(key, 'utf8', 'hex');
         encrypted += cipher.final('hex');
-        
-        // Store salt, iv, and encrypted data together
-        const combined = salt.toString('hex') + ':' + iv.toString('hex') + ':' + encrypted;
+
+        // Store salt, iv, and encrypted data (hex strings) together
+        const combined = `${salt.toString('hex')}:${iv.toString('hex')}:${encrypted}`;
         fs.writeFileSync(keyPath, combined);
+
         console.log('Encryption key stored in encrypted file');
         return true;
     } catch (error) {
