@@ -30,7 +30,7 @@ class DocsEditor {
     this.lastEditTime = Date.now(); // Track when user last edited
     this.isSaving = false; // Flag to prevent concurrent saves
 
-    this.paginationMode = false;
+    this.paginationMode = true; // Start in pagination mode by default
     this.paginationTimeout = null;
     this.PAGE_BREAK_HEIGHT = 20; // Height of visual page break
     this.PAGE_BREAK_MARGIN = 40; // Spacing around page breaks
