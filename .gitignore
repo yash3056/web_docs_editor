@@ -18,3 +18,4 @@ __pycache__/
 uploads/
 .env
 .kiro/
+package-lock.json
